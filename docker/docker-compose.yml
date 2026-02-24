@@ -1,0 +1,175 @@
+version: '3.8'
+
+services:
+  # ===========================================
+  # Laravel Application
+  # ===========================================
+  app:
+    build:
+      context: ../backend
+      dockerfile: ../docker/Dockerfile
+    container_name: factura-ec-app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ../backend:/var/www/html
+      - ./php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    networks:
+      - factura-network
+    depends_on:
+      - mysql
+      - redis
+
+  # ===========================================
+  # Nginx Web Server
+  # ===========================================
+  nginx:
+    image: nginx:alpine
+    container_name: factura-ec-nginx
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+      - "443:443"
+    volumes:
+      - ../backend:/var/www/html
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/ssl:/etc/nginx/ssl
+    networks:
+      - factura-network
+    depends_on:
+      - app
+
+  # ===========================================
+  # MySQL Database
+  # ===========================================
+  mysql:
+    image: mysql:8.0
+    container_name: factura-ec-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-factura_ec}
+      MYSQL_USER: ${DB_USERNAME:-factura}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootsecret}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+    networks:
+      - factura-network
+
+  # ===========================================
+  # Redis Cache & Queue
+  # ===========================================
+  redis:
+    image: redis:7-alpine
+    container_name: factura-ec-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - factura-network
+    command: redis-server --appendonly yes
+
+  # ===========================================
+  # Laravel Horizon (Queue Worker)
+  # ===========================================
+  horizon:
+    build:
+      context: ../backend
+      dockerfile: ../docker/Dockerfile
+    container_name: factura-ec-horizon
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ../backend:/var/www/html
+    networks:
+      - factura-network
+    depends_on:
+      - app
+      - redis
+    command: php artisan horizon
+
+  # ===========================================
+  # Laravel Scheduler (Cron)
+  # ===========================================
+  scheduler:
+    build:
+      context: ../backend
+      dockerfile: ../docker/Dockerfile
+    container_name: factura-ec-scheduler
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ../backend:/var/www/html
+    networks:
+      - factura-network
+    depends_on:
+      - app
+    command: >
+      sh -c "while true; do
+        php artisan schedule:run --verbose --no-interaction &
+        sleep 60
+      done"
+
+  # ===========================================
+  # Meilisearch (Full-text Search)
+  # ===========================================
+  meilisearch:
+    image: getmeili/meilisearch:latest
+    container_name: factura-ec-meilisearch
+    restart: unless-stopped
+    ports:
+      - "7700:7700"
+    volumes:
+      - meilisearch_data:/meili_data
+    networks:
+      - factura-network
+    environment:
+      MEILI_ENV: development
+      MEILI_MASTER_KEY: ${MEILISEARCH_KEY:-masterKey123}
+
+  # ===========================================
+  # MinIO (S3-compatible Storage)
+  # ===========================================
+  minio:
+    image: minio/minio
+    container_name: factura-ec-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - factura-network
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    command: server /data --console-address ":9001"
+
+  # ===========================================
+  # Mailpit (Email Testing)
+  # ===========================================
+  mailpit:
+    image: axllent/mailpit
+    container_name: factura-ec-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - factura-network
+
+networks:
+  factura-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:
+  meilisearch_data:
+  minio_data:

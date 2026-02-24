@@ -1,0 +1,60 @@
+# ===========================================
+# Factura EC SaaS - Root .gitignore
+# ===========================================
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+.vscode/
+.fleet/
+.nova/
+.zed/
+*.swp
+*.swo
+
+# Environment files (NUNCA subir)
+.env
+.env.local
+.env.backup
+.env.production
+
+# ---- Backend (Laravel) ----
+backend/vendor/
+backend/node_modules/
+backend/public/build/
+backend/public/hot/
+backend/public/storage
+backend/storage/*.key
+backend/storage/pail/
+backend/.phpunit.result.cache
+backend/.phpunit.cache/
+backend/auth.json
+*.log
+
+# ---- Mobile (Flutter) ----
+mobile/build/
+mobile/.dart_tool/
+mobile/.packages
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/app/debug/
+mobile/android/app/profile/
+mobile/android/app/release/
+mobile/ios/Pods/
+mobile/ios/.symlinks/
+mobile/ios/Flutter/Generated.xcconfig
+mobile/ios/Flutter/flutter_export_environment.sh
+
+# ---- Docker ----
+docker/nginx/ssl/*.pem
+docker/nginx/ssl/*.key
+docker/backups/
+
+# ---- Misc ----
+*.log
+*.cache
