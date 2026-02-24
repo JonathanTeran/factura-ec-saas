@@ -1,0 +1,42 @@
+# ===========================================
+# Factura EC SaaS - Root .dockerignore
+# Build context is project root
+# ===========================================
+
+# Mobile app (not needed in backend container)
+mobile/
+
+# Docker configs (already copied via specific COPY)
+docker/mysql/
+docker/nginx/
+docker/backups/
+
+# Git
+.git
+.github
+
+# IDE
+.vscode
+.idea
+.fleet
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Backend exclusions
+backend/node_modules
+backend/vendor
+backend/tests
+backend/storage/logs/*
+backend/storage/framework/cache/*
+backend/storage/framework/sessions/*
+backend/storage/framework/views/*
+backend/storage/app/public/*
+backend/.phpunit.result.cache
+backend/.phpunit.cache
+
+# Docs
+*.md
+LICENSE

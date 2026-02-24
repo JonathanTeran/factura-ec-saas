@@ -52,8 +52,8 @@ RUN addgroup -g $uid $user && adduser -u $uid -G $user -s /bin/sh -D $user
 # Crear directorio de trabajo
 WORKDIR /var/www/html
 
-# Copiar archivos del proyecto
-COPY --chown=$user:$user . .
+# Copiar archivos del proyecto (context es raiz del proyecto)
+COPY --chown=$user:$user backend/ .
 
 # Instalar dependencias de Composer
 RUN composer install --no-dev --optimize-autoloader --no-interaction
