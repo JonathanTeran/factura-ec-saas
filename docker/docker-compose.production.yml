@@ -16,6 +16,7 @@ services:
     restart: always
     working_dir: /var/www/html
     volumes:
+      - ../backend/.env:/var/www/html/.env:ro
       - app_storage:/var/www/html/storage/app
       - app_logs:/var/www/html/storage/logs
     networks:
@@ -104,6 +105,7 @@ services:
     restart: always
     working_dir: /var/www/html
     volumes:
+      - ../backend/.env:/var/www/html/.env:ro
       - app_storage:/var/www/html/storage/app
       - app_logs:/var/www/html/storage/logs
     networks:
@@ -131,6 +133,7 @@ services:
     restart: always
     working_dir: /var/www/html
     volumes:
+      - ../backend/.env:/var/www/html/.env:ro
       - app_storage:/var/www/html/storage/app
       - app_logs:/var/www/html/storage/logs
     networks:
