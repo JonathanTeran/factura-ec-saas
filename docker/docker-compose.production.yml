@@ -1,11 +1,7 @@
 version: '3.8'
 
 # ===========================================
-# Factura EC SaaS - Production
-# ===========================================
-# Uso:
-#   docker compose -f docker-compose.production.yml up -d
-#   docker compose -f docker-compose.production.yml logs -f app
+# Factura EC SaaS - Production (1 CPU / small VPS)
 # ===========================================
 
 services:
@@ -29,11 +25,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 1G
     healthcheck:
       test: ["CMD-SHELL", "php -r 'exit(0);'"]
       interval: 30s
@@ -59,11 +50,6 @@ services:
       - factura-network
     depends_on:
       - app
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
 
   # ===========================================
   # MySQL 8.0
@@ -83,17 +69,11 @@ services:
       - mysql_backups:/backups
     networks:
       - factura-network
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 2G
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 5
-    # No exponer puerto 3306 en produccion
 
   # ===========================================
   # Redis 7
@@ -107,17 +87,11 @@ services:
     networks:
       - factura-network
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-    # No exponer puerto 6379 en produccion
 
   # ===========================================
   # Laravel Horizon (Queue Worker)
@@ -140,11 +114,6 @@ services:
       redis:
         condition: service_healthy
     command: php artisan horizon
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 512M
     healthcheck:
       test: ["CMD", "php", "artisan", "horizon:status"]
       interval: 30s
@@ -176,11 +145,6 @@ services:
         php artisan schedule:run --verbose --no-interaction 2>&1;
         sleep 60;
       done"
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
 
   # ===========================================
   # Meilisearch (Full-text Search)
@@ -197,12 +161,6 @@ services:
       MEILI_ENV: production
       MEILI_MASTER_KEY: ${MEILISEARCH_KEY}
       MEILI_NO_ANALYTICS: true
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-    # No exponer puerto 7700 en produccion
 
   # ===========================================
   # MinIO (S3-compatible Storage)
@@ -219,17 +177,11 @@ services:
       MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID}
       MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY}
     command: server /data --console-address ":9001"
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 30s
       timeout: 5s
       retries: 3
-    # No exponer puertos 9000/9001 en produccion (acceso via red interna)
 
 networks:
   factura-network:
