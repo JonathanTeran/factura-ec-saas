@@ -77,8 +77,8 @@ class AuthController extends ApiController
             'slug' => \Str::slug($request->company_name) . '-' . \Str::random(4),
             'email' => $request->email,
             'plan_id' => 1, // Default to Starter plan
-            'status' => 'trial',
-            'trial_ends_at' => now()->addDays(14),
+            'status' => 'active',
+            'trial_ends_at' => null,
         ]);
 
         // Create user

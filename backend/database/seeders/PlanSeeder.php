@@ -43,7 +43,7 @@ class PlanSeeder extends Seeder
                 'is_active' => true,
                 'is_featured' => false,
                 'sort_order' => 1,
-                'trial_days' => 14,
+                'trial_days' => 0,
             ],
             [
                 'name' => 'Negocio',
@@ -75,7 +75,7 @@ class PlanSeeder extends Seeder
                 'is_active' => true,
                 'is_featured' => true,
                 'sort_order' => 2,
-                'trial_days' => 14,
+                'trial_days' => 0,
             ],
             [
                 'name' => 'Profesional',
@@ -107,7 +107,7 @@ class PlanSeeder extends Seeder
                 'is_active' => true,
                 'is_featured' => false,
                 'sort_order' => 3,
-                'trial_days' => 14,
+                'trial_days' => 0,
             ],
             [
                 'name' => 'Enterprise',
@@ -139,7 +139,7 @@ class PlanSeeder extends Seeder
                 'is_active' => true,
                 'is_featured' => false,
                 'sort_order' => 4,
-                'trial_days' => 30,
+                'trial_days' => 0,
             ],
         ];
 

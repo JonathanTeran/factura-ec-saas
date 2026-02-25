@@ -14,9 +14,6 @@
                     <p class="text-sm font-semibold text-teal-800 dark:text-teal-300">Plan {{ $selectedPlan->name }}</p>
                     <p class="text-xs text-teal-600 dark:text-teal-400">
                         ${{ number_format($selectedPlan->price_monthly, 2) }}/mes
-                        @if($selectedPlan->trial_days > 0)
-                            &mdash; {{ $selectedPlan->trial_days }} días de prueba gratis
-                        @endif
                     </p>
                 </div>
             </div>

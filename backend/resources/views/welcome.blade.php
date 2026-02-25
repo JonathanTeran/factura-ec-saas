@@ -135,7 +135,7 @@
 
                         <a href="{{ route('register') }}"
                             class="inline-flex items-center gap-1.5 rounded-full bg-teal-600 hover:bg-teal-700 px-5 py-2.5 text-[13px] font-semibold text-white transition-all shadow-sm shadow-teal-600/20 hover:shadow-md hover:shadow-teal-600/25">
-                            Prueba gratis
+                            Comenzar ahora
                         </a>
 
                         <button @click="mobileMenu = !mobileMenu"
@@ -234,7 +234,7 @@
                     <div class="mt-8 flex flex-col sm:flex-row items-start gap-3">
                         <a href="{{ route('register') }}"
                             class="inline-flex items-center gap-2 rounded-full bg-slate-900 dark:bg-white px-7 py-3.5 text-sm font-semibold text-white dark:text-slate-900 transition-all hover:bg-slate-800 dark:hover:bg-slate-100 shadow-lg shadow-slate-900/10 dark:shadow-none">
-                            Comenzar gratis 14 dias
+                            Comenzar ahora
                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2"
                                 stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round"
@@ -653,7 +653,7 @@
                                 </div>
                                 <a href="{{ route('register') }}?plan={{ $plan->slug }}"
                                     class="mt-6 flex w-full items-center justify-center rounded-xl bg-teal-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-teal-700 shadow-sm shadow-teal-600/30">
-                                    {{ $plan->trial_days > 0 ? 'Prueba ' . $plan->trial_days . ' dias gratis' : 'Comenzar ahora' }}
+                                    Comenzar ahora
                                 </a>
                                 <ul class="mt-7 space-y-3">
                                     @foreach ($plan->getFeaturesList() as $feature)
@@ -686,7 +686,7 @@
                                 </div>
                                 <a href="{{ route('register') }}?plan={{ $plan->slug }}"
                                     class="mt-6 flex w-full items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 py-3 text-sm font-semibold text-slate-900 dark:text-white transition-colors hover:bg-slate-200 dark:hover:bg-slate-700">
-                                    {{ $plan->trial_days > 0 ? 'Prueba ' . $plan->trial_days . ' dias gratis' : 'Comenzar ahora' }}
+                                    Comenzar ahora
                                 </a>
                                 <ul class="mt-7 space-y-3">
                                     @foreach ($plan->getFeaturesList() as $feature)
@@ -708,7 +708,7 @@
                 </div>
 
                 <p class="mt-8 text-center text-sm text-slate-400 dark:text-slate-500">
-                    Todos los planes incluyen prueba gratis. No se requiere tarjeta de credito.
+                    Todos los planes incluyen soporte por email. Pago seguro por transferencia bancaria.
                 </p>
             </div>
         </section>
@@ -835,9 +835,9 @@
                                 'Si. La plataforma es totalmente responsive y funciona desde cualquier navegador movil. Ademas, estamos desarrollando una aplicacion nativa para iOS y Android que estara disponible proximamente.',
                         ],
                         [
-                            'q' => 'Como funciona el periodo de prueba?',
+                            'q' => 'Como funciona el registro?',
                             'a' =>
-                                'Al registrarte tienes 14 dias de prueba con todas las funcionalidades del plan Profesional. No necesitas ingresar tarjeta de credito. Si al terminar la prueba no eliges un plan, tu cuenta queda en modo lectura sin perder tus datos.',
+                                'Registrate en 2 minutos, selecciona el plan que mejor se adapte a tu negocio y realiza el pago por transferencia bancaria. Una vez confirmado el pago, tu cuenta se activa inmediatamente con todas las funcionalidades del plan seleccionado.',
                         ],
                         [
                             'q' => 'El sistema genera el ATS (Anexo Transaccional Simplificado)?',
@@ -901,8 +901,7 @@
                 Empieza a facturar hoy
             </h2>
             <p class="mt-4 text-base sm:text-lg text-slate-400 max-w-xl mx-auto">
-                Registrate en 2 minutos. Sin tarjeta de credito, sin contratos. 14 dias de prueba con todas las
-                funcionalidades.
+                Registrate en 2 minutos. Sin contratos a largo plazo. Pago seguro por transferencia bancaria.
             </p>
             <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
                 <a href="{{ route('register') }}"

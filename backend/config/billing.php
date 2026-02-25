@@ -88,8 +88,8 @@ return [
     */
 
     'trial' => [
-        'enabled' => env('BILLING_TRIAL_ENABLED', true),
-        'days' => env('BILLING_TRIAL_DAYS', 14),
+        'enabled' => env('BILLING_TRIAL_ENABLED', false),
+        'days' => env('BILLING_TRIAL_DAYS', 0),
         'require_payment_method' => env('BILLING_TRIAL_REQUIRE_PAYMENT', false),
     ],
 
