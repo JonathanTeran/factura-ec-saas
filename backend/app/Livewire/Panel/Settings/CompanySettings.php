@@ -7,6 +7,7 @@ use App\Models\SRI\SequentialNumber;
 use App\Models\Tenant\Branch;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\EmissionPoint;
+use App\Services\SRI\RucLookupService;
 use App\Services\SRI\SignatureManager;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
@@ -36,6 +37,7 @@ class CompanySettings extends Component
     public string $sri_password = '';
     public string $email = '';
     public string $phone = '';
+    public ?string $rucLookupStatus = null;
 
     // Logo
     public $logo;
@@ -99,6 +101,42 @@ class CompanySettings extends Component
         $this->environment = (string) $this->company->sri_environment;
         $this->email = $this->company->email ?? '';
         $this->phone = $this->company->phone ?? '';
+    }
+
+    // Actualiza los datos tributarios desde el catastro público del SRI
+    public function lookupRuc(RucLookupService $lookupService): void
+    {
+        if (preg_match('/^[0-9]{13}$/', $this->ruc) !== 1) {
+            $this->addError('ruc', 'El RUC debe tener 13 dígitos numéricos.');
+            return;
+        }
+
+        $taxpayer = $lookupService->lookup($this->ruc);
+
+        if ($taxpayer === null) {
+            $this->addError('ruc', 'No se pudo obtener la información del RUC desde el SRI. Intenta nuevamente más tarde.');
+            return;
+        }
+
+        $this->business_name = $taxpayer['business_name'] ?: $this->business_name;
+        $this->taxpayer_type = $taxpayer['taxpayer_type'];
+        $this->accounting_required = $taxpayer['obligated_accounting'];
+        $this->special_taxpayer = $taxpayer['special_taxpayer'];
+        $this->rucLookupStatus = $taxpayer['status'];
+
+        // El SRI reporta las sociedades simplificadas como régimen GENERAL,
+        // así que en ese caso se respeta la selección manual
+        if ($taxpayer['regime'] !== 'general' || $this->tax_regime !== 'sociedad_simplificada') {
+            $this->tax_regime = $taxpayer['regime'];
+        }
+
+        $main = collect($lookupService->establishments($this->ruc))
+            ->firstWhere('is_main', true);
+
+        if ($main) {
+            $this->trade_name = $this->trade_name ?: (string) ($main['trade_name'] ?? '');
+            $this->address = $this->address ?: (string) ($main['address'] ?? '');
+        }
     }
 
     private function loadBranches(): void
@@ -532,6 +570,36 @@ class CompanySettings extends Component
         $this->dispatch('notify', [
             'type' => 'success',
             'message' => $this->editingBranchId ? 'Sucursal actualizada.' : 'Sucursal creada.',
+        ]);
+    }
+
+    // Importa desde el catastro del SRI las sucursales abiertas que aún no existen
+    public function importSriEstablishments(\App\Services\SRI\EstablishmentImporter $importer): void
+    {
+        if (!$this->company) {
+            $this->dispatch('notify', [
+                'type' => 'warning',
+                'message' => 'Primero guarda los datos del emisor.',
+            ]);
+
+            return;
+        }
+
+        $imported = $importer->import($this->company);
+
+        if ($imported === null) {
+            $this->addError('ruc', 'No se pudieron obtener los establecimientos desde el SRI. Intenta nuevamente más tarde.');
+
+            return;
+        }
+
+        $this->loadBranches();
+
+        $this->dispatch('notify', [
+            'type' => $imported !== [] ? 'success' : 'info',
+            'message' => $imported !== []
+                ? 'Se importaron ' . count($imported) . ' establecimiento(s) desde el SRI.'
+                : 'No hay establecimientos nuevos para importar.',
         ]);
     }
 

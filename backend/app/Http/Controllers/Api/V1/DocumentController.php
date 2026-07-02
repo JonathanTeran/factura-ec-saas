@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\DocumentStatus;
+use App\Enums\DocumentType;
 use App\Http\Requests\Api\DocumentRequest;
 use App\Http\Resources\DocumentResource;
 use App\Jobs\SRI\ProcessDocumentJob;
@@ -10,6 +11,7 @@ use App\Jobs\SRI\SendDocumentToClientJob;
 use App\Models\SRI\ElectronicDocument;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\EmissionPoint;
+use App\Services\Cache\TenantCacheService;
 use App\Services\SRI\RIDEGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -90,10 +92,10 @@ class DocumentController extends ApiController
      */
     public function store(DocumentRequest $request): JsonResponse
     {
-        $user = $request->user();
-        $tenant = $user->tenant;
+        $user   = $request->user();
+        $tenant = TenantCacheService::tenantWithSubscription($user->tenant_id) ?? $user->tenant;
 
-        if (!$tenant->activeSubscription) {
+        if (! $tenant->activeSubscription) {
             return $this->error(
                 'Necesitas una suscripción activa para crear documentos.',
                 403
@@ -101,7 +103,7 @@ class DocumentController extends ApiController
         }
 
         // Check plan limits
-        if (!$tenant->canIssueDocuments()) {
+        if (! $tenant->canIssueDocuments()) {
             return $this->error(
                 'Has alcanzado el límite de documentos de tu plan. Actualiza tu suscripción para continuar.',
                 403
@@ -115,14 +117,14 @@ class DocumentController extends ApiController
 
         $checklist = $company->emissionReadinessChecklist();
 
-        if (!$checklist['basic_data']) {
+        if (! $checklist['basic_data']) {
             return $this->error(
                 'La empresa no tiene completos los datos fiscales del emisor.',
                 422
             );
         }
 
-        if (!$checklist['establishments']) {
+        if (! $checklist['establishments']) {
             return $this->error(
                 'Configura al menos un establecimiento con punto de emisión antes de crear documentos.',
                 422
@@ -134,14 +136,20 @@ class DocumentController extends ApiController
             ->where('tenant_id', $tenant->id)
             ->whereHas('branch', fn ($query) => $query->where('company_id', $company->id))
             ->firstOrFail();
+        if ($request->filled('reference_document_id')) {
+            ElectronicDocument::where('id', $request->reference_document_id)
+                ->where('tenant_id', $tenant->id)
+                ->firstOrFail();
+        }
+
         $sequential = $emissionPoint->getNextSequential($request->document_type);
         $formattedSequential = str_pad((string) $sequential, 9, '0', STR_PAD_LEFT);
-        $series = $emissionPoint->branch->code . '-' . $emissionPoint->code;
+        $series = $emissionPoint->branch->code.'-'.$emissionPoint->code;
         $totalTax = $request->total_tax ?? (($request->tax_12 ?? 0) + ($request->tax_15 ?? 0));
         $totalDiscount = $request->total_discount ?? ($request->discount ?? 0);
 
         $paymentMethods = $request->payment_methods;
-        if (!$paymentMethods && $request->filled('payment_method')) {
+        if (! $paymentMethods && $request->filled('payment_method')) {
             $paymentMethods = [[
                 'code' => (string) $request->payment_method,
                 'amount' => (float) $request->total,
@@ -179,7 +187,7 @@ class DocumentController extends ApiController
         ]);
 
         // Create document items
-        foreach ($request->items as $item) {
+        foreach ($request->items ?? [] as $item) {
             $document->items()->create([
                 'product_id' => $item['product_id'] ?? null,
                 'main_code' => $item['main_code'],
@@ -197,11 +205,32 @@ class DocumentController extends ApiController
             ]);
         }
 
+        // Create withholding details (comprobante de retención)
+        if ($request->document_type === DocumentType::RETENCION->value) {
+            foreach ($request->withholding_details ?? [] as $detail) {
+                $document->withholdingDetails()->create([
+                    'tenant_id' => $tenant->id,
+                    'support_doc_code' => $detail['support_doc_code'],
+                    'support_doc_number' => $detail['support_doc_number'],
+                    'support_doc_date' => $detail['support_doc_date'],
+                    'support_doc_total' => $detail['support_doc_total'] ?? 0,
+                    'support_reason_code' => $detail['support_reason_code'] ?? '01',
+                    'tax_type' => $detail['tax_type'],
+                    'retention_code' => $detail['retention_code'],
+                    'tax_base' => $detail['tax_base'],
+                    'retention_rate' => $detail['retention_rate'],
+                    'retained_value' => $detail['retained_value'],
+                ]);
+            }
+        }
+
         // Increment tenant document counter
         $tenant->incrementDocumentCount();
 
+        TenantCacheService::invalidateDashboard($tenant->id);
+
         return $this->created([
-            'document' => new DocumentResource($document->load(['customer', 'company', 'items'])),
+            'document' => new DocumentResource($document->load(['customer', 'company', 'items', 'withholdingDetails'])),
         ], 'Documento creado exitosamente');
     }
 
@@ -214,7 +243,7 @@ class DocumentController extends ApiController
     {
         $this->authorizeDocument($request, $document);
 
-        $document->load(['customer', 'company', 'items.product']);
+        $document->load(['customer', 'company', 'items.product', 'withholdingDetails']);
 
         return $this->success([
             'document' => new DocumentResource($document),
@@ -225,7 +254,7 @@ class DocumentController extends ApiController
     {
         $this->authorizeDocument($request, $document);
 
-        if (!$document->status->isEditable()) {
+        if (! $document->status->isEditable()) {
             return $this->error(
                 'Este documento no puede ser editado porque ya fue procesado.',
                 400
@@ -251,7 +280,7 @@ class DocumentController extends ApiController
     {
         $this->authorizeDocument($request, $document);
 
-        if (!$document->status->isEditable()) {
+        if (! $document->status->isEditable()) {
             return $this->error(
                 'Este documento no puede ser eliminado porque ya fue procesado.',
                 400
@@ -283,14 +312,14 @@ class DocumentController extends ApiController
 
         $checklist = $document->company->emissionReadinessChecklist();
 
-        if (!$checklist['basic_data']) {
+        if (! $checklist['basic_data']) {
             return $this->error(
                 'La empresa no tiene completos los datos fiscales del emisor.',
                 400
             );
         }
 
-        if (!$checklist['establishments']) {
+        if (! $checklist['establishments']) {
             return $this->error(
                 'La empresa no tiene establecimientos/puntos de emisión configurados.',
                 400
@@ -298,14 +327,14 @@ class DocumentController extends ApiController
         }
 
         // Validate company has signature
-        if (!$checklist['digital_signature']) {
+        if (! $checklist['digital_signature']) {
             return $this->error(
                 'La empresa no tiene una firma electrónica válida configurada.',
                 400
             );
         }
 
-        if (!$checklist['sri_password']) {
+        if (! $checklist['sri_password']) {
             return $this->error(
                 'La empresa no tiene configurada la clave del SRI.',
                 400
@@ -315,6 +344,8 @@ class DocumentController extends ApiController
         // Dispatch job to process document
         $document->update(['status' => DocumentStatus::PROCESSING]);
         ProcessDocumentJob::dispatch($document);
+
+        TenantCacheService::invalidateDashboard($document->tenant_id);
 
         return $this->success([
             'document' => new DocumentResource($document->fresh()),
@@ -359,12 +390,12 @@ class DocumentController extends ApiController
     {
         $this->authorizeDocument($request, $document);
 
-        if (!in_array($document->status, [DocumentStatus::AUTHORIZED, DocumentStatus::REJECTED])) {
+        if (! in_array($document->status, [DocumentStatus::AUTHORIZED, DocumentStatus::REJECTED])) {
             return $this->error('El RIDE solo está disponible para documentos autorizados.', 400);
         }
 
         // Generate RIDE if not exists
-        if (!$document->ride_path || !Storage::disk('local')->exists($document->ride_path)) {
+        if (! $document->ride_path || ! Storage::disk('local')->exists($document->ride_path)) {
             $rideGenerator = app(RIDEGenerator::class);
             $ridePath = $rideGenerator->generate($document);
             $document->update(['ride_path' => $ridePath]);
@@ -377,7 +408,7 @@ class DocumentController extends ApiController
 
         return $this->success([
             'url' => $url,
-            'filename' => $document->document_number . '.pdf',
+            'filename' => $document->document_number.'.pdf',
         ]);
     }
 
@@ -390,7 +421,7 @@ class DocumentController extends ApiController
     {
         $this->authorizeDocument($request, $document);
 
-        if (!$document->xml_signed_path) {
+        if (! $document->xml_signed_path) {
             return $this->error('El XML firmado no está disponible.', 400);
         }
 
@@ -401,7 +432,7 @@ class DocumentController extends ApiController
 
         return $this->success([
             'url' => $url,
-            'filename' => $document->access_key . '.xml',
+            'filename' => $document->access_key.'.xml',
         ]);
     }
 
@@ -419,13 +450,13 @@ class DocumentController extends ApiController
 
         $email = $validated['email'] ?? $document->customer->email;
 
-        if (!$email) {
+        if (! $email) {
             return $this->error('No se especificó un correo electrónico.', 400);
         }
 
         SendDocumentToClientJob::dispatch($document, $email);
 
-        return $this->success(null, 'El documento será enviado a ' . $email);
+        return $this->success(null, 'El documento será enviado a '.$email);
     }
 
     /**
@@ -443,6 +474,8 @@ class DocumentController extends ApiController
             'authorization_number' => $document->authorization_number,
             'authorization_date' => $document->authorization_date,
             'sri_messages' => $document->sri_response['messages'] ?? [],
+            'contingency_active' => (bool) data_get($document->sri_errors, 'contingency_active', false),
+            'contingency_message' => data_get($document->sri_errors, 'contingency_message'),
         ]);
     }
 

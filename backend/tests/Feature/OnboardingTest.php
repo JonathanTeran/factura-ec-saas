@@ -238,6 +238,8 @@ class OnboardingTest extends TestCase
     public function test_onboarding_wizard_step_navigation_previous(): void
     {
         // Start at step 3
+        $this->company->setSriPassword('test-sri-password');
+        $this->company->save();
         $this->tenant->update(['settings' => ['onboarding_step' => 3]]);
 
         $this->actingAs($this->user);
@@ -263,6 +265,8 @@ class OnboardingTest extends TestCase
     public function test_onboarding_wizard_skip_certificate(): void
     {
         // Start at step 2 (certificate step)
+        $this->company->setSriPassword('test-sri-password');
+        $this->company->save();
         $this->tenant->update(['settings' => ['onboarding_step' => 2]]);
 
         $this->actingAs($this->user);
@@ -270,12 +274,15 @@ class OnboardingTest extends TestCase
         Livewire::test(OnboardingWizard::class)
             ->assertSet('currentStep', 2)
             ->call('skipCertificate')
-            ->assertSet('currentStep', 3);
+            ->assertSet('currentStep', 2)
+            ->assertHasErrors(['onboarding']);
     }
 
     public function test_onboarding_wizard_skip_customer(): void
     {
         // Start at step 4 (customer step)
+        $this->company->setSriPassword('test-sri-password');
+        $this->company->save();
         $this->tenant->update(['settings' => ['onboarding_step' => 4]]);
 
         $this->actingAs($this->user);
@@ -289,6 +296,8 @@ class OnboardingTest extends TestCase
     public function test_onboarding_wizard_skip_plan(): void
     {
         // Start at step 5 (plan selection step)
+        $this->company->setSriPassword('test-sri-password');
+        $this->company->save();
         $this->tenant->update(['settings' => ['onboarding_step' => 5]]);
 
         $this->actingAs($this->user);
@@ -296,12 +305,15 @@ class OnboardingTest extends TestCase
         Livewire::test(OnboardingWizard::class)
             ->assertSet('currentStep', 5)
             ->call('skipPlan')
-            ->assertSet('currentStep', 6);
+            ->assertSet('currentStep', 5)
+            ->assertHasErrors(['onboarding']);
     }
 
     public function test_onboarding_completion_marks_tenant(): void
     {
         // Start at step 6 (completion step)
+        $this->company->setSriPassword('test-sri-password');
+        $this->company->save();
         $this->tenant->update(['settings' => ['onboarding_step' => 6]]);
 
         // Ensure the plan is free so we redirect to dashboard (not billing)
@@ -325,6 +337,8 @@ class OnboardingTest extends TestCase
     public function test_onboarding_completion_redirects_to_billing_for_paid_plan(): void
     {
         // Start at step 6 with a paid plan selected
+        $this->company->setSriPassword('test-sri-password');
+        $this->company->save();
         $this->tenant->update([
             'settings' => ['onboarding_step' => 6],
             'current_plan_id' => $this->plan->id,
@@ -348,21 +362,25 @@ class OnboardingTest extends TestCase
 
     public function test_onboarding_wizard_saves_step_in_tenant_settings(): void
     {
-        $this->tenant->update(['settings' => ['onboarding_step' => 2]]);
+        $this->company->setSriPassword('test-sri-password');
+        $this->company->save();
+        $this->tenant->update(['settings' => ['onboarding_step' => 4]]);
 
         $this->actingAs($this->user);
 
         Livewire::test(OnboardingWizard::class)
-            ->call('skipCertificate');
+            ->call('skipCustomer');
 
         // Verify the step was saved in tenant settings
         $this->tenant->refresh();
-        $this->assertEquals(3, $this->tenant->settings['onboarding_step']);
+        $this->assertEquals(5, $this->tenant->settings['onboarding_step']);
     }
 
     public function test_onboarding_wizard_resumes_from_saved_step(): void
     {
         // Simulate a tenant that previously reached step 4
+        $this->company->setSriPassword('test-sri-password');
+        $this->company->save();
         $this->tenant->update(['settings' => ['onboarding_step' => 4]]);
 
         $this->actingAs($this->user);
@@ -381,6 +399,8 @@ class OnboardingTest extends TestCase
             ->set('ruc', '123') // Invalid: must be 13 digits
             ->set('business_name', 'Test Company')
             ->set('address', 'Test Address')
+            ->set('email', 'test@example.com')
+            ->set('sri_password', 'test-sri-password')
             ->set('sri_environment', '1')
             ->call('saveCompany')
             ->assertHasErrors(['ruc']);
@@ -396,12 +416,16 @@ class OnboardingTest extends TestCase
             ->set('ruc', '')
             ->set('business_name', '')
             ->set('address', '')
+            ->set('email', '')
+            ->set('sri_password', '')
             ->call('saveCompany')
-            ->assertHasErrors(['ruc', 'business_name', 'address']);
+            ->assertHasErrors(['ruc', 'business_name', 'address', 'email', 'sri_password']);
     }
 
     public function test_onboarding_wizard_select_plan(): void
     {
+        $this->company->setSriPassword('test-sri-password');
+        $this->company->save();
         $this->tenant->update(['settings' => ['onboarding_step' => 5]]);
 
         $this->actingAs($this->user);
@@ -409,5 +433,212 @@ class OnboardingTest extends TestCase
         Livewire::test(OnboardingWizard::class)
             ->call('selectPlan', $this->plan->id)
             ->assertSet('selectedPlanId', $this->plan->id);
+    }
+
+    public function test_onboarding_completion_requires_all_operational_configuration(): void
+    {
+        $this->tenant->update(['settings' => ['onboarding_step' => 6]]);
+
+        $this->actingAs($this->user);
+
+        Livewire::test(OnboardingWizard::class)
+            ->call('completeOnboarding')
+            ->assertSet('currentStep', 1)
+            ->assertHasErrors(['onboarding']);
+
+        $this->tenant->refresh();
+        $this->assertFalse((bool) ($this->tenant->settings['onboarding_completed'] ?? false));
+    }
+
+    // ==================== SRI RUC Lookup Tests ====================
+
+    private function fakeSriCatastro(): void
+    {
+        \Illuminate\Support\Facades\Http::fake([
+            '*ConsolidadoContribuyente*' => \Illuminate\Support\Facades\Http::response([[
+                'numeroRuc' => '1207481803001',
+                'razonSocial' => 'TERAN TRIANA JONATHAN EDUARDO',
+                'estadoContribuyenteRuc' => 'ACTIVO',
+                'actividadEconomicaPrincipal' => 'DESARROLLO DE SOFTWARE',
+                'tipoContribuyente' => 'PERSONA NATURAL',
+                'regimen' => 'RIMPE',
+                'categoria' => 'EMPRENDEDOR',
+                'obligadoLlevarContabilidad' => 'SI',
+                'agenteRetencion' => 'NO',
+                'contribuyenteEspecial' => 'NO',
+            ]]),
+            '*Establecimiento*' => \Illuminate\Support\Facades\Http::response([[
+                'nombreFantasiaComercial' => 'MI NEGOCIO',
+                'tipoEstablecimiento' => 'MAT',
+                'direccionCompleta' => 'GUAYAS / GUAYAQUIL / XIMENA / 50C SE 14',
+                'estado' => 'ABIERTO',
+                'numeroEstablecimiento' => '002',
+                'matriz' => 'SI',
+            ]]),
+        ]);
+    }
+
+    public function test_lookup_ruc_autofills_company_fields_from_sri(): void
+    {
+        $this->fakeSriCatastro();
+        $this->actingAs($this->user);
+
+        Livewire::test(OnboardingWizard::class)
+            ->set('ruc', '1207481803001')
+            ->set('business_name', '')
+            ->set('trade_name', '')
+            ->set('address', '')
+            ->call('lookupRuc')
+            ->assertHasNoErrors()
+            ->assertSet('business_name', 'TERAN TRIANA JONATHAN EDUARDO')
+            ->assertSet('taxpayer_type', 'natural')
+            ->assertSet('obligated_accounting', true)
+            ->assertSet('trade_name', 'MI NEGOCIO')
+            ->assertSet('address', 'GUAYAS / GUAYAQUIL / XIMENA / 50C SE 14');
+    }
+
+    public function test_lookup_ruc_does_not_overwrite_filled_fields(): void
+    {
+        $this->fakeSriCatastro();
+        $this->actingAs($this->user);
+
+        Livewire::test(OnboardingWizard::class)
+            ->set('ruc', '1207481803001')
+            ->set('business_name', '')
+            ->set('trade_name', 'NOMBRE PROPIO')
+            ->set('address', 'MI DIRECCION MANUAL')
+            ->call('lookupRuc')
+            ->assertSet('business_name', 'TERAN TRIANA JONATHAN EDUARDO')
+            ->assertSet('trade_name', 'NOMBRE PROPIO')
+            ->assertSet('address', 'MI DIRECCION MANUAL');
+    }
+
+    public function test_lookup_ruc_triggers_automatically_when_13_digits_entered(): void
+    {
+        $this->fakeSriCatastro();
+        $this->actingAs($this->user);
+
+        Livewire::test(OnboardingWizard::class)
+            ->set('business_name', '')
+            ->set('ruc', '1207481803001')
+            ->assertSet('business_name', 'TERAN TRIANA JONATHAN EDUARDO');
+    }
+
+    public function test_lookup_ruc_prefills_branch_from_sri_matriz(): void
+    {
+        $this->fakeSriCatastro();
+        $this->actingAs($this->user);
+
+        Livewire::test(OnboardingWizard::class)
+            ->set('branch_address', '')
+            ->set('ruc', '1207481803001')
+            ->call('lookupRuc')
+            ->assertSet('branch_code', '002')
+            ->assertSet('branch_address', 'GUAYAS / GUAYAQUIL / XIMENA / 50C SE 14')
+            ->assertSet('branch_name', 'MI NEGOCIO');
+    }
+
+    public function test_save_branch_imports_additional_open_sri_establishments(): void
+    {
+        \Illuminate\Support\Facades\Http::fake([
+            '*ConsolidadoContribuyente*' => \Illuminate\Support\Facades\Http::response([[
+                'numeroRuc' => '1207481803001',
+                'razonSocial' => 'TERAN TRIANA JONATHAN EDUARDO',
+                'estadoContribuyenteRuc' => 'ACTIVO',
+                'tipoContribuyente' => 'PERSONA NATURAL',
+                'regimen' => 'GENERAL',
+                'obligadoLlevarContabilidad' => 'NO',
+                'agenteRetencion' => 'NO',
+                'contribuyenteEspecial' => 'NO',
+            ]]),
+            '*Establecimiento*' => \Illuminate\Support\Facades\Http::response([
+                [
+                    'nombreFantasiaComercial' => 'SUCURSAL NORTE',
+                    'direccionCompleta' => 'PICHINCHA / QUITO / NORTE',
+                    'estado' => 'ABIERTO',
+                    'numeroEstablecimiento' => '003',
+                    'matriz' => 'NO',
+                ],
+                [
+                    'nombreFantasiaComercial' => 'CERRADA',
+                    'direccionCompleta' => 'LOS RIOS / VINCES',
+                    'estado' => 'CERRADO',
+                    'numeroEstablecimiento' => '001',
+                    'matriz' => 'NO',
+                ],
+                [
+                    'nombreFantasiaComercial' => null,
+                    'direccionCompleta' => 'GUAYAS / GUAYAQUIL / XIMENA',
+                    'estado' => 'ABIERTO',
+                    'numeroEstablecimiento' => '002',
+                    'matriz' => 'SI',
+                ],
+            ]),
+        ]);
+        $this->actingAs($this->user);
+
+        Livewire::test(OnboardingWizard::class)
+            ->call('lookupRuc')
+            ->call('saveBranch')
+            ->assertHasNoErrors();
+
+        // La matriz del SRI (002) es la sucursal principal
+        $this->assertDatabaseHas('branches', [
+            'tenant_id' => $this->tenant->id,
+            'code' => '002',
+            'is_main' => true,
+        ]);
+
+        // La sucursal abierta adicional (003) se importa con su punto de emisión
+        $this->assertDatabaseHas('branches', [
+            'tenant_id' => $this->tenant->id,
+            'code' => '003',
+            'name' => 'SUCURSAL NORTE',
+            'is_main' => false,
+        ]);
+        $imported = \App\Models\Tenant\Branch::where('code', '003')->first();
+        $this->assertNotNull($imported);
+        $this->assertCount(1, $imported->emissionPoints);
+
+        // La cerrada (001) no se importa
+        $this->assertDatabaseMissing('branches', [
+            'tenant_id' => $this->tenant->id,
+            'code' => '001',
+        ]);
+    }
+
+    public function test_lookup_ruc_shows_error_when_not_found(): void
+    {
+        \Illuminate\Support\Facades\Http::fake([
+            'srienlinea.sri.gob.ec/*' => \Illuminate\Support\Facades\Http::response([]),
+        ]);
+        $this->actingAs($this->user);
+
+        Livewire::test(OnboardingWizard::class)
+            ->set('ruc', '9999999999001')
+            ->call('lookupRuc')
+            ->assertHasErrors(['ruc']);
+    }
+
+    // ==================== Sequential Initialization ====================
+
+    public function test_save_branch_initializes_all_six_document_type_sequentials(): void
+    {
+        $this->actingAs($this->user);
+
+        Livewire::test(OnboardingWizard::class)
+            ->set('branch_name', 'Matriz')
+            ->set('branch_address', 'Guayaquil')
+            ->set('branch_code', '001')
+            ->set('ep_code', '001')
+            ->call('saveBranch')
+            ->assertHasNoErrors();
+
+        foreach (['01', '03', '04', '05', '06', '07'] as $docType) {
+            $this->assertDatabaseHas('sequential_numbers', [
+                'tenant_id' => $this->tenant->id,
+                'document_type' => $docType,
+            ]);
+        }
     }
 }

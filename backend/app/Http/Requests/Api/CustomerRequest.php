@@ -23,12 +23,14 @@ class CustomerRequest extends FormRequest
                 'required',
                 'string',
                 'max:20',
-                Rule::unique('customers')
+                Rule::unique('customers', 'identification')
                     ->where('tenant_id', $this->user()->tenant_id)
                     ->ignore($customerId),
             ],
             'name' => ['required', 'string', 'max:300'],
             'email' => ['nullable', 'email', 'max:255'],
+            'additional_emails' => ['nullable', 'array', 'max:5'],
+            'additional_emails.*' => ['email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20'],
             'address' => ['nullable', 'string', 'max:300'],
             'is_active' => ['nullable', 'boolean'],
@@ -43,6 +45,8 @@ class CustomerRequest extends FormRequest
             'identification_number.unique' => 'Este número de identificación ya está registrado.',
             'name.required' => 'El nombre es requerido.',
             'email.email' => 'El correo electrónico no es válido.',
+            'additional_emails.max' => 'Máximo 5 correos adicionales.',
+            'additional_emails.*.email' => 'Uno de los correos adicionales no es válido.',
         ];
     }
 }

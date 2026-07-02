@@ -14,23 +14,24 @@ class WithholdingDetail extends Model
     protected $fillable = [
         'tenant_id',
         'electronic_document_id',
+        'support_doc_code',
+        'support_doc_number',
+        'support_doc_date',
+        'support_doc_total',
+        'support_reason_code',
         'tax_type',
-        'tax_code',
-        'withholding_code',
-        'withholding_percentage',
-        'base_amount',
-        'withheld_amount',
-        'supporting_doc_type',
-        'supporting_doc_number',
-        'supporting_doc_date',
-        'supporting_doc_auth',
+        'retention_code',
+        'tax_base',
+        'retention_rate',
+        'retained_value',
     ];
 
     protected $casts = [
-        'withholding_percentage' => 'decimal:2',
-        'base_amount' => 'decimal:2',
-        'withheld_amount' => 'decimal:2',
-        'supporting_doc_date' => 'date',
+        'support_doc_date' => 'date',
+        'support_doc_total' => 'decimal:2',
+        'tax_base' => 'decimal:2',
+        'retention_rate' => 'decimal:2',
+        'retained_value' => 'decimal:2',
     ];
 
     // ==================== RELACIONES ====================
@@ -45,9 +46,8 @@ class WithholdingDetail extends Model
     public function getTaxTypeName(): string
     {
         return match ($this->tax_type) {
-            '1' => 'Renta',
-            '2' => 'IVA',
-            '6' => 'ISD',
+            'renta' => 'Renta',
+            'iva' => 'IVA',
             default => 'Otro',
         };
     }
@@ -55,15 +55,15 @@ class WithholdingDetail extends Model
     public function getWithholdingDescription(): string
     {
         return match ($this->tax_type) {
-            '1' => $this->getRetentionRentaDescription(),
-            '2' => $this->getRetentionIvaDescription(),
-            default => "Retención {$this->withholding_percentage}%",
+            'renta' => $this->getRetentionRentaDescription(),
+            'iva' => $this->getRetentionIvaDescription(),
+            default => "Retención {$this->retention_rate}%",
         };
     }
 
     private function getRetentionRentaDescription(): string
     {
-        return match ($this->withholding_code) {
+        return match ($this->retention_code) {
             '303' => 'Honorarios profesionales',
             '304' => 'Servicios predomina mano de obra',
             '307' => 'Servicios predomina intelecto',
@@ -81,26 +81,26 @@ class WithholdingDetail extends Model
             '342' => 'Otras retenciones 8%',
             '343' => 'Otras retenciones 25%',
             '344' => 'Otras retenciones aplicables',
-            default => "Retención IR {$this->withholding_percentage}%",
+            default => "Retención IR {$this->retention_rate}%",
         };
     }
 
     private function getRetentionIvaDescription(): string
     {
-        return match ($this->withholding_percentage) {
+        return match ((int) $this->retention_rate) {
             10 => 'Retención IVA 10%',
             20 => 'Retención IVA 20%',
             30 => 'Retención IVA 30%',
             50 => 'Retención IVA 50%',
             70 => 'Retención IVA 70%',
             100 => 'Retención IVA 100%',
-            default => "Retención IVA {$this->withholding_percentage}%",
+            default => "Retención IVA {$this->retention_rate}%",
         };
     }
 
     public function getSupportingDocTypeLabel(): string
     {
-        return match ($this->supporting_doc_type) {
+        return match ($this->support_doc_code) {
             '01' => 'Factura',
             '02' => 'Nota de Venta',
             '03' => 'Liquidación de Compra',

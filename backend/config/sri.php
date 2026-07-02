@@ -37,6 +37,29 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Public RUC Lookup (SRI en Línea)
+    |--------------------------------------------------------------------------
+    |
+    | Public SRI catastro endpoints used to autofill taxpayer data from a RUC.
+    | No authentication required, but requests need a browser User-Agent.
+    |
+    */
+
+    'ruc_lookup' => [
+        'taxpayer_url' => env(
+            'SRI_RUC_LOOKUP_URL',
+            'https://srienlinea.sri.gob.ec/sri-catastro-sujeto-servicio-internet/rest/ConsolidadoContribuyente/obtenerPorNumerosRuc'
+        ),
+        'establishments_url' => env(
+            'SRI_RUC_ESTABLISHMENTS_URL',
+            'https://srienlinea.sri.gob.ec/sri-catastro-sujeto-servicio-internet/rest/Establecimiento/consultarPorNumeroRuc'
+        ),
+        'timeout_seconds' => env('SRI_RUC_LOOKUP_TIMEOUT', 10),
+        'cache_ttl_minutes' => env('SRI_RUC_LOOKUP_CACHE_TTL', 360),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Document Types
     |--------------------------------------------------------------------------
     |
@@ -46,6 +69,7 @@ return [
 
     'document_types' => [
         '01' => 'Factura',
+        '03' => 'Liquidación de Compra',
         '04' => 'Nota de Crédito',
         '05' => 'Nota de Débito',
         '06' => 'Guía de Remisión',

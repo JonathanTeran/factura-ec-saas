@@ -18,8 +18,10 @@ use App\Models\Billing\Subscription;
 use App\Models\User;
 use App\Notifications\BankTransferPendingNotification;
 use App\Services\Billing\BillingService;
+use App\Services\Cache\TenantCacheService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * @tags Suscripciones y Facturación
@@ -37,7 +39,7 @@ class SubscriptionController extends ApiController
      */
     public function plans(Request $request): JsonResponse
     {
-        $plans = Plan::active()->ordered()->get();
+        $plans = Cache::remember('billing:plans', now()->addHour(), fn () => Plan::active()->ordered()->get());
 
         return $this->success([
             'plans' => PlanResource::collection($plans),
@@ -87,6 +89,8 @@ class SubscriptionController extends ApiController
                 $request->coupon_code
             );
 
+            TenantCacheService::invalidateTenant($tenant->id);
+
             return $this->created([
                 'subscription' => new SubscriptionResource($subscription->load(['plan', 'coupon'])),
             ], 'Suscripción creada exitosamente');
@@ -121,6 +125,8 @@ class SubscriptionController extends ApiController
                 $message .= ' Tendrás acceso hasta ' . $subscription->ends_at->format('d/m/Y');
             }
 
+            TenantCacheService::invalidateTenant($tenant->id);
+
             return $this->success([
                 'subscription' => new SubscriptionResource($subscription->fresh()),
             ], $message);
@@ -153,6 +159,7 @@ class SubscriptionController extends ApiController
         }
 
         $subscription->resume();
+        TenantCacheService::invalidateTenant($tenant->id);
 
         return $this->success([
             'subscription' => new SubscriptionResource($subscription->fresh()),

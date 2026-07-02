@@ -7,6 +7,7 @@ use App\Models\Tenant\PosTransaction;
 use App\Services\Pos\PosService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class PosController extends ApiController
 {
@@ -31,10 +32,12 @@ class PosController extends ApiController
      */
     public function openSession(Request $request): JsonResponse
     {
+        $tenantId = $request->user()->tenant_id;
+
         $validated = $request->validate([
-            'company_id' => ['required', 'exists:companies,id'],
-            'branch_id' => ['required', 'exists:branches,id'],
-            'emission_point_id' => ['required', 'exists:emission_points,id'],
+            'company_id' => ['required', Rule::exists('companies', 'id')->where('tenant_id', $tenantId)],
+            'branch_id' => ['required', Rule::exists('branches', 'id')->where('tenant_id', $tenantId)],
+            'emission_point_id' => ['required', Rule::exists('emission_points', 'id')->where('tenant_id', $tenantId)],
             'opening_amount' => ['nullable', 'numeric', 'min:0'],
         ]);
 

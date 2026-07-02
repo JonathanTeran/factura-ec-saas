@@ -22,6 +22,7 @@ class Customer extends Model
         'business_name',
         'name',
         'email',
+        'additional_emails',
         'phone',
         'address',
         'city',
@@ -38,6 +39,7 @@ class Customer extends Model
         'total_invoiced' => 'decimal:2',
         'last_invoice_date' => 'date',
         'tags' => 'array',
+        'additional_emails' => 'array',
     ];
 
     // ==================== RELACIONES ====================

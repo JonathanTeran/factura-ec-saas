@@ -2,15 +2,15 @@
 
 namespace App\Services\Notification;
 
+use App\Enums\UserRole;
+use App\Mail\DocumentAuthorizedMail;
 use App\Models\SRI\ElectronicDocument;
 use App\Models\User;
-use App\Enums\UserRole;
 use App\Notifications\AdminEventNotification;
 use App\Notifications\DocumentAuthorizedNotification;
 use App\Notifications\DocumentRejectedNotification;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Mail;
 
 class NotificationService
 {
@@ -21,47 +21,12 @@ class NotificationService
     {
         $recipientEmail = $email ?? $document->customer->email;
 
-        if (!$recipientEmail) {
+        if (! $recipientEmail) {
             return false;
         }
 
         try {
-            // Obtener archivos adjuntos
-            $attachments = [];
-
-            if ($document->ride_pdf_path) {
-                $attachments[] = [
-                    'path' => $document->ride_pdf_path,
-                    'name' => "Factura_{$document->getDocumentNumber()}.pdf",
-                    'mime' => 'application/pdf',
-                ];
-            }
-
-            if ($document->xml_authorized_path) {
-                $attachments[] = [
-                    'path' => $document->xml_authorized_path,
-                    'name' => "Factura_{$document->getDocumentNumber()}.xml",
-                    'mime' => 'application/xml',
-                ];
-            }
-
-            // Enviar email
-            Mail::send('emails.document-authorized', [
-                'document' => $document,
-                'customer' => $document->customer,
-                'company' => $document->company,
-            ], function ($message) use ($recipientEmail, $document, $attachments) {
-                $message->to($recipientEmail)
-                    ->subject("Factura Electrónica {$document->getDocumentNumber()}")
-                    ->from(config('mail.from.address'), $document->company->trade_name ?? $document->company->business_name);
-
-                foreach ($attachments as $attachment) {
-                    $content = Storage::disk('s3')->get($attachment['path']);
-                    $message->attachData($content, $attachment['name'], [
-                        'mime' => $attachment['mime'],
-                    ]);
-                }
-            });
+            Mail::to($recipientEmail)->send(new DocumentAuthorizedMail($document));
 
             // Actualizar registro
             $document->update([
@@ -118,7 +83,7 @@ class NotificationService
     {
         $recipientPhone = $phone ?? $document->customer->phone;
 
-        if (!$recipientPhone) {
+        if (! $recipientPhone) {
             return false;
         }
 
@@ -128,7 +93,7 @@ class NotificationService
         try {
             $whatsapp = app(TwilioWhatsAppService::class);
             $message = "Hola {$document->customer->name}, adjunto su factura electrónica {$document->getDocumentNumber()} de {$document->company->business_name}.";
-            
+
             $mediaUrls = [];
             if ($document->ride_pdf_path) {
                 $mediaUrls[] = Storage::disk('s3')->temporaryUrl(
@@ -144,6 +109,7 @@ class NotificationService
                     'whatsapp_sent' => true,
                     'whatsapp_sent_at' => now(),
                 ]);
+
                 return true;
             }
 
@@ -167,7 +133,7 @@ class NotificationService
     {
         $email = $document->customer->email;
 
-        if (!$email) {
+        if (! $email) {
             return false;
         }
 
@@ -224,9 +190,9 @@ class NotificationService
 
         // Agregar código de país Ecuador si no lo tiene
         if (strlen($phone) === 10 && str_starts_with($phone, '0')) {
-            $phone = '593' . substr($phone, 1);
+            $phone = '593'.substr($phone, 1);
         } elseif (strlen($phone) === 9) {
-            $phone = '593' . $phone;
+            $phone = '593'.$phone;
         }
 
         return $phone;

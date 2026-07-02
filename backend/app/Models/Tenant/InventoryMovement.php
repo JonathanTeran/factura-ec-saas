@@ -14,6 +14,8 @@ class InventoryMovement extends Model
 {
     use HasFactory, BelongsToTenant;
 
+    const UPDATED_AT = null;
+
     protected $fillable = [
         'tenant_id',
         'product_id',

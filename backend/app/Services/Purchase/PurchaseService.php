@@ -3,6 +3,7 @@
 namespace App\Services\Purchase;
 
 use App\Enums\PurchaseStatus;
+use App\Events\PurchaseRegistered;
 use App\Models\Tenant\Purchase;
 use App\Models\Tenant\PurchaseItem;
 use App\Models\Tenant\Supplier;
@@ -22,7 +23,7 @@ class PurchaseService
 
     public function createPurchase(array $data, array $items): Purchase
     {
-        return DB::transaction(function () use ($data, $items) {
+        $purchase = DB::transaction(function () use ($data, $items) {
             $purchase = Purchase::create([
                 'tenant_id' => $this->tenant->id,
                 ...$data,
@@ -57,6 +58,12 @@ class PurchaseService
 
             return $purchase->fresh()->load('items', 'supplier');
         });
+
+        // Disparar fuera de la transacción para que el listener encolado
+        // (generación de asiento contable) lea datos ya confirmados.
+        PurchaseRegistered::dispatch($purchase);
+
+        return $purchase;
     }
 
     public function updatePurchase(Purchase $purchase, array $data, array $items): Purchase

@@ -20,7 +20,7 @@ class BranchRequest extends FormRequest
         return [
             'company_id' => [
                 'required',
-                'exists:companies,id',
+                Rule::exists('companies', 'id')->where('tenant_id', $this->user()->tenant_id),
             ],
             'code' => [
                 'required',

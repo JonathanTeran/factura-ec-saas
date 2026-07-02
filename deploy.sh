@@ -44,26 +44,24 @@ preflight() {
         error ".env no encontrado en $ENV_FILE\nCopia .env.production a .env y configura los valores"
     fi
 
-    # Verificar que no haya valores CAMBIAR_*
+    # Valores CAMBIAR_* => fallo duro (no cachear config con secretos placeholder)
     if grep -q "CAMBIAR_" "$ENV_FILE"; then
-        warn "Hay valores sin configurar en .env:"
-        grep "CAMBIAR_" "$ENV_FILE" | head -5
-        echo ""
-        read -p "Continuar de todos modos? (y/N) " -n 1 -r
-        echo
-        [[ $REPLY =~ ^[Yy]$ ]] || exit 1
+        error "Valores sin configurar en .env (CAMBIAR_*):\n$(grep 'CAMBIAR_' "$ENV_FILE" | head -8)\nConfigúralos antes de desplegar."
     fi
 
-    # Verificar APP_DEBUG=false
+    # APP_KEY debe existir y ser válido
+    if ! grep -qE '^APP_KEY=base64:.+' "$ENV_FILE"; then
+        error "APP_KEY no configurado. Genera uno con: php artisan key:generate --show"
+    fi
+
+    # APP_DEBUG debe ser false => fallo duro
     if grep -q "APP_DEBUG=true" "$ENV_FILE"; then
-        warn "APP_DEBUG=true en .env - deberia ser false en produccion"
+        error "APP_DEBUG=true en .env — debe ser false en producción."
     fi
 
-    # Verificar SSL certs
-    if [ ! -f "$DOCKER_DIR/nginx/ssl/fullchain.pem" ]; then
-        warn "Certificados SSL no encontrados en docker/nginx/ssl/"
-        warn "Necesitas fullchain.pem y privkey.pem"
-        warn "Puedes usar Let's Encrypt: certbot certonly --standalone -d tu-dominio.com"
+    # Certificados SSL obligatorios (nginx no arranca sin ellos) => fallo duro
+    if [ ! -f "$DOCKER_DIR/nginx/ssl/fullchain.pem" ] || [ ! -f "$DOCKER_DIR/nginx/ssl/privkey.pem" ]; then
+        error "Faltan certificados SSL en docker/nginx/ssl/ (fullchain.pem y privkey.pem).\nProvisiónalos: certbot certonly --standalone -d facturacion.amephia.com\ny copia los .pem a docker/nginx/ssl/"
     fi
 
     log "Pre-flight OK"

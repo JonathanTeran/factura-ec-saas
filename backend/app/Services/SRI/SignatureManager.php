@@ -53,7 +53,9 @@ class SignatureManager
 
         // Verificar fecha de expiración
         $validTo = $certInfo['validTo_time_t'] ?? 0;
+        $validFrom = $certInfo['validFrom_time_t'] ?? 0;
         $expiresAt = \Carbon\Carbon::createFromTimestamp($validTo);
+        $validFromAt = $validFrom ? \Carbon\Carbon::createFromTimestamp($validFrom) : null;
 
         if ($expiresAt->isPast()) {
             throw new CertificateExpiredException(null, $expiresAt);
@@ -61,8 +63,12 @@ class SignatureManager
 
         return [
             'subject' => $certInfo['subject']['CN'] ?? $certInfo['subject']['O'] ?? 'Desconocido',
-            'issuer' => $certInfo['issuer']['O'] ?? 'Desconocido',
+            'issuer' => $certInfo['issuer']['O'] ?? $certInfo['issuer']['CN'] ?? 'Desconocido',
+            'identification' => $certInfo['subject']['serialNumber']
+                ?? $certInfo['subject']['UID']
+                ?? null,
             'expires_at' => $expiresAt,
+            'valid_from' => $validFromAt,
             'serial_number' => $certInfo['serialNumberHex'] ?? null,
         ];
     }

@@ -6,6 +6,7 @@ use App\Enums\DocumentStatus;
 use App\Events\DocumentSigned;
 use App\Exceptions\CertificateException;
 use App\Exceptions\SignatureException;
+use App\Jobs\SRI\ProcessDocumentJob;
 use App\Models\SRI\ElectronicDocument;
 use App\Services\SRI\SigningService;
 use Illuminate\Bus\Queueable;
@@ -20,7 +21,9 @@ class SignDocumentJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 3;
+
     public int $timeout = 120;
+
     public int $backoff = 10;
 
     public function __construct(
@@ -44,8 +47,8 @@ class SignDocumentJob implements ShouldQueue
             $accessKey = $signingService->generateAccessKey($this->document);
 
             // Store XML file
-            $xmlPath = "documents/{$this->document->tenant_id}/{$this->document->company_id}/" .
-                now()->format('Y/m') . "/{$accessKey}.xml";
+            $xmlPath = "documents/{$this->document->tenant_id}/{$this->document->company_id}/".
+                now()->format('Y/m')."/{$accessKey}.xml";
 
             \Storage::put($xmlPath, $signedXml);
 
@@ -60,8 +63,8 @@ class SignDocumentJob implements ShouldQueue
 
             Log::info("Document {$this->document->id} signed successfully");
 
-            // Automatically dispatch to SRI
-            SendDocumentToSriJob::dispatch($this->document);
+            // Automatically dispatch to the current SRI pipeline
+            ProcessDocumentJob::dispatch($this->document);
 
         } catch (CertificateException $e) {
             Log::error("Certificate error signing document {$this->document->id}", $e->context());

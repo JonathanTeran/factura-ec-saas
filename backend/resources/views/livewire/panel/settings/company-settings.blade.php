@@ -63,12 +63,24 @@
                 <label for="ruc" class="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
                     RUC <span class="text-red-500">*</span>
                 </label>
-                <input wire:model="ruc" type="text" id="ruc" maxlength="13"
-                       placeholder="1234567890001"
-                       class="block w-full rounded-xl border-0 py-2.5 px-4 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 dark:bg-slate-900 dark:text-white dark:ring-slate-700 dark:placeholder:text-slate-500">
+                <div class="flex gap-2">
+                    <input wire:model="ruc" type="text" id="ruc" maxlength="13"
+                           placeholder="1234567890001"
+                           class="block w-full rounded-xl border-0 py-2.5 px-4 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 dark:bg-slate-900 dark:text-white dark:ring-slate-700 dark:placeholder:text-slate-500">
+                    <button type="button" wire:click="lookupRuc" wire:loading.attr="disabled" wire:target="lookupRuc"
+                            class="shrink-0 whitespace-nowrap rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700 dark:hover:bg-slate-700">
+                        <span wire:loading.remove wire:target="lookupRuc">Consultar SRI</span>
+                        <span wire:loading wire:target="lookupRuc">Consultando...</span>
+                    </button>
+                </div>
                 @error('ruc')
                     <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                 @enderror
+                @if ($rucLookupStatus)
+                    <p class="mt-1 text-xs {{ $rucLookupStatus === 'ACTIVO' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400' }}">
+                        Estado en el SRI: {{ $rucLookupStatus }}
+                    </p>
+                @endif
             </div>
 
             {{-- Tipo de persona --}}
@@ -399,13 +411,23 @@
     <div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-900/5 dark:bg-slate-800 dark:ring-white/10">
         <div class="mb-6 flex items-center justify-between">
             <h3 class="text-lg font-semibold text-slate-900 dark:text-white">Sucursales</h3>
-            <button wire:click="openBranchModal" type="button"
-                    class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition-all hover:bg-blue-700">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
-                Nueva sucursal
-            </button>
+            <div class="flex items-center gap-2">
+                <button wire:click="importSriEstablishments" wire:loading.attr="disabled" wire:target="importSriEstablishments" type="button"
+                        class="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 transition-all hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:ring-slate-600 dark:hover:bg-slate-600">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                    </svg>
+                    <span wire:loading.remove wire:target="importSriEstablishments">Importar del SRI</span>
+                    <span wire:loading wire:target="importSriEstablishments">Importando...</span>
+                </button>
+                <button wire:click="openBranchModal" type="button"
+                        class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition-all hover:bg-blue-700">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    Nueva sucursal
+                </button>
+            </div>
         </div>
 
         @if(count($branches) > 0)

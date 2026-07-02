@@ -7,7 +7,9 @@ use App\Models\Tenant\Branch;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\EmissionPoint;
+use App\Models\Tenant\Tenant;
 use App\Models\SRI\SequentialNumber;
+use App\Services\SRI\RucLookupService;
 use App\Services\SRI\SignatureManager;
 use Illuminate\Support\Collection;
 use Livewire\Component;
@@ -25,9 +27,14 @@ class OnboardingWizard extends Component
     public string $business_name = '';
     public string $trade_name = '';
     public string $address = '';
+    public string $email = '';
+    public string $sri_password = '';
     public string $sri_environment = '1';
     public string $taxpayer_type = 'natural';
     public bool $obligated_accounting = false;
+    public string $rimpe_type = 'none';
+    public ?string $rucLookupStatus = null;
+    public array $sriEstablishments = [];
 
     // Step 2: Certificate
     public $certificate;
@@ -54,27 +61,14 @@ class OnboardingWizard extends Component
     public bool $companyCreated = false;
     public bool $certificateUploaded = false;
     public bool $branchCreated = false;
+    public bool $sriPasswordConfigured = false;
     public ?int $companyId = null;
 
     public function mount()
     {
         $tenant = auth()->user()->tenant;
-        // Check if already has a company
-        $company = Company::where('tenant_id', $tenant->id)->first();
-        if ($company) {
-            $this->companyId = $company->id;
-            $this->companyCreated = true;
-            $this->ruc = $company->ruc;
-            $this->business_name = $company->business_name;
-
-            if ($company->hasValidSignature()) {
-                $this->certificateUploaded = true;
-            }
-
-            if ($company->branches()->exists()) {
-                $this->branchCreated = true;
-            }
-        }
+        $this->loadExistingSetup($tenant);
+        $this->refreshProgressFlags();
 
         // Pre-select current plan if tenant already has one
         if ($tenant->current_plan_id) {
@@ -82,37 +76,105 @@ class OnboardingWizard extends Component
         }
 
         // Check if onboarding was already started
-        $step = $tenant->settings['onboarding_step'] ?? 1;
-        $this->currentStep = min($step, $this->totalSteps);
+        $step = (int) ($tenant->settings['onboarding_step'] ?? 1);
+        $this->currentStep = $step > 1
+            ? min($step, $this->maxAccessibleStep())
+            : 1;
+    }
+
+    // Consulta automática al escribir un RUC completo
+    public function updatedRuc(): void
+    {
+        if (preg_match('/^[0-9]{13}$/', $this->ruc) === 1) {
+            $this->applyRucLookup(silent: true);
+        }
+    }
+
+    // Step 1: Autofill from the SRI public catastro
+    public function lookupRuc()
+    {
+        $this->validate([
+            'ruc' => ['required', 'string', 'size:13', 'regex:/^[0-9]+$/'],
+        ]);
+
+        $this->applyRucLookup(silent: false);
+    }
+
+    private function applyRucLookup(bool $silent): void
+    {
+        $lookupService = app(RucLookupService::class);
+        $taxpayer = $lookupService->lookup($this->ruc);
+
+        if ($taxpayer === null) {
+            if (! $silent) {
+                $this->addError('ruc', 'No se pudo obtener la información del RUC desde el SRI. Verifica el número o ingresa los datos manualmente.');
+            }
+            return;
+        }
+
+        $this->business_name = $taxpayer['business_name'] ?: $this->business_name;
+        $this->taxpayer_type = $taxpayer['taxpayer_type'];
+        $this->obligated_accounting = $taxpayer['obligated_accounting'];
+        $this->rimpe_type = match ($taxpayer['regime']) {
+            'rimpe_emprendedor' => 'emprendedor',
+            'rimpe_popular' => 'negocio_popular',
+            default => 'none',
+        };
+        $this->rucLookupStatus = $taxpayer['status'];
+
+        $this->sriEstablishments = $lookupService->establishments($this->ruc);
+        $main = collect($this->sriEstablishments)->firstWhere('is_main', true);
+
+        if ($main) {
+            $this->trade_name = $this->trade_name ?: (string) ($main['trade_name'] ?? '');
+            $this->address = $this->address ?: (string) ($main['address'] ?? '');
+
+            // La matriz del SRI define el establecimiento principal (código y dirección)
+            $this->branch_code = $main['code'];
+            $this->branch_name = $main['trade_name'] ?: $this->branch_name;
+            $this->branch_address = $main['address'] ?: $this->branch_address;
+        }
     }
 
     // Step 1: Save company
     public function saveCompany()
     {
-        $this->validate([
+        $rules = [
             'ruc' => ['required', 'string', 'size:13', 'regex:/^[0-9]+$/'],
             'business_name' => ['required', 'string', 'max:300'],
             'address' => ['required', 'string', 'max:300'],
+            'email' => ['required', 'email', 'max:255'],
             'sri_environment' => ['required', 'in:1,2'],
-        ]);
+            'sri_password' => [$this->sriPasswordConfigured ? 'nullable' : 'required', 'string', 'max:255'],
+        ];
+
+        $this->validate($rules);
 
         $tenant = auth()->user()->tenant;
 
-        $company = Company::updateOrCreate(
-            ['tenant_id' => $tenant->id, 'ruc' => $this->ruc],
-            [
-                'business_name' => $this->business_name,
-                'trade_name' => $this->trade_name ?: $this->business_name,
-                'address' => $this->address,
-                'sri_environment' => $this->sri_environment,
-                'taxpayer_type' => $this->taxpayer_type,
-                'obligated_accounting' => $this->obligated_accounting,
-                'is_active' => true,
-            ]
-        );
+        $company = $this->resolveCompany() ?? new Company(['tenant_id' => $tenant->id]);
+        $company->fill([
+            'ruc' => $this->ruc,
+            'business_name' => $this->business_name,
+            'trade_name' => $this->trade_name ?: $this->business_name,
+            'address' => $this->address,
+            'email' => $this->email,
+            'sri_environment' => $this->sri_environment,
+            'taxpayer_type' => $this->taxpayer_type,
+            'obligated_accounting' => $this->obligated_accounting,
+            'rimpe_type' => $this->rimpe_type,
+            'is_active' => true,
+        ]);
+
+        if (filled($this->sri_password)) {
+            $company->setSriPassword($this->sri_password);
+        }
+
+        $company->save();
 
         $this->companyId = $company->id;
-        $this->companyCreated = true;
+        $this->reset('sri_password');
+        $this->refreshProgressFlags();
         $this->goToStep(2);
     }
 
@@ -130,7 +192,7 @@ class OnboardingWizard extends Component
         try {
             $info = $manager->store($company, $this->certificate, $this->certificate_password);
             $this->certificateInfo = $info;
-            $this->certificateUploaded = true;
+            $this->refreshProgressFlags();
             $this->goToStep(3);
         } catch (\Exception $e) {
             $this->addError('certificate', $e->getMessage());
@@ -139,7 +201,7 @@ class OnboardingWizard extends Component
 
     public function skipCertificate()
     {
-        $this->goToStep(3);
+        $this->addError('onboarding', 'La firma electronica es obligatoria para continuar.');
     }
 
     // Step 3: Create branch + emission point
@@ -154,37 +216,75 @@ class OnboardingWizard extends Component
 
         $tenant = auth()->user()->tenant;
 
-        $branch = Branch::create([
+        $branch = Branch::firstOrNew([
             'tenant_id' => $tenant->id,
             'company_id' => $this->companyId,
+            'is_main' => true,
+        ]);
+
+        $branch->fill([
             'code' => $this->branch_code,
             'name' => $this->branch_name,
             'address' => $this->branch_address,
-            'is_main' => true,
             'is_active' => true,
         ]);
+        $branch->save();
 
-        $ep = EmissionPoint::create([
+        $ep = EmissionPoint::updateOrCreate([
             'tenant_id' => $tenant->id,
             'branch_id' => $branch->id,
             'code' => $this->ep_code,
+        ], [
             'name' => 'Punto de Emision 1',
             'is_active' => true,
         ]);
 
-        // Initialize sequential numbers for all document types
-        foreach (['01', '04', '05', '06', '07'] as $docType) {
-            SequentialNumber::firstOrCreate([
+        $this->initializeSequentials($tenant->id, $ep->id);
+
+        // Importa las demás sucursales abiertas registradas en el SRI
+        foreach ($this->sriEstablishments as $sriBranch) {
+            if (! ($sriBranch['is_open'] ?? false) || $sriBranch['code'] === $this->branch_code) {
+                continue;
+            }
+
+            $extraBranch = Branch::firstOrCreate([
                 'tenant_id' => $tenant->id,
-                'emission_point_id' => $ep->id,
+                'company_id' => $this->companyId,
+                'code' => $sriBranch['code'],
+            ], [
+                'name' => $sriBranch['trade_name'] ?: 'Establecimiento ' . $sriBranch['code'],
+                'address' => $sriBranch['address'] ?? '',
+                'is_main' => false,
+                'is_active' => true,
+            ]);
+
+            $extraEp = EmissionPoint::firstOrCreate([
+                'tenant_id' => $tenant->id,
+                'branch_id' => $extraBranch->id,
+                'code' => '001',
+            ], [
+                'name' => 'Punto de Emision 1',
+                'is_active' => true,
+            ]);
+
+            $this->initializeSequentials($tenant->id, $extraEp->id);
+        }
+
+        $this->refreshProgressFlags();
+        $this->goToStep(4);
+    }
+
+    private function initializeSequentials(int $tenantId, int $emissionPointId): void
+    {
+        foreach (['01', '03', '04', '05', '06', '07'] as $docType) {
+            SequentialNumber::firstOrCreate([
+                'tenant_id' => $tenantId,
+                'emission_point_id' => $emissionPointId,
                 'document_type' => $docType,
             ], [
                 'current_number' => 0,
             ]);
         }
-
-        $this->branchCreated = true;
-        $this->goToStep(4);
     }
 
     // Step 4: Create first customer (optional)
@@ -228,19 +328,28 @@ class OnboardingWizard extends Component
         ]);
 
         $tenant = auth()->user()->tenant;
-        $tenant->update(['current_plan_id' => $this->selectedPlanId]);
+        $plan = Plan::findOrFail($this->selectedPlanId);
+        $tenant->syncPlanLimits($plan);
+        $tenant->refresh();
 
         $this->goToStep(6);
     }
 
     public function skipPlan()
     {
-        $this->goToStep(6);
+        $this->addError('onboarding', 'Debes seleccionar un plan antes de continuar.');
     }
 
     // Step 6: Complete
     public function completeOnboarding()
     {
+        if (!$this->canCompleteOnboarding) {
+            $this->addError('onboarding', 'Completa toda la configuracion obligatoria antes de continuar.');
+            $this->goToStep($this->firstIncompleteStep());
+
+            return;
+        }
+
         $tenant = auth()->user()->tenant;
         $settings = $tenant->settings ?? [];
         $settings['onboarding_completed'] = true;
@@ -263,18 +372,18 @@ class OnboardingWizard extends Component
 
     public function goToStep(int $step)
     {
-        $this->currentStep = $step;
+        $this->currentStep = max(1, min($step, $this->maxAccessibleStep()));
 
         $tenant = auth()->user()->tenant;
         $settings = $tenant->settings ?? [];
-        $settings['onboarding_step'] = $step;
+        $settings['onboarding_step'] = $this->currentStep;
         $tenant->update(['settings' => $settings]);
     }
 
     public function previousStep()
     {
         if ($this->currentStep > 1) {
-            $this->currentStep--;
+            $this->goToStep($this->currentStep - 1);
         }
     }
 
@@ -304,6 +413,142 @@ class OnboardingWizard extends Component
         }
 
         return (float) $plan->price_monthly;
+    }
+
+    public function getRequiredSetupItemsProperty(): array
+    {
+        $company = $this->resolveCompany();
+        $checklist = $company?->emissionReadinessChecklist() ?? [
+            'basic_data' => false,
+            'sri_password' => false,
+            'digital_signature' => false,
+            'establishments' => false,
+        ];
+
+        return [
+            [
+                'label' => 'Datos fiscales y correo del emisor',
+                'description' => 'RUC, razon social, direccion y correo configurados.',
+                'ready' => (bool) ($checklist['basic_data'] ?? false),
+            ],
+            [
+                'label' => 'Clave del SRI',
+                'description' => 'Credenciales guardadas para conexion con SRI.',
+                'ready' => (bool) ($checklist['sri_password'] ?? false),
+            ],
+            [
+                'label' => 'Firma electronica',
+                'description' => 'Certificado .p12 vigente cargado en la cuenta.',
+                'ready' => (bool) ($checklist['digital_signature'] ?? false),
+            ],
+            [
+                'label' => 'Establecimiento y punto de emision',
+                'description' => 'Al menos una sucursal activa con punto de emision.',
+                'ready' => (bool) ($checklist['establishments'] ?? false),
+            ],
+            [
+                'label' => 'Plan activo',
+                'description' => 'El tenant debe tener un plan seleccionado.',
+                'ready' => $this->hasSelectedPlan(),
+            ],
+        ];
+    }
+
+    public function getCanCompleteOnboardingProperty(): bool
+    {
+        $company = $this->resolveCompany();
+
+        if (!$company) {
+            return false;
+        }
+
+        return collect($company->emissionReadinessChecklist())->every(
+            fn (bool $isReady): bool => $isReady
+        ) && $this->hasSelectedPlan();
+    }
+
+    private function loadExistingSetup(Tenant $tenant): void
+    {
+        $company = Company::where('tenant_id', $tenant->id)->first();
+
+        if (!$company) {
+            return;
+        }
+
+        $this->companyId = $company->id;
+        $this->ruc = $company->ruc;
+        $this->business_name = $company->business_name;
+        $this->trade_name = $company->trade_name ?? '';
+        $this->address = $company->address;
+        $this->email = $company->email ?? '';
+        $this->sri_environment = (string) $company->sri_environment;
+        $this->taxpayer_type = $company->taxpayer_type ?? 'natural';
+        $this->obligated_accounting = (bool) $company->obligated_accounting;
+
+        $mainBranch = $company->branches()
+            ->where('is_main', true)
+            ->with('emissionPoints')
+            ->first();
+
+        if ($mainBranch) {
+            $this->branch_name = $mainBranch->name;
+            $this->branch_address = $mainBranch->address;
+            $this->branch_code = $mainBranch->code;
+            $this->ep_code = (string) ($mainBranch->emissionPoints->first()?->code ?? $this->ep_code);
+        }
+    }
+
+    private function refreshProgressFlags(): void
+    {
+        $company = $this->resolveCompany();
+
+        $this->companyCreated = (bool) $company;
+        $this->companyId = $company?->id;
+        $this->sriPasswordConfigured = (bool) ($company?->hasSriPassword() ?? false);
+        $this->certificateUploaded = (bool) ($company?->hasValidSignature() ?? false);
+        $this->branchCreated = (bool) ($company?->hasOperationalSetup() ?? false);
+    }
+
+    private function resolveCompany(): ?Company
+    {
+        if ($this->companyId) {
+            return Company::find($this->companyId);
+        }
+
+        return auth()->user()->tenant->companies()->first();
+    }
+
+    private function hasSelectedPlan(): bool
+    {
+        return filled($this->selectedPlanId);
+    }
+
+    private function maxAccessibleStep(): int
+    {
+        $company = $this->resolveCompany();
+
+        if (!$company || !$company->hasBasicFiscalData() || !$company->hasSriPassword()) {
+            return 1;
+        }
+
+        if (!$company->hasValidSignature()) {
+            return 2;
+        }
+
+        if (!$company->hasOperationalSetup()) {
+            return 3;
+        }
+
+        if (!$this->hasSelectedPlan()) {
+            return 5;
+        }
+
+        return 6;
+    }
+
+    private function firstIncompleteStep(): int
+    {
+        return $this->maxAccessibleStep();
     }
 
     public function render()

@@ -61,6 +61,7 @@ class ElectronicDocument extends Model
         'related_document_date',
         'email_sent',
         'email_sent_at',
+        'email_sent_to',
         'whatsapp_sent',
         'whatsapp_sent_at',
         'payment_methods',

@@ -15,7 +15,8 @@ class CompanyFactory extends Factory
 
     public function definition(): array
     {
-        $ruc = fake()->numerify('#########') . '001';
+        // RUC real: 10 dígitos de cédula + sufijo 001 = 13 dígitos
+        $ruc = fake()->numerify('##########') . '001';
 
         return [
             'tenant_id' => Tenant::factory(),

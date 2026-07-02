@@ -21,7 +21,7 @@ class ProductRequest extends FormRequest
                 'required',
                 'string',
                 'max:50',
-                Rule::unique('products')
+                Rule::unique('products', 'main_code')
                     ->where('tenant_id', $this->user()->tenant_id)
                     ->ignore($productId),
             ],

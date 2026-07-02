@@ -2,18 +2,19 @@
 
 namespace App\Jobs\SRI;
 
+use App\Enums\DocumentStatus;
+use App\Events\DocumentAuthorized;
+use App\Events\DocumentFailed;
+use App\Events\DocumentRejected;
+use App\Exceptions\SriCommunicationException;
 use App\Models\SRI\ElectronicDocument;
 use App\Services\SRI\SRIService;
-use App\Events\DocumentAuthorized;
-use App\Events\DocumentRejected;
-use App\Events\DocumentFailed;
-use App\Enums\DocumentStatus;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
+use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
 class ProcessDocumentJob implements ShouldQueue
@@ -21,13 +22,15 @@ class ProcessDocumentJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 3;
+
     public int $maxExceptions = 3;
+
     public array $backoff = [30, 120, 300];
 
     public function __construct(
         public ElectronicDocument $document
     ) {
-        $this->queue = 'sri-send';
+        $this->queue = 'sri';
     }
 
     /**
@@ -55,6 +58,7 @@ class ProcessDocumentJob implements ShouldQueue
                 'sri_errors' => ['validation' => 'La empresa no tiene completos los datos fiscales del emisor.'],
             ]);
             Log::warning("Documento #{$this->document->id} no procesado: datos fiscales incompletos");
+
             return;
         }
 
@@ -64,6 +68,7 @@ class ProcessDocumentJob implements ShouldQueue
                 'sri_errors' => ['validation' => 'No existe un establecimiento/punto de emisión activo para el emisor.'],
             ]);
             Log::warning("Documento #{$this->document->id} no procesado: establecimiento/punto de emisión no configurado");
+
             return;
         }
 
@@ -73,6 +78,7 @@ class ProcessDocumentJob implements ShouldQueue
                 'sri_errors' => ['validation' => 'La empresa no tiene configurada la clave del SRI.'],
             ]);
             Log::warning("Documento #{$this->document->id} no procesado: clave SRI no configurada");
+
             return;
         }
 
@@ -82,6 +88,7 @@ class ProcessDocumentJob implements ShouldQueue
                 'sri_errors' => ['validation' => 'La empresa no tiene una firma electrónica .p12 válida.'],
             ]);
             Log::warning("Documento #{$this->document->id} no procesado: firma electrónica no válida");
+
             return;
         }
 
@@ -97,13 +104,19 @@ class ProcessDocumentJob implements ShouldQueue
                 $this->document->tenant->increment('documents_this_month');
 
                 // Disparar envío al cliente
-                SendDocumentToClientJob::dispatch($this->document)->onQueue('email');
+                SendDocumentToClientJob::dispatch($this->document)->onQueue('emails');
             } else {
                 Log::warning("Documento #{$this->document->id} rechazado", [
                     'errors' => $this->document->sri_errors,
                 ]);
                 event(new DocumentRejected($this->document));
             }
+        } catch (SriCommunicationException $e) {
+            Log::warning("Documento #{$this->document->id} en contingencia SRI", [
+                'error' => $e->getMessage(),
+            ]);
+
+            throw $e;
         } catch (\Exception $e) {
             Log::error("Error procesando documento #{$this->document->id}", [
                 'error' => $e->getMessage(),
@@ -118,6 +131,20 @@ class ProcessDocumentJob implements ShouldQueue
             'error' => $e->getMessage(),
         ]);
 
+        if ($e instanceof SriCommunicationException) {
+            $this->document->update([
+                'status' => DocumentStatus::PROCESSING,
+                'sri_errors' => array_merge($this->document->sri_errors ?? [], [
+                    'contingency_active' => true,
+                    'contingency_message' => $e->getMessage(),
+                    'retry_recommended_at' => now()->addMinutes(15)->toIso8601String(),
+                ]),
+                'last_sri_attempt_at' => now(),
+            ]);
+
+            return;
+        }
+
         $this->document->update([
             'status' => DocumentStatus::FAILED,
             'sri_errors' => ['fatal' => $e->getMessage()],
@@ -131,6 +158,6 @@ class ProcessDocumentJob implements ShouldQueue
      */
     public function retryUntil(): \DateTime
     {
-        return now()->addMinutes(15);
+        return now()->addMinutes(20);
     }
 }

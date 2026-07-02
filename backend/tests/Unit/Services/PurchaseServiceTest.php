@@ -3,6 +3,7 @@
 namespace Tests\Unit\Services;
 
 use App\Enums\PurchaseStatus;
+use App\Events\PurchaseRegistered;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\Purchase;
 use App\Models\Tenant\Supplier;
@@ -10,6 +11,7 @@ use App\Models\Tenant\Tenant;
 use App\Models\User;
 use App\Services\Purchase\PurchaseService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
 
 class PurchaseServiceTest extends TestCase
@@ -75,6 +77,34 @@ class PurchaseServiceTest extends TestCase
         ]);
         $this->assertEquals(1, $purchase->items->count());
         $this->assertEquals(500.00, (float) $purchase->items->first()->subtotal);
+    }
+
+    public function test_creating_purchase_dispatches_purchase_registered_event(): void
+    {
+        Event::fake([PurchaseRegistered::class]);
+
+        $purchase = $this->service
+            ->forTenant($this->tenant)
+            ->createPurchase([
+                'company_id' => $this->company->id,
+                'supplier_id' => $this->supplier->id,
+                'document_type' => '01',
+                'supplier_document_number' => '001-001-000000099',
+                'issue_date' => now()->format('Y-m-d'),
+                'created_by' => $this->user->id,
+            ], [
+                [
+                    'description' => 'Evento test',
+                    'quantity' => 1,
+                    'unit_price' => 100.00,
+                    'tax_rate' => 15,
+                ],
+            ]);
+
+        Event::assertDispatched(
+            PurchaseRegistered::class,
+            fn (PurchaseRegistered $event) => $event->purchase->id === $purchase->id,
+        );
     }
 
     public function test_purchase_calculates_totals_correctly(): void

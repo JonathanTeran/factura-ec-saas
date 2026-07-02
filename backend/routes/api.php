@@ -7,11 +7,14 @@ use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DocumentController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ProfileController;
+use App\Http\Controllers\Api\V1\DocumentSettingsController;
 use App\Http\Controllers\Api\V1\CatalogController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\BranchController;
 use App\Http\Controllers\Api\V1\EmissionPointController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
+use App\Http\Controllers\Api\V1\OnboardingController;
+use App\Http\Controllers\Api\V1\SriLookupController;
 use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\InventoryController;
 use App\Http\Controllers\Api\V1\SupplierController;
@@ -60,6 +63,10 @@ Route::prefix('v1')->group(function () {
             Route::put('password', [ProfileController::class, 'updatePassword']);
         });
 
+        // Document/Email settings (Plantillas de documento en el panel Next.js)
+        Route::get('document-settings', [DocumentSettingsController::class, 'show']);
+        Route::put('document-settings', [DocumentSettingsController::class, 'update']);
+
         // Companies
         Route::prefix('companies')->group(function () {
             Route::get('/', [CompanyController::class, 'index']);
@@ -69,9 +76,29 @@ Route::prefix('v1')->group(function () {
             Route::get('{company}/emission-points', [CompanyController::class, 'emissionPoints']);
         });
 
+        // Onboarding (setup wizard for Next.js frontend)
+        Route::prefix('onboarding')->group(function () {
+            Route::get('status', [OnboardingController::class, 'status']);
+            Route::post('company', [OnboardingController::class, 'company']);
+            Route::post('certificate', [OnboardingController::class, 'certificate']);
+            Route::post('establishment', [OnboardingController::class, 'establishment']);
+            Route::get('sequentials', [OnboardingController::class, 'sequentials']);
+            Route::post('sequentials', [OnboardingController::class, 'storeSequentials']);
+            Route::post('complete', [OnboardingController::class, 'complete']);
+        });
+
+        // Estado de la firma electrónica (avisos de caducidad en el panel)
+        Route::get('signature-status', [OnboardingController::class, 'signatureStatus']);
+
+        // Consulta pública del catastro del SRI (autocompletar datos por RUC/cédula)
+        Route::get('sri/ruc/{ruc}', [SriLookupController::class, 'ruc']);
+        Route::get('sri/identification/{identification}', [SriLookupController::class, 'identification']);
+        Route::post('sri/import-establishments', [SriLookupController::class, 'importEstablishments']);
+
         // Dashboard
         Route::prefix('dashboard')->group(function () {
             Route::get('stats', [DashboardController::class, 'stats']);
+            Route::get('readiness', [DashboardController::class, 'readiness']);
             Route::get('recent-documents', [DashboardController::class, 'recentDocuments']);
             Route::get('monthly-summary', [DashboardController::class, 'monthlySummary']);
             Route::get('chart-data', [DashboardController::class, 'chartData']);
@@ -241,6 +268,34 @@ Route::prefix('v1')->group(function () {
                 Route::post('{period}/reopen', [\App\Http\Controllers\Api\V1\Accounting\FiscalPeriodController::class, 'reopen']);
             });
         });
+
+        // Quotes
+        Route::apiResource('quotes', \App\Http\Controllers\Api\V1\QuoteController::class);
+        Route::post('quotes/{quote}/send', [\App\Http\Controllers\Api\V1\QuoteController::class, 'send']);
+        Route::post('quotes/{quote}/accept', [\App\Http\Controllers\Api\V1\QuoteController::class, 'accept']);
+        Route::post('quotes/{quote}/reject', [\App\Http\Controllers\Api\V1\QuoteController::class, 'reject']);
+
+        // Received documents (compras electrónicas)
+        Route::apiResource('received-documents', \App\Http\Controllers\Api\V1\ReceivedDocumentController::class);
+
+        // Personal expenses
+        Route::apiResource('personal-expenses', \App\Http\Controllers\Api\V1\PersonalExpenseController::class);
+        Route::get('personal-expenses-summary', [\App\Http\Controllers\Api\V1\PersonalExpenseController::class, 'summary']);
+        Route::get('personal-expenses-budget', [\App\Http\Controllers\Api\V1\PersonalExpenseController::class, 'budget']);
+        Route::put('personal-expenses-budget', [\App\Http\Controllers\Api\V1\PersonalExpenseController::class, 'updateBudget']);
+
+        // Recurring invoices
+        Route::apiResource('recurring-invoices', \App\Http\Controllers\Api\V1\RecurringInvoiceController::class);
+        Route::post('recurring-invoices/{recurring_invoice}/pause', [\App\Http\Controllers\Api\V1\RecurringInvoiceController::class, 'pause']);
+        Route::post('recurring-invoices/{recurring_invoice}/resume', [\App\Http\Controllers\Api\V1\RecurringInvoiceController::class, 'resume']);
+
+        // Support tickets
+        Route::get('support/tickets', [\App\Http\Controllers\Api\V1\SupportTicketController::class, 'index']);
+        Route::post('support/tickets', [\App\Http\Controllers\Api\V1\SupportTicketController::class, 'store']);
+        Route::get('support/tickets/{ticket}', [\App\Http\Controllers\Api\V1\SupportTicketController::class, 'show']);
+        Route::post('support/tickets/{ticket}/reply', [\App\Http\Controllers\Api\V1\SupportTicketController::class, 'reply']);
+        Route::post('support/tickets/{ticket}/close', [\App\Http\Controllers\Api\V1\SupportTicketController::class, 'close']);
+        Route::post('support/tickets/{ticket}/reopen', [\App\Http\Controllers\Api\V1\SupportTicketController::class, 'reopen']);
     });
 });
 

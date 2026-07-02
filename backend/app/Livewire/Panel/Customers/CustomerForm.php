@@ -4,6 +4,7 @@ namespace App\Livewire\Panel\Customers;
 
 use App\Models\Tenant\Customer;
 use App\Enums\IdentificationType;
+use App\Services\SRI\RucLookupService;
 use Livewire\Component;
 
 class CustomerForm extends Component
@@ -85,6 +86,34 @@ class CustomerForm extends Component
             if ($this->identification === '9999999999999') {
                 $this->identification = '';
                 $this->business_name = '';
+            }
+        }
+    }
+
+    // Autocompleta razón social y dirección desde el catastro público del SRI
+    public function lookupSri(RucLookupService $lookupService): void
+    {
+        if (preg_match('/^([0-9]{10}|[0-9]{13})$/', $this->identification) !== 1) {
+            $this->addError('identification', 'Ingresa una cédula (10 dígitos) o RUC (13 dígitos) para consultar el SRI.');
+            return;
+        }
+
+        $taxpayer = $lookupService->lookupIdentification($this->identification);
+
+        if ($taxpayer === null) {
+            $this->addError('identification', 'No se encontró esta identificación en el catastro del SRI. Ingresa los datos manualmente.');
+            return;
+        }
+
+        $this->business_name = $this->business_name ?: $taxpayer['business_name'];
+
+        if (blank($this->address)) {
+            $main = collect($lookupService->establishments($taxpayer['ruc']))
+                ->firstWhere('is_main', true);
+            $this->address = (string) ($main['address'] ?? '');
+
+            if ($main && blank($this->trade_name)) {
+                $this->trade_name = (string) ($main['trade_name'] ?? '');
             }
         }
     }

@@ -10,6 +10,7 @@ use App\Events\TenantCreated;
 use App\Listeners\CheckPlanLimitsAfterDocument;
 use App\Listeners\GenerateAccountingEntry;
 use App\Listeners\GenerateAccountingEntryForPurchase;
+use App\Listeners\InvalidateTenantDashboardCache;
 use App\Listeners\LogDocumentActivity;
 use App\Listeners\SendDocumentAuthorizedNotification;
 use App\Listeners\SendDocumentRejectedNotification;
@@ -40,6 +41,7 @@ class EventServiceProvider extends ServiceProvider
         DocumentAuthorized::class => [
             SendDocumentAuthorizedNotification::class,
             GenerateAccountingEntry::class,
+            InvalidateTenantDashboardCache::class,
         ],
 
         PurchaseRegistered::class => [
@@ -48,6 +50,7 @@ class EventServiceProvider extends ServiceProvider
 
         DocumentRejected::class => [
             SendDocumentRejectedNotification::class,
+            InvalidateTenantDashboardCache::class,
         ],
 
         TenantCreated::class => [

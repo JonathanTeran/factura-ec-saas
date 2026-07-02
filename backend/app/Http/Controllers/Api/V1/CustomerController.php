@@ -8,6 +8,7 @@ use App\Http\Resources\DocumentResource;
 use App\Models\Tenant\Customer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * @tags Clientes
@@ -24,7 +25,12 @@ class CustomerController extends ApiController
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Customer::where('tenant_id', $request->user()->tenant_id)
+        $query = Customer::select([
+                'id', 'tenant_id', 'identification_type', 'identification',
+                'name', 'email', 'additional_emails', 'phone', 'address', 'is_active',
+                'created_at', 'updated_at',
+            ])
+            ->where('tenant_id', $request->user()->tenant_id)
             ->orderBy('name');
 
         if ($request->has('search')) {
@@ -56,10 +62,14 @@ class CustomerController extends ApiController
             unset($data['identification_number']);
         }
 
+        $tenantId = $request->user()->tenant_id;
+
         $customer = Customer::create([
-            'tenant_id' => $request->user()->tenant_id,
+            'tenant_id' => $tenantId,
             ...$data,
         ]);
+
+        Cache::tags(["tenant:{$tenantId}", 'customers'])->flush();
 
         return $this->created([
             'customer' => new CustomerResource($customer),
@@ -95,6 +105,8 @@ class CustomerController extends ApiController
 
         $customer->update($data);
 
+        Cache::tags(["tenant:{$request->user()->tenant_id}", 'customers'])->flush();
+
         return $this->success([
             'customer' => new CustomerResource($customer),
         ], 'Cliente actualizado exitosamente');
@@ -129,14 +141,21 @@ class CustomerController extends ApiController
      */
     public function search(Request $request, string $query): JsonResponse
     {
-        $customers = Customer::where('tenant_id', $request->user()->tenant_id)
-            ->where(function ($q) use ($query) {
-                $q->where('name', 'like', "%{$query}%")
-                    ->orWhere('identification', 'like', "%{$query}%")
-                    ->orWhere('email', 'like', "%{$query}%");
-            })
-            ->limit(10)
-            ->get();
+        $tenantId = $request->user()->tenant_id;
+        $cacheKey = "search:customers:{$tenantId}:" . md5($query);
+
+        $customers = Cache::tags(["tenant:{$tenantId}", 'customers'])->remember(
+            $cacheKey,
+            120,
+            fn () => Customer::where('tenant_id', $tenantId)
+                ->where(function ($q) use ($query) {
+                    $q->where('name', 'like', "%{$query}%")
+                        ->orWhere('identification', 'like', "%{$query}%")
+                        ->orWhere('email', 'like', "%{$query}%");
+                })
+                ->limit(10)
+                ->get()
+        );
 
         return $this->success([
             'customers' => CustomerResource::collection($customers),

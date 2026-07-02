@@ -1,0 +1,76 @@
+name: Deploy to Production
+
+# ===========================================================================
+# Continuous Deployment - Factura EC SaaS
+# ===========================================================================
+# Este workflow despliega a produccion (facturacion.amephia.com) ejecutando
+# `./deploy.sh update` en el servidor por SSH.
+#
+# Encadenamiento con CI:
+#   Se dispara con `workflow_run` cuando el workflow "CI" (ci.yml) termina en
+#   la rama `main`. El job `deploy` solo corre si la conclusion de CI fue
+#   `success`, garantizando que lint + tests + builds pasaron antes de desplegar.
+#
+# Gate de aprobacion manual:
+#   El job usa el environment `production`. Configura "Required reviewers" en
+#   Settings > Environments > production para exigir aprobacion humana antes
+#   de cada deploy. Sin esa proteccion, el deploy es automatico tras CI.
+#
+# ---------------------------------------------------------------------------
+# SECRETS REQUERIDOS (Settings > Secrets and variables > Actions):
+#   SSH_HOST        IP o hostname del servidor de produccion (ej. 1.2.3.4)
+#   SSH_USER        Usuario SSH con permiso para ejecutar deploy.sh (ej. deploy)
+#   SSH_KEY         Clave PRIVADA SSH (contenido completo de la id_ed25519 / id_rsa)
+#   SSH_PORT        (Opcional) Puerto SSH. Por defecto 22.
+#   DEPLOY_PATH     Ruta absoluta del proyecto en el servidor
+#                   (ej. /opt/factura-ec-saas o /home/deploy/factura-ec-saas)
+#
+# La clave publica correspondiente a SSH_KEY debe estar en
+# ~/.ssh/authorized_keys del usuario SSH_USER en el servidor.
+# ===========================================================================
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+    branches:
+      - main
+  # Permite lanzar el deploy manualmente desde la pestana Actions.
+  workflow_dispatch:
+
+# Evita despliegues concurrentes pisandose entre si.
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy (deploy.sh update)
+    runs-on: ubuntu-latest
+    # Solo si CI paso (success), o si se lanzo manualmente con workflow_dispatch.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    # El environment habilita el gate de aprobacion manual (required reviewers).
+    environment:
+      name: production
+      url: https://facturacion.amephia.com
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -e
+            cd "${{ secrets.DEPLOY_PATH }}"
+            echo "==> Actualizando codigo (git pull)..."
+            git pull --ff-only origin main
+            echo "==> Ejecutando deploy.sh update..."
+            ./deploy.sh update
+            echo "==> Estado de servicios:"
+            ./deploy.sh status

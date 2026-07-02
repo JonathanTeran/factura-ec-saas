@@ -7,6 +7,7 @@ use App\Http\Resources\ProductResource;
 use App\Models\Tenant\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * @tags Productos
@@ -25,7 +26,14 @@ class ProductController extends ApiController
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Product::where('tenant_id', $request->user()->tenant_id)
+        $query = Product::select([
+                'id', 'tenant_id', 'main_code', 'aux_code', 'name',
+                'description', 'type', 'unit_price', 'cost_price',
+                'tax_code', 'tax_percentage_code', 'tax_rate',
+                'track_inventory', 'current_stock', 'min_stock',
+                'is_active', 'created_at', 'updated_at',
+            ])
+            ->where('tenant_id', $request->user()->tenant_id)
             ->orderBy('name');
 
         if ($request->has('search')) {
@@ -33,7 +41,8 @@ class ProductController extends ApiController
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                     ->orWhere('main_code', 'like', "%{$search}%")
-                    ->orWhere('sku', 'like', "%{$search}%");
+                    ->orWhere('aux_code', 'like', "%{$search}%")
+                    ->orWhere('barcode', 'like', "%{$search}%");
             });
         }
 
@@ -73,10 +82,14 @@ class ProductController extends ApiController
             unset($data['stock']);
         }
 
+        $tenantId = $request->user()->tenant_id;
+
         $product = Product::create([
-            'tenant_id' => $request->user()->tenant_id,
+            'tenant_id' => $tenantId,
             ...$data,
         ]);
+
+        Cache::tags(["tenant:{$tenantId}", 'products'])->flush();
 
         return $this->created([
             'product' => new ProductResource($product),
@@ -108,6 +121,8 @@ class ProductController extends ApiController
 
         $product->update($request->validated());
 
+        Cache::tags(["tenant:{$request->user()->tenant_id}", 'products'])->flush();
+
         return $this->success([
             'product' => new ProductResource($product),
         ], 'Producto actualizado exitosamente');
@@ -130,7 +145,11 @@ class ProductController extends ApiController
             );
         }
 
+        $tenantId = $request->user()->tenant_id;
+
         $product->delete();
+
+        Cache::tags(["tenant:{$tenantId}", 'products'])->flush();
 
         return $this->success(null, 'Producto eliminado exitosamente');
     }
@@ -142,15 +161,22 @@ class ProductController extends ApiController
      */
     public function search(Request $request, string $query): JsonResponse
     {
-        $products = Product::where('tenant_id', $request->user()->tenant_id)
-            ->where('is_active', true)
-            ->where(function ($q) use ($query) {
-                $q->where('name', 'like', "%{$query}%")
-                    ->orWhere('code', 'like', "%{$query}%")
-                    ->orWhere('sku', 'like', "%{$query}%");
-            })
-            ->limit(10)
-            ->get();
+        $tenantId = $request->user()->tenant_id;
+        $cacheKey = "search:products:{$tenantId}:" . md5($query);
+
+        $products = Cache::tags(["tenant:{$tenantId}", 'products'])->remember(
+            $cacheKey,
+            120,
+            fn () => Product::where('tenant_id', $tenantId)
+                ->where('is_active', true)
+                ->where(function ($q) use ($query) {
+                    $q->where('name', 'like', "%{$query}%")
+                        ->orWhere('code', 'like', "%{$query}%")
+                        ->orWhere('sku', 'like', "%{$query}%");
+                })
+                ->limit(10)
+                ->get()
+        );
 
         return $this->success([
             'products' => ProductResource::collection($products),

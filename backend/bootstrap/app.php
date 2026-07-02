@@ -31,6 +31,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'api.rate' => \Illuminate\Routing\Middleware\ThrottleRequests::class.':api',
         ]);
 
+        $middleware->api(append: [
+            \App\Http\Middleware\CompressResponse::class,
+        ]);
+
         $middleware->web(append: [
             \App\Http\Middleware\SetTenantScope::class,
         ]);

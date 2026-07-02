@@ -2,15 +2,20 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\TenantStatus;
+use App\Enums\UserRole;
 use App\Http\Requests\Api\LoginRequest;
 use App\Http\Requests\Api\RegisterRequest;
 use App\Http\Resources\UserResource;
+use App\Models\Billing\Plan;
 use App\Models\Tenant\Tenant;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -71,33 +76,52 @@ class AuthController extends ApiController
      */
     public function register(RegisterRequest $request): JsonResponse
     {
-        // Create tenant
-        $tenant = Tenant::create([
-            'name' => $request->company_name,
-            'slug' => \Str::slug($request->company_name) . '-' . \Str::random(4),
-            'email' => $request->email,
-            'plan_id' => 1, // Default to Starter plan
-            'status' => 'active',
-            'trial_ends_at' => null,
-        ]);
+        [$user, $token] = DB::transaction(function () use ($request) {
+            // Default to the cheapest active plan (nullable FK, safe if none exist)
+            $defaultPlan = Plan::where('is_active', true)->orderBy('sort_order')->first();
 
-        // Create user
-        $user = User::create([
-            'tenant_id' => $tenant->id,
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'role' => 'tenant_owner',
-            'is_active' => true,
-        ]);
+            // Create tenant (uuid + referral_code are set by the model on creating)
+            $tenant = Tenant::create([
+                'name' => $request->company_name,
+                'slug' => Str::slug($request->company_name) . '-' . Str::random(4),
+                'owner_email' => $request->email,
+                'status' => TenantStatus::ACTIVE,
+                'trial_ends_at' => null,
+                'current_plan_id' => $defaultPlan?->id,
+                'max_documents_per_month' => $defaultPlan?->max_documents_per_month ?? 10,
+                'max_users' => $defaultPlan?->max_users ?? 1,
+                'max_companies' => $defaultPlan?->max_companies ?? 1,
+                'max_emission_points' => $defaultPlan?->max_emission_points ?? 1,
+                'has_api_access' => $defaultPlan?->has_api_access ?? false,
+                'has_inventory' => $defaultPlan?->has_inventory ?? false,
+                'has_pos' => $defaultPlan?->has_pos ?? false,
+                'has_recurring_invoices' => $defaultPlan?->has_recurring_invoices ?? false,
+                'has_advanced_reports' => $defaultPlan?->has_advanced_reports ?? false,
+                'has_whitelabel_ride' => $defaultPlan?->has_whitelabel_ride ?? false,
+                'documents_this_month' => 0,
+                'documents_month_reset_at' => now()->startOfMonth(),
+            ]);
 
-        $tenant->update(['owner_id' => $user->id]);
+            // Create user
+            $user = User::create([
+                'tenant_id' => $tenant->id,
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+                'role' => UserRole::TENANT_OWNER,
+                'is_active' => true,
+            ]);
 
-        $token = $user->createToken(
-            $request->device_name ?? 'mobile-app',
-            ['*'],
-            now()->addDays(30)
-        );
+            $tenant->update(['owner_id' => $user->id]);
+
+            $token = $user->createToken(
+                $request->device_name ?? 'mobile-app',
+                ['*'],
+                now()->addDays(30)
+            );
+
+            return [$user, $token];
+        });
 
         return $this->created([
             'user' => new UserResource($user->load('tenant')),

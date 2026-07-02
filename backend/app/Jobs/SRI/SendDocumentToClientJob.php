@@ -2,71 +2,67 @@
 
 namespace App\Jobs\SRI;
 
-use App\Models\SRI\ElectronicDocument;
 use App\Mail\DocumentAuthorizedMail;
+use App\Models\SRI\ElectronicDocument;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Mail;
 
 class SendDocumentToClientJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 3;
+
     public array $backoff = [60, 300, 900];
 
     public function __construct(
-        public ElectronicDocument $document
+        public ElectronicDocument $document,
+        public ?string $email = null,
     ) {
-        $this->queue = 'email';
+        $this->queue = 'emails';
     }
 
     public function handle(): void
     {
         $customer = $this->document->customer;
+        $recipientEmail = $this->email ?: $customer?->email;
 
-        if (!$customer || !$customer->email) {
+        if (! $recipientEmail) {
             Log::info("Documento #{$this->document->id}: cliente sin email, omitiendo envío");
+
             return;
         }
 
+        // Correos adicionales del cliente (copia), excluyendo al destinatario principal
+        $cc = collect($customer?->additional_emails ?? [])
+            ->filter(fn ($e) => is_string($e) && filter_var($e, FILTER_VALIDATE_EMAIL))
+            ->reject(fn ($e) => strcasecmp($e, $recipientEmail) === 0)
+            ->unique(fn ($e) => strtolower($e))
+            ->values()
+            ->all();
+
         try {
-            // Obtener archivos adjuntos
-            $attachments = [];
+            $mail = Mail::to($recipientEmail);
 
-            if ($this->document->ride_pdf_path) {
-                $attachments[] = [
-                    'path' => $this->document->ride_pdf_path,
-                    'as' => $this->document->getDocumentNumber() . '.pdf',
-                    'mime' => 'application/pdf',
-                ];
+            if (! empty($cc)) {
+                $mail->cc($cc);
             }
 
-            if ($this->document->xml_authorized_path) {
-                $attachments[] = [
-                    'path' => $this->document->xml_authorized_path,
-                    'as' => $this->document->getDocumentNumber() . '.xml',
-                    'mime' => 'application/xml',
-                ];
-            }
+            $mail->send(new DocumentAuthorizedMail($this->document));
 
-            // Enviar email
-            Mail::to($customer->email)->send(
-                new DocumentAuthorizedMail($this->document, $attachments)
-            );
-
-            // Actualizar registro
+            // Actualizar registro (incluye a quién se envió)
             $this->document->update([
                 'email_sent' => true,
                 'email_sent_at' => now(),
+                'email_sent_to' => $recipientEmail,
             ]);
 
-            Log::info("Documento #{$this->document->id} enviado por email a {$customer->email}");
+            Log::info("Documento #{$this->document->id} enviado por email a {$recipientEmail}");
 
         } catch (\Exception $e) {
             Log::error("Error enviando documento #{$this->document->id} por email", [

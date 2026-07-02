@@ -16,9 +16,9 @@ class DocumentRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'company_id' => ['required', 'exists:companies,id'],
-            'customer_id' => ['required', 'exists:customers,id'],
-            'emission_point_id' => ['required', 'exists:emission_points,id'],
+            'company_id' => ['required', Rule::exists('companies', 'id')->where('tenant_id', $this->user()->tenant_id)],
+            'customer_id' => ['required', Rule::exists('customers', 'id')->where('tenant_id', $this->user()->tenant_id)],
+            'emission_point_id' => ['required', Rule::exists('emission_points', 'id')->where('tenant_id', $this->user()->tenant_id)],
             'document_type' => ['required', Rule::enum(DocumentType::class)],
             'issue_date' => ['nullable', 'date'],
             'subtotal_no_tax' => ['nullable', 'numeric', 'min:0'],
@@ -40,10 +40,21 @@ class DocumentRequest extends FormRequest
             // Compatibilidad con clientes existentes
             'payment_method' => ['nullable', 'string', 'max:5'],
             'payment_term' => ['nullable', 'integer', 'min:0'],
+            // Valores string (campos SRI nombre/valor) o arrays anidados
+            // (ej. `destinatarios` de guía de remisión — ver DocumentBuilder::waybill).
             'additional_info' => ['nullable', 'array'],
-            'additional_info.*' => ['string', 'max:300'],
-            'items' => ['required', 'array', 'min:1'],
-            'items.*.product_id' => ['nullable', 'exists:products,id'],
+            'additional_info.*' => [
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    if (is_string($value) && mb_strlen($value) > 300) {
+                        $fail("El campo {$attribute} no debe superar 300 caracteres.");
+                    }
+                    if (! is_string($value) && ! is_array($value)) {
+                        $fail("El campo {$attribute} debe ser texto o una lista.");
+                    }
+                },
+            ],
+            'items' => ['required_unless:document_type,07', 'array', 'min:1'],
+            'items.*.product_id' => ['nullable', Rule::exists('products', 'id')->where('tenant_id', $this->user()->tenant_id)],
             'items.*.main_code' => ['required', 'string', 'max:50'],
             'items.*.aux_code' => ['nullable', 'string', 'max:50'],
             'items.*.description' => ['required', 'string', 'max:300'],
@@ -61,8 +72,27 @@ class DocumentRequest extends FormRequest
         // For credit notes and debit notes, require reference document
         if ($this->input('document_type') === DocumentType::NOTA_CREDITO->value ||
             $this->input('document_type') === DocumentType::NOTA_DEBITO->value) {
-            $rules['reference_document_id'] = ['required', 'exists:electronic_documents,id'];
+            $rules['reference_document_id'] = [
+                'required',
+                Rule::exists('electronic_documents', 'id')
+                    ->where('tenant_id', $this->user()->tenant_id),
+            ];
             $rules['modification_reason'] = ['required', 'string', 'max:300'];
+        }
+
+        // For withholding receipts (comprobante de retención), require withholding details
+        if ($this->input('document_type') === DocumentType::RETENCION->value) {
+            $rules['withholding_details'] = ['required', 'array', 'min:1'];
+            $rules['withholding_details.*.support_doc_code'] = ['required', 'string', 'max:5'];
+            $rules['withholding_details.*.support_doc_number'] = ['required', 'string', 'max:20'];
+            $rules['withholding_details.*.support_doc_date'] = ['required', 'date'];
+            $rules['withholding_details.*.support_doc_total'] = ['nullable', 'numeric', 'min:0'];
+            $rules['withholding_details.*.support_reason_code'] = ['nullable', 'string', 'max:5'];
+            $rules['withholding_details.*.tax_type'] = ['required', Rule::in(['renta', 'iva'])];
+            $rules['withholding_details.*.retention_code'] = ['required', 'string', 'max:10'];
+            $rules['withholding_details.*.tax_base'] = ['required', 'numeric', 'min:0'];
+            $rules['withholding_details.*.retention_rate'] = ['required', 'numeric', 'min:0', 'max:100'];
+            $rules['withholding_details.*.retained_value'] = ['required', 'numeric', 'min:0'];
         }
 
         return $rules;
@@ -84,6 +114,16 @@ class DocumentRequest extends FormRequest
             'items.*.unit_price.required' => 'El precio unitario es requerido para cada item.',
             'reference_document_id.required' => 'El documento de referencia es requerido para notas de crédito/débito.',
             'modification_reason.required' => 'El motivo de modificación es requerido.',
+            'withholding_details.required' => 'Debe incluir al menos una retención.',
+            'withholding_details.min' => 'Debe incluir al menos una retención.',
+            'withholding_details.*.support_doc_code.required' => 'El tipo de documento sustento es requerido.',
+            'withholding_details.*.support_doc_number.required' => 'El número de documento sustento es requerido.',
+            'withholding_details.*.support_doc_date.required' => 'La fecha del documento sustento es requerida.',
+            'withholding_details.*.tax_type.required' => 'El tipo de impuesto es requerido para cada retención.',
+            'withholding_details.*.retention_code.required' => 'El código de retención es requerido para cada retención.',
+            'withholding_details.*.tax_base.required' => 'La base imponible es requerida para cada retención.',
+            'withholding_details.*.retention_rate.required' => 'El porcentaje de retención es requerido.',
+            'withholding_details.*.retained_value.required' => 'El valor retenido es requerido.',
         ];
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\Billing\Plan;
 use App\Models\Tenant\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -12,6 +13,65 @@ use Tests\TestCase;
 class AuthApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_user_can_register(): void
+    {
+        $plan = Plan::factory()->create([
+            'slug' => 'emprendedor',
+            'is_active' => true,
+            'sort_order' => 1,
+            'max_documents_per_month' => 50,
+        ]);
+
+        $response = $this->postJson('/api/v1/auth/register', [
+            'name' => 'Jane Doe',
+            'email' => 'jane@example.com',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+            'company_name' => 'ACME Corp',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonStructure([
+                'success',
+                'data' => ['user', 'token', 'token_type', 'expires_at'],
+            ]);
+
+        $user = User::where('email', 'jane@example.com')->first();
+        $this->assertNotNull($user);
+        $this->assertTrue($user->is_active);
+
+        $tenant = $user->tenant;
+        $this->assertNotNull($tenant);
+        $this->assertSame('jane@example.com', $tenant->owner_email);
+        $this->assertNotEmpty($tenant->uuid);
+        $this->assertSame($plan->id, $tenant->current_plan_id);
+        $this->assertSame($user->id, $tenant->owner_id);
+        $this->assertSame($plan->max_documents_per_month, $tenant->max_documents_per_month);
+    }
+
+    public function test_registration_requires_unique_email(): void
+    {
+        Plan::factory()->create(['slug' => 'emprendedor', 'is_active' => true, 'sort_order' => 1]);
+
+        $tenant = Tenant::factory()->create();
+        User::factory()->create([
+            'tenant_id' => $tenant->id,
+            'email' => 'taken@example.com',
+        ]);
+
+        $response = $this->postJson('/api/v1/auth/register', [
+            'name' => 'Someone',
+            'email' => 'taken@example.com',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+            'company_name' => 'Another Co',
+        ]);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors('email');
+    }
 
     public function test_user_can_login(): void
     {

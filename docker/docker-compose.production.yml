@@ -33,6 +33,28 @@ services:
       retries: 3
 
   # ===========================================
+  # Frontend Next.js (panel del inquilino)
+  # ===========================================
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: ${FRONTEND_URL:-https://facturacion.amephia.com}
+        NEXT_PUBLIC_APP_NAME: "AmePhia Facturación"
+    container_name: factura-ec-frontend
+    restart: always
+    environment:
+      # El proxy server-side del frontend llama al backend por la red interna.
+      LARAVEL_API_URL: http://nginx
+      NEXT_PUBLIC_APP_URL: ${FRONTEND_URL:-https://facturacion.amephia.com}
+      NODE_ENV: production
+    networks:
+      - factura-network
+    depends_on:
+      - nginx
+
+  # ===========================================
   # Nginx Web Server
   # ===========================================
   nginx:

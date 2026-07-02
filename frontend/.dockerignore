@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+.env*
+.playwright-mcp
+npm-debug.log*
+Dockerfile
+.dockerignore
+README.md

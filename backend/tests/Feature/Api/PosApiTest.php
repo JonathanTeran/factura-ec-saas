@@ -150,12 +150,22 @@ class PosApiTest extends TestCase
             'is_active' => true,
         ]);
 
+        $companyWithoutPos = Company::factory()->create(['tenant_id' => $tenantWithoutPos->id]);
+        $branchWithoutPos = Branch::factory()->create([
+            'tenant_id' => $tenantWithoutPos->id,
+            'company_id' => $companyWithoutPos->id,
+        ]);
+        $emissionPointWithoutPos = EmissionPoint::factory()->create([
+            'tenant_id' => $tenantWithoutPos->id,
+            'branch_id' => $branchWithoutPos->id,
+        ]);
+
         Sanctum::actingAs($userWithoutPos);
 
         $response = $this->postJson('/api/v1/pos/open-session', [
-            'company_id' => $this->company->id,
-            'branch_id' => $this->branch->id,
-            'emission_point_id' => $this->emissionPoint->id,
+            'company_id' => $companyWithoutPos->id,
+            'branch_id' => $branchWithoutPos->id,
+            'emission_point_id' => $emissionPointWithoutPos->id,
         ]);
 
         $response->assertStatus(403);

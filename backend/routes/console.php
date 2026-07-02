@@ -19,21 +19,21 @@ Artisan::command('inspire', function () {
 */
 
 // Check for trials ending - daily at 8 AM
-Schedule::job(new CheckTrialEndingJob())
+Schedule::job(new CheckTrialEndingJob)
     ->dailyAt('08:00')
     ->name('check-trial-ending')
     ->withoutOverlapping()
     ->onOneServer();
 
 // Check for certificate expiry - daily at 9 AM
-Schedule::job(new CheckCertificateExpiryJob())
+Schedule::job(new CheckCertificateExpiryJob)
     ->dailyAt('09:00')
     ->name('check-certificate-expiry')
     ->withoutOverlapping()
     ->onOneServer();
 
 // Reset monthly document counts - monthly on the 1st at midnight
-Schedule::job(new ResetMonthlyDocumentCountJob())
+Schedule::job(new ResetMonthlyDocumentCountJob)
     ->monthlyOn(1, '00:00')
     ->name('reset-monthly-document-count')
     ->withoutOverlapping()
@@ -62,7 +62,7 @@ Schedule::command('model:prune', [
     ->onOneServer();
 
 // Process recurring invoices - daily at 6 AM
-Schedule::job(new ProcessRecurringInvoicesJob())
+Schedule::job(new ProcessRecurringInvoicesJob)
     ->dailyAt('06:00')
     ->name('process-recurring-invoices')
     ->withoutOverlapping()
@@ -72,6 +72,13 @@ Schedule::job(new ProcessRecurringInvoicesJob())
 Schedule::command('portal:cleanup')
     ->dailyAt('03:00')
     ->name('portal-cleanup')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+// Reintentar documentos cuando el SRI estuvo caído o lento
+Schedule::command('sri:reprocess-pending')
+    ->everyFifteenMinutes()
+    ->name('sri-reprocess-pending')
     ->withoutOverlapping()
     ->onOneServer();
 
@@ -109,6 +116,20 @@ Schedule::command('billing:check-expired')
     ->withoutOverlapping()
     ->onOneServer();
 
+// Avisos de caducidad de firma electrónica (30/15/7 días) - daily 8 AM
+Schedule::command('sri:send-signature-expiry-reminders')
+    ->dailyAt('08:00')
+    ->name('sri-signature-expiry-reminders')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+// Refresco de datos tributarios desde el catastro del SRI - weekly Monday 5 AM
+Schedule::command('sri:refresh-taxpayer-data')
+    ->weeklyOn(1, '05:00')
+    ->name('sri-refresh-taxpayer-data')
+    ->withoutOverlapping()
+    ->onOneServer();
+
 /*
 |--------------------------------------------------------------------------
 | Custom Artisan Commands
@@ -119,13 +140,17 @@ Artisan::command('sri:reprocess-pending', function () {
     $this->info('Reprocessing pending documents...');
 
     $documents = \App\Models\SRI\ElectronicDocument::query()
-        ->whereIn('status', ['sent', 'processing'])
+        ->whereIn('status', ['processing', 'sent', 'signed'])
         ->where('created_at', '>=', now()->subDays(7))
+        ->where(function ($query) {
+            $query->whereNull('last_sri_attempt_at')
+                ->orWhere('last_sri_attempt_at', '<=', now()->subMinutes(10));
+        })
         ->get();
 
     foreach ($documents as $document) {
-        \App\Jobs\CheckDocumentAuthorizationJob::dispatch($document);
-        $this->line("Dispatched check for document {$document->id}");
+        \App\Jobs\SRI\ProcessDocumentJob::dispatch($document);
+        $this->line("Dispatched reprocess for document {$document->id}");
     }
 
     $this->info("Dispatched {$documents->count()} documents for reprocessing");
@@ -142,7 +167,7 @@ Artisan::command('tenant:stats {tenant?}', function (?int $tenant = null) {
 
     $this->table(
         ['ID', 'Name', 'Status', 'Plan', 'Users', 'Companies', 'Documents', 'Docs This Month', 'Max Docs'],
-        $tenants->map(fn($t) => [
+        $tenants->map(fn ($t) => [
             $t->id,
             $t->name,
             $t->status->value,

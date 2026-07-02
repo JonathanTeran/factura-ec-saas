@@ -41,10 +41,19 @@
                         <label for="identification" class="form-label">
                             Número de identificación <span class="text-danger-500">*</span>
                         </label>
-                        <input wire:model.blur="identification" wire:blur="validateIdentification" type="text" id="identification"
-                               placeholder="{{ $identification_type === 'ruc' ? '1234567890001' : '1234567890' }}"
-                               {{ $identification_type === 'consumidor_final' ? 'disabled' : '' }}
-                               class="form-input disabled:bg-slate-50 disabled:text-slate-500 dark:disabled:bg-slate-800 tabular-nums">
+                        <div class="flex gap-2">
+                            <input wire:model.blur="identification" wire:blur="validateIdentification" type="text" id="identification"
+                                   placeholder="{{ $identification_type === 'ruc' ? '1234567890001' : '1234567890' }}"
+                                   {{ $identification_type === 'consumidor_final' ? 'disabled' : '' }}
+                                   class="form-input disabled:bg-slate-50 disabled:text-slate-500 dark:disabled:bg-slate-800 tabular-nums flex-1">
+                            @if (in_array($identification_type, ['ruc', 'cedula']))
+                                <button type="button" wire:click="lookupSri" wire:loading.attr="disabled" wire:target="lookupSri"
+                                        class="btn-secondary shrink-0 whitespace-nowrap">
+                                    <span wire:loading.remove wire:target="lookupSri">Consultar SRI</span>
+                                    <span wire:loading wire:target="lookupSri">Consultando...</span>
+                                </button>
+                            @endif
+                        </div>
                         @error('identification') <p class="form-error">{{ $message }}</p> @enderror
                     </div>
                 </div>

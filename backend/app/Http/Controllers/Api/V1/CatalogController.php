@@ -38,7 +38,7 @@ class CatalogController extends ApiController
     public function paymentMethods(): JsonResponse
     {
         $methods = DB::table('sri_catalogs')
-            ->where('type', 'payment_method')
+            ->where('catalog_type', 'payment_method')
             ->where('is_active', true)
             ->orderBy('code')
             ->get(['code', 'name', 'description']);
@@ -51,7 +51,7 @@ class CatalogController extends ApiController
     public function taxRates(): JsonResponse
     {
         $rates = DB::table('sri_catalogs')
-            ->where('type', 'tax_rate')
+            ->where('catalog_type', 'tax_rate')
             ->where('is_active', true)
             ->orderBy('code')
             ->get(['code', 'name', 'description', 'percentage']);
@@ -64,14 +64,25 @@ class CatalogController extends ApiController
     public function retentionCodes(): JsonResponse
     {
         $codes = DB::table('sri_catalogs')
-            ->whereIn('type', ['retention_iva', 'retention_renta'])
+            ->whereIn('catalog_type', ['retention_iva', 'retention_ir'])
             ->where('is_active', true)
-            ->orderBy('type')
+            ->orderBy('catalog_type')
             ->orderBy('code')
-            ->get(['type', 'code', 'name', 'description', 'percentage']);
+            ->get(['catalog_type', 'code', 'name', 'description', 'percentage']);
+
+        $grouped = $codes
+            ->map(fn ($row) => [
+                'tax_type' => $row->catalog_type === 'retention_ir' ? 'renta' : 'iva',
+                'code' => $row->code,
+                'name' => $row->name,
+                'description' => $row->description,
+                'percentage' => $row->percentage !== null ? (float) $row->percentage : null,
+            ])
+            ->groupBy('tax_type')
+            ->map(fn ($group) => $group->values());
 
         return $this->success([
-            'retention_codes' => $codes->groupBy('type'),
+            'retention_codes' => $grouped,
         ]);
     }
 }

@@ -20,6 +20,24 @@ class Dashboard extends Component
         //
     }
 
+    // Semáforo "listo para facturar" (sin llamada al SRI en cada render)
+    public function getReadinessProperty(): ?array
+    {
+        $company = auth()->user()->tenant->companies()->first();
+
+        if (! $company) {
+            return null;
+        }
+
+        return [
+            'ready' => $company->isReadyForEmission(),
+            'checklist' => $company->emissionReadinessChecklist(),
+            'signature_days_remaining' => $company->signatureDaysRemaining(),
+            'signature_expiring_soon' => $company->isSignatureExpiringSoon(),
+            'production' => (string) $company->sri_environment === '2',
+        ];
+    }
+
     public function getStatsProperty(): array
     {
         $tenant = auth()->user()->tenant;

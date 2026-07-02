@@ -9,6 +9,7 @@ use App\Enums\PaymentStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\SubscriptionStatus;
 use App\Enums\TenantStatus;
+use App\Services\Cache\TenantCacheService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -266,6 +267,12 @@ class PaymentResource extends Resource
                             }
                         }
 
+                        // Invalidar caché del tenant para que la suscripción
+                        // activa se refleje de inmediato (evita falso 403).
+                        if ($record->tenant_id) {
+                            TenantCacheService::invalidateTenant($record->tenant_id);
+                        }
+
                         // Notify customer about approval
                         $owner = $record->tenant?->owner;
                         if ($owner) {
@@ -400,6 +407,9 @@ class PaymentResource extends Resource
                                     if ($record->subscription->plan) {
                                         $record->tenant->syncPlanLimits($record->subscription->plan);
                                     }
+                                }
+                                if ($record->tenant_id) {
+                                    TenantCacheService::invalidateTenant($record->tenant_id);
                                 }
                                 $approved++;
                             }

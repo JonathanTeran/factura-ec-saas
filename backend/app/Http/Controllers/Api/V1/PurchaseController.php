@@ -6,6 +6,7 @@ use App\Models\Tenant\Purchase;
 use App\Services\Purchase\PurchaseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class PurchaseController extends ApiController
 {
@@ -55,9 +56,11 @@ class PurchaseController extends ApiController
 
     public function store(Request $request): JsonResponse
     {
+        $tenantId = $request->user()->tenant_id;
+
         $validated = $request->validate([
-            'company_id' => ['required', 'exists:companies,id'],
-            'supplier_id' => ['required', 'exists:suppliers,id'],
+            'company_id' => ['required', Rule::exists('companies', 'id')->where('tenant_id', $tenantId)],
+            'supplier_id' => ['required', Rule::exists('suppliers', 'id')->where('tenant_id', $tenantId)],
             'document_type' => ['required', 'string', 'max:2'],
             'supplier_document_number' => ['required', 'string', 'max:17'],
             'supplier_authorization' => ['nullable', 'string', 'max:49'],

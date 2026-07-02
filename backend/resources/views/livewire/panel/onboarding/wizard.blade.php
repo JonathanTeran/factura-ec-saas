@@ -97,10 +97,25 @@
                                 <label for="ruc" class="form-label">
                                     RUC <span class="text-danger-500">*</span>
                                 </label>
-                                <input wire:model="ruc" type="text" id="ruc" maxlength="13"
-                                       placeholder="0102030405001"
-                                       class="form-input tabular-nums">
+                                <div class="flex gap-2">
+                                    <input wire:model.blur="ruc" type="text" id="ruc" maxlength="13"
+                                           placeholder="0102030405001"
+                                           class="form-input tabular-nums flex-1">
+                                    <button type="button" wire:click="lookupRuc" wire:loading.attr="disabled" wire:target="lookupRuc, ruc"
+                                            class="btn-secondary shrink-0 whitespace-nowrap">
+                                        <span wire:loading.remove wire:target="lookupRuc, ruc">Consultar SRI</span>
+                                        <span wire:loading wire:target="lookupRuc, ruc">Consultando...</span>
+                                    </button>
+                                </div>
                                 @error('ruc') <p class="form-error">{{ $message }}</p> @enderror
+                                @if ($rucLookupStatus)
+                                    <p class="mt-1 text-xs {{ $rucLookupStatus === 'ACTIVO' ? 'text-success-600 dark:text-success-400' : 'text-danger-500' }}">
+                                        Estado en el SRI: {{ $rucLookupStatus }}
+                                        @if ($rucLookupStatus !== 'ACTIVO')
+                                            — verifica tu RUC antes de emitir comprobantes.
+                                        @endif
+                                    </p>
+                                @endif
                             </div>
 
                             {{-- Razon Social --}}
@@ -133,6 +148,32 @@
                                    placeholder="Av. Principal y Calle Secundaria"
                                    class="form-input">
                             @error('address') <p class="form-error">{{ $message }}</p> @enderror
+                        </div>
+
+                        <div class="grid gap-5 sm:grid-cols-2">
+                            <div class="form-group">
+                                <label for="company_email" class="form-label">
+                                    Correo del emisor <span class="text-danger-500">*</span>
+                                </label>
+                                <input wire:model="email" type="email" id="company_email"
+                                       placeholder="empresa@ejemplo.com"
+                                       class="form-input">
+                                @error('email') <p class="form-error">{{ $message }}</p> @enderror
+                            </div>
+
+                            <div class="form-group">
+                                <label for="sri_password" class="form-label">
+                                    Clave SRI <span class="text-danger-500">*</span>
+                                </label>
+                                <input wire:model="sri_password" type="password" id="sri_password"
+                                       autocomplete="new-password"
+                                       placeholder="{{ $sriPasswordConfigured ? '******** (dejar vacio para conservarla)' : 'Ingresa la clave del SRI' }}"
+                                       class="form-input">
+                                @if ($sriPasswordConfigured)
+                                    <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">Ya existe una clave guardada. Solo completa este campo si deseas reemplazarla.</p>
+                                @endif
+                                @error('sri_password') <p class="form-error">{{ $message }}</p> @enderror
+                            </div>
                         </div>
 
                         {{-- Ambiente SRI --}}
@@ -327,10 +368,9 @@
                                 Atras
                             </button>
                             <div class="flex items-center gap-3">
-                                <button type="button" wire:click="skipCertificate"
-                                        class="text-sm font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors">
-                                    Omitir por ahora
-                                </button>
+                                <span class="text-xs font-medium uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                                    Paso obligatorio
+                                </span>
                                 <button type="submit"
                                         class="btn-primary inline-flex items-center gap-2"
                                         wire:loading.attr="disabled">
@@ -724,10 +764,9 @@
                             Atras
                         </button>
                         <div class="flex items-center gap-3">
-                            <button type="button" wire:click="skipPlan"
-                                    class="text-sm font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors">
-                                Decidir despues
-                            </button>
+                            <span class="text-xs font-medium uppercase tracking-wider text-teal-600 dark:text-teal-400">
+                                Seleccion requerida
+                            </span>
                             <button type="button"
                                     wire:click="savePlan"
                                     class="btn-primary inline-flex items-center gap-2"
@@ -756,139 +795,72 @@
         {{-- ============================================================ --}}
         @if ($currentStep === 6)
             <div class="card">
-                <div class="card-body text-center py-12">
-                    {{-- Success animation --}}
-                    <div class="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-                        <svg class="h-10 w-10 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
-                        </svg>
+                <div class="card-body py-12">
+                    <div class="mx-auto max-w-2xl text-center">
+                        <div class="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full {{ $this->canCompleteOnboarding ? 'bg-green-100 dark:bg-green-900/30' : 'bg-amber-100 dark:bg-amber-900/30' }}">
+                            <svg class="h-10 w-10 {{ $this->canCompleteOnboarding ? 'text-green-600 dark:text-green-400' : 'text-amber-500 dark:text-amber-400' }}" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
+                            </svg>
+                        </div>
+
+                        <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Validacion final del emisor</h2>
+                        <p class="mt-2 text-slate-500 dark:text-slate-400">
+                            Antes de entrar al panel, la cuenta debe quedar lista para operar y emitir documentos sin configuraciones pendientes.
+                        </p>
                     </div>
 
-                    <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Tu cuenta esta lista</h2>
-                    <p class="mt-2 text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                        Has completado la configuracion inicial. Ya puedes empezar a emitir documentos electronicos.
-                    </p>
-
-                    {{-- Checklist --}}
-                    <div class="mt-8 mx-auto max-w-sm text-left space-y-3">
-                        <div class="flex items-center gap-3">
-                            <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full {{ $companyCreated ? 'bg-green-100 dark:bg-green-900/30' : 'bg-slate-100 dark:bg-slate-800' }}">
-                                @if ($companyCreated)
-                                    <svg class="h-4 w-4 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    </svg>
-                                @else
-                                    <svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                @endif
-                            </div>
-                            <span class="text-sm {{ $companyCreated ? 'text-slate-900 dark:text-white' : 'text-slate-400' }}">Datos de empresa configurados</span>
+                    @error('onboarding')
+                        <div class="mx-auto mt-6 max-w-2xl rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300">
+                            {{ $message }}
                         </div>
+                    @enderror
 
-                        <div class="flex items-center gap-3">
-                            <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full {{ $certificateUploaded ? 'bg-green-100 dark:bg-green-900/30' : 'bg-amber-100 dark:bg-amber-900/30' }}">
-                                @if ($certificateUploaded)
-                                    <svg class="h-4 w-4 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    </svg>
-                                @else
-                                    <svg class="h-4 w-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-                                    </svg>
-                                @endif
+                    <div class="mx-auto mt-8 max-w-2xl space-y-3">
+                        @foreach ($this->requiredSetupItems as $item)
+                            <div class="flex items-start gap-4 rounded-xl border px-4 py-4 {{ $item['ready'] ? 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-800 dark:bg-emerald-900/15' : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40' }}">
+                                <div class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full {{ $item['ready'] ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600' }}">
+                                    @if ($item['ready'])
+                                        <svg class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                        </svg>
+                                    @else
+                                        <svg class="h-4 w-4 text-white/80" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0 3.75h.008v.008H12v-.008z" />
+                                        </svg>
+                                    @endif
+                                </div>
+                                <div class="text-left">
+                                    <p class="text-sm font-semibold text-slate-900 dark:text-white">{{ $item['label'] }}</p>
+                                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ $item['description'] }}</p>
+                                </div>
                             </div>
-                            <span class="text-sm {{ $certificateUploaded ? 'text-slate-900 dark:text-white' : 'text-amber-600 dark:text-amber-400' }}">
-                                {{ $certificateUploaded ? 'Firma electronica cargada' : 'Firma electronica pendiente (necesaria para emitir)' }}
-                            </span>
-                        </div>
-
-                        <div class="flex items-center gap-3">
-                            <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full {{ $branchCreated ? 'bg-green-100 dark:bg-green-900/30' : 'bg-slate-100 dark:bg-slate-800' }}">
-                                @if ($branchCreated)
-                                    <svg class="h-4 w-4 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    </svg>
-                                @else
-                                    <svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                @endif
-                            </div>
-                            <span class="text-sm {{ $branchCreated ? 'text-slate-900 dark:text-white' : 'text-slate-400' }}">Establecimiento y punto de emision creados</span>
-                        </div>
-
-                        <div class="flex items-center gap-3">
-                            <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full {{ $selectedPlanId ? 'bg-green-100 dark:bg-green-900/30' : 'bg-slate-100 dark:bg-slate-800' }}">
-                                @if ($selectedPlanId)
-                                    <svg class="h-4 w-4 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                    </svg>
-                                @else
-                                    <svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                @endif
-                            </div>
-                            <span class="text-sm {{ $selectedPlanId ? 'text-slate-900 dark:text-white' : 'text-slate-400' }}">
-                                @if ($selectedPlanId && $this->selectedPlan)
-                                    Plan {{ $this->selectedPlan->name }} seleccionado
-                                @else
-                                    Plan no seleccionado (se usara plan gratuito)
-                                @endif
-                            </span>
-                        </div>
+                        @endforeach
                     </div>
 
-                    {{-- Quick links --}}
-                    <div class="mt-10 grid gap-4 sm:grid-cols-3">
-                        <a href="{{ route('panel.invoices.create') }}"
-                           class="group flex flex-col items-center gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:border-primary-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-800 dark:hover:border-primary-700">
-                            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-100 text-primary-600 transition-transform duration-200 group-hover:scale-110 dark:bg-primary-900/30 dark:text-primary-400">
-                                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                                </svg>
-                            </div>
-                            <span class="text-sm font-semibold text-slate-900 dark:text-white">Crear factura</span>
-                            <span class="text-xs text-slate-500 dark:text-slate-400">Emite tu primer documento</span>
-                        </a>
-
-                        <button wire:click="completeOnboarding"
-                                class="group flex flex-col items-center gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:border-emerald-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-800 dark:hover:border-emerald-700">
-                            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 transition-transform duration-200 group-hover:scale-110 dark:bg-emerald-900/30 dark:text-emerald-400">
-                                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
-                                </svg>
-                            </div>
-                            <span class="text-sm font-semibold text-slate-900 dark:text-white">Ir al dashboard</span>
-                            <span class="text-xs text-slate-500 dark:text-slate-400">Ver resumen general</span>
+                    <div class="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+                        <button type="button" wire:click="previousStep" class="btn-ghost inline-flex items-center gap-2">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                            </svg>
+                            Revisar configuracion
                         </button>
 
                         <a href="{{ route('panel.settings.company') }}"
-                           class="group flex flex-col items-center gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600">
-                            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition-transform duration-200 group-hover:scale-110 dark:bg-slate-700 dark:text-slate-400">
-                                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
-                            </div>
-                            <span class="text-sm font-semibold text-slate-900 dark:text-white">Configurar mas</span>
-                            <span class="text-xs text-slate-500 dark:text-slate-400">Ajustes avanzados</span>
+                           class="btn-ghost inline-flex items-center gap-2">
+                            Ajustes avanzados
                         </a>
-                    </div>
 
-                    {{-- Main CTA --}}
-                    <div class="mt-8">
                         <button wire:click="completeOnboarding"
                                 class="btn-primary inline-flex items-center gap-2 px-8"
-                                wire:loading.attr="disabled">
-                            <span wire:loading.remove wire:target="completeOnboarding">Comenzar a facturar</span>
+                                wire:loading.attr="disabled"
+                                {{ !$this->canCompleteOnboarding ? 'disabled' : '' }}>
+                            <span wire:loading.remove wire:target="completeOnboarding">Entrar al sistema</span>
                             <span wire:loading wire:target="completeOnboarding" class="inline-flex items-center gap-2">
                                 <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                                 </svg>
-                                Redirigiendo...
+                                Validando...
                             </span>
                             <svg wire:loading.remove wire:target="completeOnboarding" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />

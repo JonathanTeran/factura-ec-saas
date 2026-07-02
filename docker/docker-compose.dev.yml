@@ -1,0 +1,42 @@
+# ===========================================
+# Factura EC SaaS - Infraestructura de desarrollo (híbrido)
+# ===========================================
+# Solo levanta la infra pesada en OrbStack/Docker.
+# El backend (php artisan serve) y el frontend (next dev) se corren
+# directamente en la máquina para tener hot-reload.
+#
+# Uso:
+#   docker compose -f docker/docker-compose.dev.yml up -d
+#
+# Los valores coinciden con backend/.env (modo local), por lo que no
+# hay que tocar la configuración de la app.
+# ===========================================
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: factura-ec-dev-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: saas_facturacion
+      MYSQL_ROOT_PASSWORD: admin123
+    ports:
+      - "3306:3306"
+    volumes:
+      - factura_dev_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-padmin123"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit
+    container_name: factura-ec-dev-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+
+volumes:
+  factura_dev_mysql:
