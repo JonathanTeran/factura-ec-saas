@@ -14,6 +14,7 @@ class DocumentBuilder
     {
         return match ($doc->document_type) {
             DocumentType::FACTURA => $this->invoice($doc),
+            DocumentType::LIQUIDACION_COMPRA => $this->liquidacion($doc),
             DocumentType::NOTA_CREDITO => $this->creditNote($doc),
             DocumentType::NOTA_DEBITO => $this->debitNote($doc),
             DocumentType::GUIA_REMISION => $this->waybill($doc),
@@ -45,6 +46,37 @@ class DocumentBuilder
                 'moneda' => $doc->currency,
                 'totalConImpuestos' => $this->taxTotals($doc),
                 'propina' => $this->fmt($doc->tip),
+                'pagos' => $this->payments($doc),
+            ],
+            'detalles' => $this->items($doc),
+            'infoAdicional' => $this->additionalInfo($doc),
+        ];
+    }
+
+    public function liquidacion(ElectronicDocument $doc): array
+    {
+        $company = $doc->company;
+        // En una liquidación de compra el emisor compra a un proveedor no
+        // obligado a facturar; el "customer" del documento es ese proveedor.
+        $supplier = $doc->customer;
+        $branch = $doc->branch;
+
+        return [
+            'infoTributaria' => $this->infoTributaria($doc),
+            'infoLiquidacionCompra' => [
+                'fechaEmision' => $doc->issue_date->format('d/m/Y'),
+                'dirEstablecimiento' => $branch->address,
+                'contribuyenteEspecial' => $company->special_taxpayer_number,
+                'obligadoContabilidad' => $company->obligated_accounting ? 'SI' : 'NO',
+                'tipoIdentificacionProveedor' => $supplier->identification_type->value,
+                'razonSocialProveedor' => $supplier->name,
+                'identificacionProveedor' => $supplier->identification,
+                'direccionProveedor' => $supplier->address ?? '',
+                'totalSinImpuestos' => $this->fmt($doc->total - $doc->total_tax - $doc->total_ice),
+                'totalDescuento' => $this->fmt($doc->total_discount),
+                'totalConImpuestos' => $this->taxTotals($doc),
+                'importeTotal' => $this->fmt($doc->total),
+                'moneda' => $doc->currency,
                 'pagos' => $this->payments($doc),
             ],
             'detalles' => $this->items($doc),
@@ -220,19 +252,23 @@ class DocumentBuilder
             return [['formaPago' => '01', 'total' => $this->fmt($doc->total)]];
         }
 
-        return array_map(fn($p) => [
+        // Los opcionales vacíos se omiten: el XSD del SRI rechaza <plazo/> o
+        // <unidadTiempo/> vacíos.
+        return array_map(fn($p) => array_filter([
             'formaPago' => $p['code'],
             'total' => $this->fmt($p['amount']),
-            'plazo' => $p['term'] ?? '',
-            'unidadTiempo' => $p['time_unit'] ?? '',
-        ], $methods);
+            'plazo' => $p['term'] ?? null,
+            'unidadTiempo' => $p['time_unit'] ?? null,
+        ], fn($v) => $v !== null && $v !== ''), $methods);
     }
 
     private function items(ElectronicDocument $doc): array
     {
-        return $doc->items->map(fn($item) => [
+        // codigoAuxiliar es opcional y el XSD exige minLength 1: si no hay
+        // aux_code se omite el nodo (array_filter más abajo).
+        return $doc->items->map(fn($item) => array_filter([
             'codigoPrincipal' => $item->main_code,
-            'codigoAuxiliar' => $item->aux_code ?? '',
+            'codigoAuxiliar' => $item->aux_code,
             'descripcion' => $item->description,
             'cantidad' => number_format($item->quantity, 6, '.', ''),
             'precioUnitario' => number_format($item->unit_price, 6, '.', ''),
@@ -245,21 +281,23 @@ class DocumentBuilder
                 'baseImponible' => $this->fmt($item->tax_base),
                 'valor' => $this->fmt($item->tax_value),
             ]],
-        ])->toArray();
+        ], fn($v) => $v !== null && $v !== ''))->toArray();
     }
 
     private function additionalInfo(ElectronicDocument $doc): array
     {
+        // El paquete (XmlGenerator::addInfoAdicional) espera un mapa
+        // nombre => valor, no una lista de pares.
         $info = [];
 
         if ($doc->customer?->email) {
-            $info[] = ['nombre' => 'email', 'valor' => $doc->customer->email];
+            $info['email'] = $doc->customer->email;
         }
         if ($doc->customer?->phone) {
-            $info[] = ['nombre' => 'teléfono', 'valor' => $doc->customer->phone];
+            $info['teléfono'] = $doc->customer->phone;
         }
         if ($doc->customer?->address) {
-            $info[] = ['nombre' => 'dirección', 'valor' => $doc->customer->address];
+            $info['dirección'] = $doc->customer->address;
         }
 
         return $info;

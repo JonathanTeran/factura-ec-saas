@@ -4,6 +4,7 @@ namespace App\Services\SRI;
 
 use App\Enums\DocumentStatus;
 use App\Exceptions\DocumentProcessingException;
+use App\Exceptions\SriCommunicationException;
 use App\Exceptions\SriException;
 use App\Exceptions\SriRejectionException;
 use App\Models\SRI\ElectronicDocument;
@@ -53,6 +54,7 @@ class SRIService
             // Integración real con amephia/sri-ec
             $result = match ($doc->document_type->value) {
                 '01' => $this->sri->facturaFromArray($data),
+                '03' => $this->sri->liquidacionCompraFromArray($data),
                 '04' => $this->sri->notaCreditoFromArray($data),
                 '05' => $this->sri->notaDebitoFromArray($data),
                 '06' => $this->sri->guiaRemisionFromArray($data),
@@ -64,6 +66,16 @@ class SRIService
 
             return $result;
 
+        } catch (SriCommunicationException $e) {
+            Log::warning('SRI Processing Communication Warning', [
+                'document_id' => $doc->id,
+                'error' => $e->getMessage(),
+                'context' => $e->context(),
+            ]);
+
+            $this->markAsContingency($doc, $e->getMessage());
+
+            throw $e;
         } catch (SriException|DocumentProcessingException $e) {
             Log::error('SRI Processing Error', [
                 'document_id' => $doc->id,
@@ -84,6 +96,13 @@ class SRIService
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
+
+            if ($this->isTransientFailure($e)) {
+                $message = "SRI no disponible temporalmente: {$e->getMessage()}";
+                $this->markAsContingency($doc, $message);
+
+                throw new SriCommunicationException($message, $doc->id, $doc->access_key, 0, $e);
+            }
 
             $doc->update([
                 'status' => DocumentStatus::FAILED,
@@ -181,5 +200,44 @@ class SRIService
         }
 
         $doc->update($update);
+    }
+
+    private function markAsContingency(ElectronicDocument $doc, string $message): void
+    {
+        $errors = $doc->sri_errors ?? [];
+        $errors['contingency_active'] = true;
+        $errors['contingency_message'] = $message;
+        $errors['contingency_entered_at'] = $errors['contingency_entered_at'] ?? now()->toIso8601String();
+
+        $doc->update([
+            'status' => DocumentStatus::PROCESSING,
+            'sri_errors' => $errors,
+            'sri_attempts' => $doc->sri_attempts + 1,
+            'last_sri_attempt_at' => now(),
+        ]);
+    }
+
+    private function isTransientFailure(\Throwable $e): bool
+    {
+        $message = strtolower($e->getMessage());
+
+        foreach ([
+            'timeout',
+            'timed out',
+            'connection',
+            'could not connect',
+            'temporarily unavailable',
+            'service unavailable',
+            'network',
+            'ssl',
+            'curl',
+            'failed to open stream',
+        ] as $needle) {
+            if (str_contains($message, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

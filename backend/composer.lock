@@ -4,32 +4,37 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "52d4f75788cc668d1a57b340721389fd",
+    "content-hash": "62108f866d40b3a3ee24ee5e068db655",
     "packages": [
         {
             "name": "amephia/sri-ec",
-            "version": "v1.1.0",
+            "version": "2.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/JonathanTeran/teran-sri-ec.git",
-                "reference": "e89b22c8ada3480e686a7403f0d44404d3dc8f4b"
+                "reference": "9b403d9dc593335dfe8c59e8bfb802524ffd37ac"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/JonathanTeran/teran-sri-ec/zipball/e89b22c8ada3480e686a7403f0d44404d3dc8f4b",
-                "reference": "e89b22c8ada3480e686a7403f0d44404d3dc8f4b",
+                "url": "https://api.github.com/repos/JonathanTeran/teran-sri-ec/zipball/9b403d9dc593335dfe8c59e8bfb802524ffd37ac",
+                "reference": "9b403d9dc593335dfe8c59e8bfb802524ffd37ac",
                 "shasum": ""
             },
             "require": {
+                "ext-bcmath": "*",
                 "ext-curl": "*",
                 "ext-dom": "*",
                 "ext-libxml": "*",
                 "ext-openssl": "*",
                 "ext-soap": "*",
-                "php": ">=8.1",
+                "php": ">=8.2",
+                "psr/http-client": "^1.0",
+                "psr/http-factory": "^1.0",
                 "psr/log": "^3.0"
             },
             "require-dev": {
+                "nyholm/psr7": "^1.8",
+                "phpstan/phpstan": "^2.2",
                 "phpunit/phpunit": "^10.0"
             },
             "type": "library",
@@ -42,12 +47,34 @@
             "license": [
                 "MIT"
             ],
+            "authors": [
+                {
+                    "name": "Jonathan Terán",
+                    "homepage": "https://github.com/jonathanteran"
+                }
+            ],
             "description": "High-performance Ecuador SRI Electronic Billing Library",
+            "homepage": "https://github.com/JonathanTeran/teran-sri-ec",
+            "keywords": [
+                "comprobantes-electronicos",
+                "e-invoicing",
+                "ecuador",
+                "factura",
+                "facturacion-electronica",
+                "sri",
+                "xades"
+            ],
             "support": {
                 "issues": "https://github.com/JonathanTeran/teran-sri-ec/issues",
-                "source": "https://github.com/JonathanTeran/teran-sri-ec/tree/v1.1.0"
+                "source": "https://github.com/JonathanTeran/teran-sri-ec"
             },
-            "time": "2026-02-02T01:55:46+00:00"
+            "funding": [
+                {
+                    "url": "https://paypal.me/teranjona",
+                    "type": "paypal"
+                }
+            ],
+            "time": "2026-07-02T14:20:26+00:00"
         },
         {
             "name": "anourvalar/eloquent-serialize",
@@ -13007,12 +13034,12 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": [],
+    "stability-flags": {},
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
         "php": "^8.2"
     },
-    "platform-dev": [],
-    "plugin-api-version": "2.2.0"
+    "platform-dev": {},
+    "plugin-api-version": "2.9.0"
 }

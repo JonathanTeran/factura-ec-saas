@@ -3,8 +3,7 @@
 namespace Tests\Unit\Services;
 
 use App\Enums\DocumentStatus;
-use App\Enums\DocumentType;
-use App\Exceptions\SriException;
+use App\Exceptions\SriCommunicationException;
 use App\Exceptions\SriRejectionException;
 use App\Models\SRI\ElectronicDocument;
 use App\Services\SRI\DocumentBuilder;
@@ -18,7 +17,7 @@ use Tests\Traits\CreatesTestTenant;
 
 class SRIServiceTest extends TestCase
 {
-    use RefreshDatabase, CreatesTestTenant;
+    use CreatesTestTenant, RefreshDatabase;
 
     protected function setUp(): void
     {
@@ -56,7 +55,7 @@ class SRIServiceTest extends TestCase
             'tax_value' => 12.00,
         ]);
 
-        $builder = new DocumentBuilder();
+        $builder = new DocumentBuilder;
         $result = $builder->build($document->fresh(['items', 'company', 'customer', 'branch', 'emissionPoint']));
 
         $this->assertArrayHasKey('infoTributaria', $result);
@@ -65,6 +64,75 @@ class SRIServiceTest extends TestCase
         $this->assertEquals($this->company->ruc, $result['infoTributaria']['ruc']);
         $this->assertEquals($customer->identification, $result['infoFactura']['identificacionComprador']);
         $this->assertCount(1, $result['detalles']);
+    }
+
+    public function test_document_builder_creates_liquidacion_array(): void
+    {
+        // Direcciones sin saltos de línea: el XSD del SRI exige [^\n]*
+        // (faker genera direcciones multilínea).
+        $this->company->update(['address' => 'Av. República y Eloy Alfaro, Quito']);
+        $this->branch->update(['address' => 'Av. Amazonas N34-451, Quito']);
+
+        $supplier = $this->createCustomer([
+            'identification_type' => '05',
+            'identification' => '1712345678',
+            'address' => 'Calle Los Cipreses N65-12, Quito',
+        ]);
+        $document = ElectronicDocument::factory()->liquidacion()->draft()->create([
+            'tenant_id' => $this->tenant->id,
+            'company_id' => $this->company->id,
+            'branch_id' => $this->branch->id,
+            'emission_point_id' => $this->emissionPoint->id,
+            'customer_id' => $supplier->id,
+            'created_by' => $this->user->id,
+            'subtotal_15' => 100.00,
+            'subtotal_12' => 0,
+            'subtotal_5' => 0,
+            'subtotal_0' => 0,
+            'subtotal_no_tax' => 0,
+            'total_discount' => 0,
+            'total_tax' => 15.00,
+            'total_ice' => 0,
+            'total' => 115.00,
+        ]);
+
+        $document->items()->create([
+            'main_code' => 'SERV001',
+            'description' => 'Servicio prestado',
+            'quantity' => 1,
+            'unit_price' => 100.00,
+            'discount' => 0,
+            'subtotal' => 100.00,
+            'tax_code' => '2',
+            'tax_percentage_code' => '4',
+            'tax_rate' => 15,
+            'tax_base' => 100.00,
+            'tax_value' => 15.00,
+        ]);
+
+        $builder = new DocumentBuilder;
+        $result = $builder->build($document->fresh(['items', 'company', 'customer', 'branch', 'emissionPoint']));
+
+        $this->assertArrayHasKey('infoTributaria', $result);
+        $this->assertArrayHasKey('infoLiquidacionCompra', $result);
+        $this->assertArrayHasKey('detalles', $result);
+        $this->assertEquals($this->company->ruc, $result['infoTributaria']['ruc']);
+        $this->assertEquals('05', $result['infoLiquidacionCompra']['tipoIdentificacionProveedor']);
+        $this->assertEquals($supplier->name, $result['infoLiquidacionCompra']['razonSocialProveedor']);
+        $this->assertEquals('1712345678', $result['infoLiquidacionCompra']['identificacionProveedor']);
+        $this->assertCount(1, $result['detalles']);
+
+        // El array debe producir un XML que valida contra el XSD oficial del
+        // paquete (mismo camino que liquidacionCompraFromArray, sin SOAP).
+        $result['infoTributaria']['claveAcceso'] = str_repeat('0', 49);
+        $result['infoTributaria']['codDoc'] = '03';
+        $xml = (new \Teran\Sri\Generators\LiquidacionCompraGenerator)->generate($result);
+        $xsd = base_path('vendor/amephia/sri-ec/resources/xsd/liquidacionCompra_v1.1.0.xsd');
+        try {
+            $this->assertTrue(\Teran\Sri\Schema\XsdValidator::validate($xml, $xsd));
+        } catch (\Teran\Sri\Exceptions\ValidationException $e) {
+            $this->fail('XSD inválido: ' . json_encode($e->getErrors(), JSON_UNESCAPED_UNICODE) . "\n" . $xml);
+        }
     }
 
     public function test_document_builder_creates_credit_note_array(): void
@@ -93,7 +161,7 @@ class SRIServiceTest extends TestCase
             'tax_value' => 6.00,
         ]);
 
-        $builder = new DocumentBuilder();
+        $builder = new DocumentBuilder;
         $result = $builder->build($document->fresh(['items', 'company', 'customer', 'branch', 'emissionPoint']));
 
         $this->assertArrayHasKey('infoTributaria', $result);
@@ -113,7 +181,7 @@ class SRIServiceTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $builder = new DocumentBuilder();
+        $builder = new DocumentBuilder;
         $result = $builder->build($document->fresh(['withholdingDetails', 'company', 'customer', 'branch', 'emissionPoint']));
 
         $this->assertArrayHasKey('infoTributaria', $result);
@@ -165,7 +233,7 @@ class SRIServiceTest extends TestCase
 
         // Use partial mock to prevent forCompany() from creating a real SRI instance
         $service = $this->getMockBuilder(SRIService::class)
-            ->setConstructorArgs([new DocumentBuilder(), $signatureManager, $rideGenerator])
+            ->setConstructorArgs([new DocumentBuilder, $signatureManager, $rideGenerator])
             ->onlyMethods(['forCompany'])
             ->getMock();
 
@@ -175,6 +243,7 @@ class SRIServiceTest extends TestCase
                 $ref = new \ReflectionProperty(SRIService::class, 'sri');
                 $ref->setAccessible(true);
                 $ref->setValue($service, $mockSri);
+
                 return $service;
             });
 
@@ -225,7 +294,7 @@ class SRIServiceTest extends TestCase
 
         // Use partial mock to prevent forCompany() from creating a real SRI instance
         $service = $this->getMockBuilder(SRIService::class)
-            ->setConstructorArgs([new DocumentBuilder(), $signatureManager, $rideGenerator])
+            ->setConstructorArgs([new DocumentBuilder, $signatureManager, $rideGenerator])
             ->onlyMethods(['forCompany'])
             ->getMock();
 
@@ -235,6 +304,7 @@ class SRIServiceTest extends TestCase
                 $ref = new \ReflectionProperty(SRIService::class, 'sri');
                 $ref->setAccessible(true);
                 $ref->setValue($service, $mockSri);
+
                 return $service;
             });
 
@@ -243,7 +313,7 @@ class SRIServiceTest extends TestCase
         $service->process($document->fresh(['items', 'company', 'customer', 'branch', 'emissionPoint']));
     }
 
-    public function test_sri_service_handles_unexpected_exception(): void
+    public function test_sri_service_enters_contingency_on_transient_exception(): void
     {
         $customer = $this->createCustomer();
         $document = ElectronicDocument::factory()->draft()->create([
@@ -277,7 +347,7 @@ class SRIServiceTest extends TestCase
 
         // Use partial mock to prevent forCompany() from creating a real SRI instance
         $service = $this->getMockBuilder(SRIService::class)
-            ->setConstructorArgs([new DocumentBuilder(), $signatureManager, $rideGenerator])
+            ->setConstructorArgs([new DocumentBuilder, $signatureManager, $rideGenerator])
             ->onlyMethods(['forCompany'])
             ->getMock();
 
@@ -287,15 +357,19 @@ class SRIServiceTest extends TestCase
                 $ref = new \ReflectionProperty(SRIService::class, 'sri');
                 $ref->setAccessible(true);
                 $ref->setValue($service, $mockSri);
+
                 return $service;
             });
 
-        $this->expectException(SriException::class);
+        $this->expectException(SriCommunicationException::class);
 
-        $service->process($document->fresh(['items', 'company', 'customer', 'branch', 'emissionPoint']));
-
-        $document->refresh();
-        $this->assertEquals(DocumentStatus::FAILED, $document->status);
-        $this->assertEquals(1, $document->sri_attempts);
+        try {
+            $service->process($document->fresh(['items', 'company', 'customer', 'branch', 'emissionPoint']));
+        } finally {
+            $document->refresh();
+            $this->assertEquals(DocumentStatus::PROCESSING, $document->status);
+            $this->assertEquals(1, $document->sri_attempts);
+            $this->assertTrue((bool) data_get($document->sri_errors, 'contingency_active'));
+        }
     }
 }

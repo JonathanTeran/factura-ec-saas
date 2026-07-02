@@ -68,6 +68,13 @@ class ElectronicDocumentFactory extends Factory
         ]);
     }
 
+    public function liquidacion(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'document_type' => DocumentType::LIQUIDACION_COMPRA,
+        ]);
+    }
+
     public function creditNote(): static
     {
         return $this->state(fn (array $attributes) => [
