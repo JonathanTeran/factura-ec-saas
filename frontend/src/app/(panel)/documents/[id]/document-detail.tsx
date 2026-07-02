@@ -56,6 +56,7 @@ import { ClientApiError } from "@/lib/api/client";
 import { documentStatusMeta } from "@/lib/status";
 import { formatDate, formatMoney } from "@/lib/format";
 import { DeleteConfirmButton } from "@/components/forms/delete-confirm-button";
+import { PaymentsCard } from "./payments-card";
 
 function errMessage(err: unknown): string {
   if (err instanceof ClientApiError) return err.message;
@@ -433,6 +434,11 @@ export function DocumentDetail({ id }: { id: number }) {
               )}
             </CardContent>
           </Card>
+
+          {doc.status === "authorized" &&
+            ["01", "05"].includes(String(doc.document_type)) && (
+              <PaymentsCard documentId={id} />
+            )}
 
           <Card>
             <CardHeader>
