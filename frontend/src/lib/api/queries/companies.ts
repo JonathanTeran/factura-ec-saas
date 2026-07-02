@@ -57,6 +57,71 @@ export function useCompanies() {
   });
 }
 
+export type CompanyDetail = {
+  id: number;
+  ruc: string;
+  business_name: string;
+  trade_name: string | null;
+  address: string;
+  phone: string | null;
+  email: string;
+  sri_environment: "1" | "2";
+  is_special_taxpayer: boolean;
+  special_taxpayer_number: string | null;
+  retention_agent_number: string | null;
+  taxpayer_type: "natural" | "juridical" | "rise";
+  rimpe_type: "none" | "emprendedor" | "negocio_popular" | null;
+  is_accounting_required: boolean;
+  has_sri_password: boolean;
+  has_valid_signature: boolean;
+  is_ready_for_emission: boolean;
+};
+
+export type CompanyUpdateInput = {
+  ruc: string;
+  business_name: string;
+  trade_name?: string;
+  taxpayer_type: string;
+  rimpe_type?: string;
+  address: string;
+  special_taxpayer?: boolean;
+  special_taxpayer_number?: string | null;
+  retention_agent_number?: string | null;
+  obligated_accounting?: boolean;
+  sri_environment: string;
+  email: string;
+  phone?: string | null;
+  sri_password?: string;
+};
+
+export function useCompanyDetail(companyId: number | null) {
+  return useQuery({
+    queryKey: companyId
+      ? companyKeys.detail(companyId)
+      : ["companies", "detail", "none"],
+    queryFn: () =>
+      api.get<ApiSuccess<{ company: CompanyDetail }>>(
+        `companies/${companyId}`,
+      ),
+    select: (raw) => raw.data.company,
+    enabled: !!companyId,
+  });
+}
+
+export function useUpdateCompany(companyId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CompanyUpdateInput) =>
+      api.put<ApiSuccess<{ company: CompanyDetail }>>(
+        `companies/${companyId}`,
+        input,
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: companyKeys.all });
+    },
+  });
+}
+
 export function useCompanyBranches(companyId: number | null) {
   return useQuery({
     queryKey: companyId

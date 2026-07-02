@@ -71,6 +71,7 @@ Route::prefix('v1')->group(function () {
         Route::prefix('companies')->group(function () {
             Route::get('/', [CompanyController::class, 'index']);
             Route::get('{company}', [CompanyController::class, 'show']);
+            Route::put('{company}', [CompanyController::class, 'update']);
             Route::post('{company}/switch', [CompanyController::class, 'switch']);
             Route::get('{company}/branches', [CompanyController::class, 'branches']);
             Route::get('{company}/emission-points', [CompanyController::class, 'emissionPoints']);
@@ -127,6 +128,8 @@ Route::prefix('v1')->group(function () {
             Route::get('{document}/xml', [DocumentController::class, 'downloadXml']);
             Route::post('{document}/resend-email', [DocumentController::class, 'resendEmail']);
             Route::get('{document}/status', [DocumentController::class, 'checkStatus']);
+            Route::get('{document}/payments', [\App\Http\Controllers\Api\V1\DocumentPaymentController::class, 'index']);
+            Route::post('{document}/payments', [\App\Http\Controllers\Api\V1\DocumentPaymentController::class, 'store']);
         });
 
         // SRI Catalogs

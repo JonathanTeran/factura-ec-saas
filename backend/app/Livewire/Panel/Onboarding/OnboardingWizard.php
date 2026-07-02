@@ -356,6 +356,12 @@ class OnboardingWizard extends Component
         $settings['onboarding_completed_at'] = now()->toIso8601String();
         $tenant->update(['settings' => $settings]);
 
+        // Contabilidad básica de serie: plan de cuentas, periodos y asientos automáticos
+        if ($company = $this->resolveCompany()) {
+            app(\App\Services\Accounting\BasicAccountingActivator::class)
+                ->activateQuietly($company);
+        }
+
         // If a paid plan was selected, redirect to billing settings to complete payment
         if ($this->selectedPlanId) {
             $plan = Plan::find($this->selectedPlanId);

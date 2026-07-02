@@ -128,6 +128,11 @@ class ElectronicDocument extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function payments(): HasMany
+    {
+        return $this->hasMany(\App\Models\Tenant\DocumentPayment::class, 'electronic_document_id');
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(DocumentItem::class, 'electronic_document_id');
@@ -208,6 +213,26 @@ class ElectronicDocument extends Model
     public function getDocumentNumberAttribute(): string
     {
         return $this->getDocumentNumber();
+    }
+
+    // Suma de todas las bases imponibles (la tabla no tiene columna subtotal)
+    public function getSubtotalAttribute(): float
+    {
+        return (float) $this->subtotal_0
+            + (float) $this->subtotal_5
+            + (float) $this->subtotal_12
+            + (float) $this->subtotal_15
+            + (float) $this->subtotal_no_tax;
+    }
+
+    public function getPaidAmountAttribute(): float
+    {
+        return (float) $this->payments()->sum('amount');
+    }
+
+    public function getBalanceAttribute(): float
+    {
+        return round(max(0, (float) $this->total - $this->paid_amount), 2);
     }
 
     // ==================== HELPERS ====================

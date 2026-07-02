@@ -373,6 +373,13 @@ class OnboardingController extends ApiController
         $settings['onboarding_completed_at'] = now()->toIso8601String();
         $tenant->update(['settings' => $settings]);
 
+        // Contabilidad básica de serie: plan de cuentas, periodos y asientos automáticos
+        $company = $this->resolveCompany($request);
+        if ($company) {
+            app(\App\Services\Accounting\BasicAccountingActivator::class)
+                ->activateQuietly($company);
+        }
+
         return $this->success([
             'completed' => true,
         ], 'Onboarding completado correctamente.');

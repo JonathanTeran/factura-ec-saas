@@ -48,6 +48,10 @@ class EventServiceProvider extends ServiceProvider
             GenerateAccountingEntryForPurchase::class,
         ],
 
+        \App\Events\PosTransactionCompleted::class => [
+            \App\Listeners\GenerateAccountingEntryForPosTransaction::class,
+        ],
+
         DocumentRejected::class => [
             SendDocumentRejectedNotification::class,
             InvalidateTenantDashboardCache::class,

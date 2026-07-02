@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Requests\Api\CompanyRequest;
 use App\Http\Resources\BranchResource;
 use App\Http\Resources\CompanyResource;
 use App\Http\Resources\EmissionPointResource;
@@ -45,6 +46,33 @@ class CompanyController extends ApiController
         return $this->success([
             'company' => new CompanyResource($company),
         ]);
+    }
+
+    /**
+     * Actualizar empresa
+     *
+     * Actualiza los datos del emisor (razón social, régimen, flags
+     * tributarios, ambiente SRI y opcionalmente la clave SRI).
+     */
+    public function update(CompanyRequest $request, Company $company): JsonResponse
+    {
+        $this->authorizeCompany($request, $company);
+
+        $data = $request->validated();
+
+        if (filled($data['sri_password'] ?? null)) {
+            $company->setSriPassword($data['sri_password']);
+        }
+
+        // La clave se maneja aparte (encriptada); logo y settings tienen su propio flujo
+        unset($data['sri_password'], $data['logo_path'], $data['settings']);
+
+        $company->fill($data);
+        $company->save();
+
+        return $this->success([
+            'company' => new CompanyResource($company->fresh()),
+        ], 'Empresa actualizada correctamente.');
     }
 
     /**

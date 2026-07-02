@@ -11,6 +11,8 @@ enum JournalEntrySource: string
     case AUTO_RETENTION = 'auto_retention';
     case AUTO_PURCHASE = 'auto_purchase';
     case AUTO_LIQUIDATION = 'auto_liquidation';
+    case AUTO_POS = 'auto_pos';
+    case AUTO_PAYMENT = 'auto_payment';
     case CLOSING = 'closing';
     case OPENING = 'opening';
     case ADJUSTMENT = 'adjustment';
@@ -25,6 +27,8 @@ enum JournalEntrySource: string
             self::AUTO_RETENTION => 'Retencion (Auto)',
             self::AUTO_PURCHASE => 'Compra (Auto)',
             self::AUTO_LIQUIDATION => 'Liquidacion (Auto)',
+            self::AUTO_POS => 'Venta POS (Auto)',
+            self::AUTO_PAYMENT => 'Cobro (Auto)',
             self::CLOSING => 'Cierre',
             self::OPENING => 'Apertura',
             self::ADJUSTMENT => 'Ajuste',
@@ -40,6 +44,8 @@ enum JournalEntrySource: string
             self::AUTO_RETENTION,
             self::AUTO_PURCHASE,
             self::AUTO_LIQUIDATION,
+            self::AUTO_POS,
+            self::AUTO_PAYMENT,
         ]);
     }
 }

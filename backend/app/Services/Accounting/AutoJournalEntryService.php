@@ -8,6 +8,8 @@ use App\Models\Accounting\AccountMappingTemplate;
 use App\Models\Accounting\JournalEntry;
 use App\Models\SRI\ElectronicDocument;
 use App\Models\Tenant\Company;
+use App\Models\Tenant\DocumentPayment;
+use App\Models\Tenant\PosTransaction;
 use App\Models\Tenant\Purchase;
 use Illuminate\Support\Facades\Log;
 
@@ -115,6 +117,121 @@ class AutoJournalEntryService
             return $entry;
         } catch (\Throwable $e) {
             Log::error("AutoJournalEntry error para compra {$purchase->id}: {$e->getMessage()}");
+            return null;
+        }
+    }
+
+    /**
+     * Venta POS. Sin factura asociada: venta de contado (Caja vs Ventas+IVA).
+     * Con factura: la venta ya la asentó la factura, aquí solo el cobro
+     * (Caja vs Cuentas por cobrar) para no duplicar ingresos.
+     */
+    public function generateFromPosTransaction(PosTransaction $transaction): ?JournalEntry
+    {
+        $existing = JournalEntry::where('company_id', $this->company->id)
+            ->where('source_document_type', get_class($transaction))
+            ->where('source_document_id', $transaction->id)
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        $total = (float) $transaction->total;
+        $tax = (float) $transaction->tax;
+
+        if ($total <= 0) {
+            return null;
+        }
+
+        $caja = $this->findAccountByCode('1.01.01.01');
+        $lines = [];
+
+        if ($transaction->electronic_document_id) {
+            $cuentasCobrar = $this->findAccountByCode('1.01.02.05');
+            if ($caja && $cuentasCobrar) {
+                $lines[] = ['account_id' => $caja->id, 'debit' => $total, 'credit' => 0, 'description' => 'Cobro venta POS'];
+                $lines[] = ['account_id' => $cuentasCobrar->id, 'debit' => 0, 'credit' => $total, 'description' => 'Cuentas por cobrar'];
+            }
+        } else {
+            $ventas = $this->findAccountByCode('4.01.01');
+            $ivaPorPagar = $this->findAccountByCode('2.01.07.01');
+            if ($caja && $ventas) {
+                $lines[] = ['account_id' => $caja->id, 'debit' => $total, 'credit' => 0, 'description' => 'Venta POS de contado'];
+                $lines[] = ['account_id' => $ventas->id, 'debit' => 0, 'credit' => round($total - $tax, 2), 'description' => 'Ventas'];
+                if ($tax > 0 && $ivaPorPagar) {
+                    $lines[] = ['account_id' => $ivaPorPagar->id, 'debit' => 0, 'credit' => $tax, 'description' => 'IVA por pagar'];
+                }
+            }
+        }
+
+        if (empty($lines)) {
+            return null;
+        }
+
+        try {
+            $entry = $this->accountingService->createJournalEntry([
+                'entry_date' => $transaction->created_at ?? now(),
+                'description' => "Venta POS #{$transaction->transaction_number}",
+                'source_type' => JournalEntrySource::AUTO_POS,
+                'source_document_type' => get_class($transaction),
+                'source_document_id' => $transaction->id,
+            ], $lines);
+
+            $this->accountingService->postJournalEntry($entry);
+
+            return $entry;
+        } catch (\Throwable $e) {
+            Log::error("AutoJournalEntry error para transaccion POS {$transaction->id}: {$e->getMessage()}");
+            return null;
+        }
+    }
+
+    /**
+     * Cobro de un comprobante: entra efectivo/bancos y se descarga CxC.
+     */
+    public function generateFromPayment(DocumentPayment $payment): ?JournalEntry
+    {
+        $existing = JournalEntry::where('company_id', $this->company->id)
+            ->where('source_document_type', get_class($payment))
+            ->where('source_document_id', $payment->id)
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        $amount = (float) $payment->amount;
+        if ($amount <= 0) {
+            return null;
+        }
+
+        // Efectivo entra a Caja; transferencias/tarjetas a Bancos
+        $cashAccountCode = $payment->payment_method === 'cash' ? '1.01.01.01' : '1.01.01.03';
+        $cashAccount = $this->findAccountByCode($cashAccountCode) ?? $this->findAccountByCode('1.01.01.01');
+        $cuentasCobrar = $this->findAccountByCode('1.01.02.05');
+
+        if (! $cashAccount || ! $cuentasCobrar) {
+            return null;
+        }
+
+        try {
+            $entry = $this->accountingService->createJournalEntry([
+                'entry_date' => $payment->payment_date ?? now(),
+                'description' => "Cobro comprobante #{$payment->document?->getDocumentNumber()}",
+                'source_type' => JournalEntrySource::AUTO_PAYMENT,
+                'source_document_type' => get_class($payment),
+                'source_document_id' => $payment->id,
+            ], [
+                ['account_id' => $cashAccount->id, 'debit' => $amount, 'credit' => 0, 'description' => 'Cobro recibido'],
+                ['account_id' => $cuentasCobrar->id, 'debit' => 0, 'credit' => $amount, 'description' => 'Cuentas por cobrar'],
+            ]);
+
+            $this->accountingService->postJournalEntry($entry);
+
+            return $entry;
+        } catch (\Throwable $e) {
+            Log::error("AutoJournalEntry error para cobro {$payment->id}: {$e->getMessage()}");
             return null;
         }
     }

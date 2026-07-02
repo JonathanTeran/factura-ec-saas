@@ -3,6 +3,7 @@ import {
   Building2,
   ChevronRight,
   CreditCard,
+  Landmark,
   Receipt,
   Shield,
   ShieldCheck,
@@ -19,6 +20,12 @@ import { PageHeader } from "@/components/panel/page-header";
 export const metadata = { title: "Configuración" };
 
 const SECTIONS = [
+  {
+    title: "Datos del emisor",
+    description: "RUC, razón social, régimen y clave SRI",
+    href: "/settings/company",
+    icon: Landmark,
+  },
   {
     title: "Firma electrónica",
     description: "Certificado .p12 y caducidad",

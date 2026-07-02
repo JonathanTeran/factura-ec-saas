@@ -30,7 +30,13 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-background text-foreground">
+      {/* suppressHydrationWarning: extensiones (ColorZilla, Grammarly…) inyectan
+          atributos en <body> antes de que React hidrate; solo silencia atributos
+          de este elemento, no de los hijos. */}
+      <body
+        suppressHydrationWarning
+        className="min-h-full bg-background text-foreground"
+      >
         <Providers>{children}</Providers>
       </body>
     </html>

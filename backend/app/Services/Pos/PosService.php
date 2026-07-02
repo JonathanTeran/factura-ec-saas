@@ -149,6 +149,9 @@ class PosService
             // Actualizar totales de la sesion
             $session->addTransaction($data['payment_method'] ?? 'cash', $total);
 
+            // Asiento contable automático (si la contabilidad está activa)
+            \App\Events\PosTransactionCompleted::dispatch($transaction);
+
             return $transaction->load('items');
         });
     }
