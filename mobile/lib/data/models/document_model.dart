@@ -58,6 +58,162 @@ class ApiDocument {
   }
 }
 
+/// A single line item inside an electronic document.
+class ApiDocumentItem {
+  final int id;
+  final String description;
+  final String? mainCode;
+  final double quantity;
+  final double unitPrice;
+  final double discount;
+  final double subtotal;
+  final double taxRate;
+  final double taxValue;
+
+  const ApiDocumentItem({
+    required this.id,
+    required this.description,
+    required this.mainCode,
+    required this.quantity,
+    required this.unitPrice,
+    required this.discount,
+    required this.subtotal,
+    required this.taxRate,
+    required this.taxValue,
+  });
+
+  factory ApiDocumentItem.fromJson(Map<String, dynamic> json) {
+    return ApiDocumentItem(
+      id: intFrom(json['id']),
+      description: stringFrom(json['description'], fallback: 'Ítem'),
+      mainCode: nullableStringFrom(json['main_code']),
+      quantity: doubleFrom(json['quantity']),
+      unitPrice: doubleFrom(json['unit_price']),
+      discount: doubleFrom(json['discount']),
+      subtotal: doubleFrom(json['subtotal']),
+      taxRate: doubleFrom(json['tax_rate']),
+      taxValue: doubleFrom(json['tax_value']),
+    );
+  }
+}
+
+/// Full detail of an electronic document, including line items and totals.
+class ApiDocumentDetail {
+  final int id;
+  final String documentType;
+  final String documentTypeLabel;
+  final String documentNumber;
+  final String? accessKey;
+  final String environmentLabel;
+  final String customerName;
+  final DateTime? issueDate;
+  final String currency;
+  final double subtotalNoTax;
+  final double subtotal0;
+  final double subtotal12;
+  final double subtotal15;
+  final double totalDiscount;
+  final double totalTax;
+  final double tip;
+  final double total;
+  final String status;
+  final String statusLabel;
+  final String? authorizationNumber;
+  final DateTime? authorizationDate;
+  final List<String> sriMessages;
+  final bool contingencyActive;
+  final String? contingencyMessage;
+  final bool hasRide;
+  final bool hasXml;
+  final List<ApiDocumentItem> items;
+
+  const ApiDocumentDetail({
+    required this.id,
+    required this.documentType,
+    required this.documentTypeLabel,
+    required this.documentNumber,
+    required this.accessKey,
+    required this.environmentLabel,
+    required this.customerName,
+    required this.issueDate,
+    required this.currency,
+    required this.subtotalNoTax,
+    required this.subtotal0,
+    required this.subtotal12,
+    required this.subtotal15,
+    required this.totalDiscount,
+    required this.totalTax,
+    required this.tip,
+    required this.total,
+    required this.status,
+    required this.statusLabel,
+    required this.authorizationNumber,
+    required this.authorizationDate,
+    required this.sriMessages,
+    required this.contingencyActive,
+    required this.contingencyMessage,
+    required this.hasRide,
+    required this.hasXml,
+    required this.items,
+  });
+
+  factory ApiDocumentDetail.fromJson(Map<String, dynamic> json) {
+    final customer = nullableMapFrom(json['customer']);
+    final company = nullableMapFrom(json['company']);
+    final customerName = stringFrom(
+      customer?['name'],
+      fallback: stringFrom(
+        company?['business_name'],
+        fallback: 'Consumidor final',
+      ),
+    );
+
+    final messages = listFrom(json['sri_messages'])
+        .map((item) => item.toString())
+        .toList(growable: false);
+
+    final items = listFrom(json['items'])
+        .map((item) => ApiDocumentItem.fromJson(mapFrom(item)))
+        .toList(growable: false);
+
+    return ApiDocumentDetail(
+      id: intFrom(json['id']),
+      documentType: stringFrom(json['document_type']),
+      documentTypeLabel: stringFrom(
+        json['document_type_label'],
+        fallback: 'Documento',
+      ),
+      documentNumber: stringFrom(
+        json['document_number'],
+        fallback: 'Sin número',
+      ),
+      accessKey: nullableStringFrom(json['access_key']),
+      environmentLabel: stringFrom(json['environment_label']),
+      customerName: customerName,
+      issueDate: dateFrom(json['issue_date'] ?? json['issue_datetime']),
+      currency: stringFrom(json['currency'], fallback: 'USD'),
+      subtotalNoTax: doubleFrom(json['subtotal_no_tax']),
+      subtotal0: doubleFrom(json['subtotal_0']),
+      subtotal12: doubleFrom(json['subtotal_12']),
+      subtotal15: doubleFrom(json['subtotal_15']),
+      totalDiscount: doubleFrom(json['total_discount']),
+      totalTax: doubleFrom(json['total_tax']),
+      tip: doubleFrom(json['tip']),
+      total: doubleFrom(json['total']),
+      status: stringFrom(json['status'], fallback: 'draft'),
+      statusLabel: stringFrom(json['status_label'], fallback: 'Borrador'),
+      authorizationNumber: nullableStringFrom(json['authorization_number']),
+      authorizationDate: dateFrom(json['authorization_date']),
+      sriMessages: messages,
+      contingencyActive: json['contingency_active'] == true,
+      contingencyMessage: nullableStringFrom(json['contingency_message']),
+      hasRide: json['has_ride'] == true,
+      hasXml: json['has_xml'] == true,
+      items: items,
+    );
+  }
+}
+
 /// Represents the SRI authorization status of a document.
 class ApiDocumentStatus {
   final String status;

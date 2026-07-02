@@ -5,11 +5,13 @@ import '../theme/app_theme.dart';
 class SectionHeader extends StatelessWidget {
   final String title;
   final String actionText;
+  final VoidCallback? onAction;
 
   const SectionHeader({
     super.key,
     required this.title,
     required this.actionText,
+    this.onAction,
   });
 
   @override
@@ -30,7 +32,7 @@ class SectionHeader extends StatelessWidget {
         ),
         if (actionText.isNotEmpty)
           TextButton(
-            onPressed: () {},
+            onPressed: onAction,
             child: Text(
               actionText,
               style: const TextStyle(

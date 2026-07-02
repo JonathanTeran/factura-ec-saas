@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/api/v1_api_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass_panel.dart';
-import '../../core/widgets/money_text.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/search_bar_widget.dart';
 import '../../data/providers/document_provider.dart';
@@ -13,6 +13,7 @@ import '../../data/providers/document_provider.dart';
 enum DocumentStatus { validated, pending, rejected, draft }
 
 class _DocumentItem {
+  final int id;
   final String type;
   final String issuer;
   final String number;
@@ -21,6 +22,7 @@ class _DocumentItem {
   final DocumentStatus status;
 
   _DocumentItem({
+    required this.id,
     required this.type,
     required this.issuer,
     required this.number,
@@ -46,6 +48,7 @@ String _shortDate(DateTime? date) {
 
 _DocumentItem _documentItemFromApi(ApiDocument document) {
   return _DocumentItem(
+    id: document.id,
     type: document.documentTypeLabel.toUpperCase(),
     issuer: document.issuer,
     number: document.documentNumber,
@@ -216,9 +219,8 @@ class _DocumentsTab extends ConsumerWidget {
           );
         }
 
-        final items = result.items
-            .map(_documentItemFromApi)
-            .toList(growable: false);
+        final items =
+            result.items.map(_documentItemFromApi).toList(growable: false);
         return _DocumentsList(items: items);
       },
     );
@@ -261,14 +263,19 @@ class _DocumentTile extends StatelessWidget {
       _ => Icons.request_page_rounded,
     };
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface.withValues(alpha: 0.94),
+    return Material(
+      color: AppColors.surface.withValues(alpha: 0.94),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
+        onTap: () => context.push('/documents/${item.id}'),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
         children: [
           Container(
             width: 42,
@@ -360,7 +367,9 @@ class _DocumentTile extends StatelessWidget {
               ),
             ],
           ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -1,5 +1,4 @@
 import '../../core/api/v1_api_service.dart';
-import '../models/subscription_model.dart';
 
 /// Repository that wraps subscription and billing API calls.
 class SubscriptionRepository {

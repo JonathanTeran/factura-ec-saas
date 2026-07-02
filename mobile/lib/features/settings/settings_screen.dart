@@ -21,6 +21,48 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _updatingBiometrics = false;
 
+  bool _switchingCompany = false;
+
+  Future<void> _doSwitchCompany(ApiCompany company) async {
+    if (_switchingCompany) return;
+    setState(() => _switchingCompany = true);
+    try {
+      await ref.read(v1ApiServiceProvider).switchCompany(company.id);
+      ref.invalidate(meProvider);
+      ref.invalidate(companiesProvider);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Empresa activa: ${company.businessName}')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      final msg = error is ApiException
+          ? error.message
+          : 'No se pudo cambiar de empresa.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    } finally {
+      if (mounted) setState(() => _switchingCompany = false);
+    }
+  }
+
+  Future<void> _showSwitchCompanySheet(
+    List<ApiCompany> companies,
+    int? currentCompanyId,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => _SwitchCompanySheet(
+        companies: companies,
+        currentCompanyId: currentCompanyId,
+        onSelect: (company) {
+          Navigator.of(sheetCtx).pop();
+          _doSwitchCompany(company);
+        },
+      ),
+    );
+  }
+
   Future<void> _toggleBiometrics(bool enabled) async {
     if (_updatingBiometrics) return;
 
@@ -86,7 +128,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               subtitle: 'Cuenta, seguridad y automatizaciones',
               trailing: IconButton.filledTonal(
                 tooltip: 'Ayuda',
-                onPressed: () {},
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Próximamente disponible')),
+                  );
+                },
                 icon: const Icon(Icons.help_outline_rounded),
               ),
             ),
@@ -179,7 +225,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                   ),
                   IconButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Edición de perfil disponible en la web')),
+                      );
+                    },
                     icon: const Icon(Icons.chevron_right_rounded),
                   ),
                 ],
@@ -205,21 +255,45 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         : 'Ninguna empresa tiene firma vigente.',
                     style: TextStyle(
                       fontFamily: 'Avenir Next',
-                      color: hasSignature
-                          ? AppColors.success
-                          : AppColors.warning,
+                      color:
+                          hasSignature ? AppColors.success : AppColors.warning,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      ref.invalidate(meProvider);
-                      ref.invalidate(companiesProvider);
-                      ref.invalidate(backendAvailabilityProvider);
-                    },
-                    icon: const Icon(Icons.sync_rounded),
-                    label: const Text('Actualizar estado'),
+                  Row(
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          ref.invalidate(meProvider);
+                          ref.invalidate(companiesProvider);
+                          ref.invalidate(backendAvailabilityProvider);
+                        },
+                        icon: const Icon(Icons.sync_rounded),
+                        label: const Text('Actualizar estado'),
+                      ),
+                      const SizedBox(width: 10),
+                      if (companies.length > 1)
+                        FilledButton.icon(
+                          onPressed: _switchingCompany
+                              ? null
+                              : () => _showSwitchCompanySheet(
+                                    companies,
+                                    meAsync.valueOrNull?.currentCompanyId,
+                                  ),
+                          icon: _switchingCompany
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.swap_horiz_rounded),
+                          label: const Text('Cambiar empresa'),
+                        ),
+                    ],
                   ),
                 ],
               ),
@@ -261,8 +335,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       : 'Acceso biométrico';
                   final subtitle = canUseBiometrics
                       ? biometricStatus.enabled
-                            ? 'Desbloqueo activo para ingreso rápido y seguro.'
-                            : 'Actívalo para entrar con biometría.'
+                          ? 'Desbloqueo activo para ingreso rápido y seguro.'
+                          : 'Actívalo para entrar con biometría.'
                       : 'Configura Face ID o huella en tu dispositivo.';
                   final icon = biometricStatus.hasFace
                       ? Icons.face_unlock_rounded
@@ -318,9 +392,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 18),
-            const SectionHeader(
+            SectionHeader(
               title: 'Productividad',
               actionText: 'Personalizar',
+              onAction: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Próximamente disponible')),
+                );
+              },
             ),
             const SizedBox(height: 10),
             GlassPanel(
@@ -355,6 +434,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             GlassPanel(
               child: Column(
                 children: [
+                  _MenuTile(
+                    icon: Icons.credit_card_rounded,
+                    title: 'Facturación',
+                    subtitle: 'Plan, pagos y transferencia bancaria.',
+                    onTap: () => context.push('/settings/billing'),
+                  ),
+                  const Divider(height: 20),
                   _MenuTile(
                     icon: Icons.lock_outline_rounded,
                     title: 'Clave SRI',
@@ -440,6 +526,151 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 }
+
+// ──────────────────────────────────────────────────────────────
+// Bottom sheet shown when the user taps "Cambiar empresa"
+// ──────────────────────────────────────────────────────────────
+
+class _SwitchCompanySheet extends StatelessWidget {
+  final List<ApiCompany> companies;
+  final int? currentCompanyId;
+  final void Function(ApiCompany) onSelect;
+
+  const _SwitchCompanySheet({
+    required this.companies,
+    required this.currentCompanyId,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF1A1A2E),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.textMuted.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Seleccionar empresa activa',
+            style: TextStyle(
+              fontFamily: 'Avenir Next',
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Los documentos y reportes se filtrarán por la empresa seleccionada.',
+            style: TextStyle(
+              fontFamily: 'Avenir Next',
+              color: AppColors.textSecondary,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...companies.map((company) {
+            final isActive = company.id == currentCompanyId;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: isActive ? null : () => onSelect(company),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? AppColors.primary.withValues(alpha: 0.15)
+                        : AppColors.primary.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isActive
+                          ? AppColors.primary.withValues(alpha: 0.6)
+                          : Colors.transparent,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.business_rounded,
+                          color: AppColors.primaryLight,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              company.businessName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: 'Avenir Next',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                                color: isActive
+                                    ? AppColors.primary
+                                    : AppColors.textPrimary,
+                              ),
+                            ),
+                            if (company.ruc.isNotEmpty)
+                              Text(
+                                'RUC ${company.ruc}',
+                                style: const TextStyle(
+                                  fontFamily: 'Avenir Next',
+                                  color: AppColors.textSecondary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (isActive)
+                        const Icon(
+                          Icons.check_circle_rounded,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
 
 class _MenuTile extends StatelessWidget {
   final IconData icon;

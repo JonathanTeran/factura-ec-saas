@@ -1,6 +1,4 @@
 import '../../core/api/v1_api_service.dart';
-import '../models/customer_model.dart';
-import '../models/paginated_result.dart';
 
 /// Repository that wraps customer-related API calls.
 class CustomerRepository {
@@ -22,7 +20,8 @@ class CustomerRepository {
   }
 
   /// Search customers by query string (convenience method).
-  Future<PaginatedResult<ApiCustomer>> search(String query, {int perPage = 25}) {
+  Future<PaginatedResult<ApiCustomer>> search(String query,
+      {int perPage = 25}) {
     return _api.customers(search: query, perPage: perPage);
   }
 }

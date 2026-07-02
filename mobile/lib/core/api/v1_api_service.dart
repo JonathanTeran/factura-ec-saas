@@ -175,6 +175,16 @@ class V1ApiService {
     });
   }
 
+  Future<ApiCompany> switchCompany(int companyId) async {
+    return _guard(() async {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '${ApiConstants.companies}/$companyId/switch',
+      );
+      final data = _payloadMapFromResponse(response);
+      return ApiCompany.fromJson(mapFrom(data['company']));
+    });
+  }
+
   Future<ApiDashboardStats> dashboardStats() async {
     return _guard(() async {
       final response = await _apiClient.get<Map<String, dynamic>>(
@@ -329,6 +339,28 @@ class V1ApiService {
     });
   }
 
+  Future<ApiCustomer> createCustomer(Map<String, dynamic> data) async {
+    return _guard(() async {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        ApiConstants.customers,
+        data: data,
+      );
+      final payload = _payloadMapFromResponse(response);
+      return ApiCustomer.fromJson(mapFrom(payload['customer']));
+    });
+  }
+
+  Future<ApiProduct> createProduct(Map<String, dynamic> data) async {
+    return _guard(() async {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        ApiConstants.products,
+        data: data,
+      );
+      final payload = _payloadMapFromResponse(response);
+      return ApiProduct.fromJson(mapFrom(payload['product']));
+    });
+  }
+
   Future<ReportsDashboardStats> reportsDashboard() async {
     return _guard(() async {
       final response = await _apiClient.get<Map<String, dynamic>>(
@@ -412,6 +444,16 @@ class V1ApiService {
     });
   }
 
+  Future<ApiDocumentDetail> getDocument(int documentId) async {
+    return _guard(() async {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '${ApiConstants.documents}/$documentId',
+      );
+      final data = _payloadMapFromResponse(response);
+      return ApiDocumentDetail.fromJson(mapFrom(data['document']));
+    });
+  }
+
   Future<ApiDocument> sendDocument(int documentId) async {
     return _guard(() async {
       final response = await _apiClient.post<Map<String, dynamic>>(
@@ -470,7 +512,7 @@ class V1ApiService {
         data: data,
       );
       final payload = _payloadMapFromResponse(response);
-      return ApiSupplier.fromJson(payload);
+      return ApiSupplier.fromJson(mapFrom(payload['supplier']));
     });
   }
 
@@ -482,13 +524,17 @@ class V1ApiService {
     int page = 1,
   }) async {
     return _guard(() async {
+      final queryParameters = <String, dynamic>{
+        'per_page': perPage,
+        'page': page,
+      };
+      if (status != null && status.isNotEmpty) {
+        queryParameters['status'] = status;
+      }
+
       final response = await _apiClient.get<Map<String, dynamic>>(
         ApiConstants.purchases,
-        queryParameters: {
-          'per_page': perPage,
-          'page': page,
-          'status': ?status,
-        },
+        queryParameters: queryParameters,
       );
       final body = _bodyFromResponse(response);
       final items = listFrom(body['data'])
@@ -550,38 +596,48 @@ class V1ApiService {
     });
   }
 
-  Future<ApiPosSession> posCloseSession(int sessionId, {
+  Future<ApiPosSession> posCloseSession(
+    int sessionId, {
     required double closingAmount,
     String? notes,
   }) async {
     return _guard(() async {
+      final data = <String, dynamic>{
+        'closing_amount': closingAmount,
+      };
+      if (notes != null && notes.isNotEmpty) {
+        data['closing_notes'] = notes;
+      }
+
       final response = await _apiClient.post<Map<String, dynamic>>(
         '${ApiConstants.posSessions}/$sessionId/close',
-        data: {
-          'closing_amount': closingAmount,
-          'closing_notes': ?notes,
-        },
+        data: data,
       );
       final payload = _payloadMapFromResponse(response);
       return ApiPosSession.fromJson(mapFrom(payload['session']));
     });
   }
 
-  Future<ApiPosTransaction> posCreateTransaction(int sessionId, {
+  Future<ApiPosTransaction> posCreateTransaction(
+    int sessionId, {
     required String paymentMethod,
     required List<Map<String, dynamic>> items,
     double amountReceived = 0,
     int? customerId,
   }) async {
     return _guard(() async {
+      final data = <String, dynamic>{
+        'payment_method': paymentMethod,
+        'items': items,
+        'amount_received': amountReceived,
+      };
+      if (customerId != null) {
+        data['customer_id'] = customerId;
+      }
+
       final response = await _apiClient.post<Map<String, dynamic>>(
         '${ApiConstants.posSessions}/$sessionId/transactions',
-        data: {
-          'payment_method': paymentMethod,
-          'items': items,
-          'amount_received': amountReceived,
-          'customer_id': ?customerId,
-        },
+        data: data,
       );
       final payload = _payloadMapFromResponse(response);
       return ApiPosTransaction.fromJson(mapFrom(payload['transaction']));
@@ -700,8 +756,8 @@ class V1ApiService {
       final response = await _apiClient.get<Map<String, dynamic>>(
         ApiConstants.subscriptionPayments,
       );
-      final data = _payloadMapFromResponse(response);
-      return listFrom(data['payments'])
+      final body = _bodyFromResponse(response);
+      return listFrom(body['data'])
           .map((item) => ApiPayment.fromJson(mapFrom(item)))
           .toList(growable: false);
     });
@@ -711,7 +767,7 @@ class V1ApiService {
   Future<ApiPayment> paymentStatus(int paymentId) async {
     return _guard(() async {
       final response = await _apiClient.get<Map<String, dynamic>>(
-        '${ApiConstants.subscriptionPayments}/$paymentId',
+        '${ApiConstants.subscriptionPaymentStatus}/$paymentId',
       );
       final data = _payloadMapFromResponse(response);
       return ApiPayment.fromJson(mapFrom(data['payment']));

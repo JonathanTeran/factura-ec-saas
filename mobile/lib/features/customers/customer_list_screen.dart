@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/entity_row.dart';
@@ -45,7 +46,8 @@ class CustomersScreen extends ConsumerWidget {
               title: 'Clientes',
               subtitle: 'Relación comercial y frecuencia',
               trailing: IconButton.filledTonal(
-                onPressed: () {},
+                tooltip: 'Nuevo cliente',
+                onPressed: () => context.push('/customers/new'),
                 icon: const Icon(Icons.person_add_alt_1_rounded),
               ),
             ),

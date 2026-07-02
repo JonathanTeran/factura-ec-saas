@@ -1,5 +1,4 @@
 import '../../core/api/v1_api_service.dart';
-import '../models/user_model.dart';
 
 /// Repository that wraps authentication-related API calls.
 class AuthRepository {

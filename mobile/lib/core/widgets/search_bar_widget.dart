@@ -17,7 +17,11 @@ class SearchInput extends StatelessWidget {
         ),
         prefixIcon: const Icon(Icons.search_rounded),
         suffixIcon: IconButton(
-          onPressed: () {},
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Búsqueda por voz próximamente disponible')),
+            );
+          },
           icon: const Icon(Icons.mic_none_rounded),
         ),
       ),

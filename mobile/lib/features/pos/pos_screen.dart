@@ -139,7 +139,11 @@ class PosScreen extends ConsumerWidget {
                       style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
-                      onPressed: () {},
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Apertura de sesión POS próximamente disponible')),
+                        );
+                      },
                       icon: const Icon(Icons.play_arrow_rounded),
                       label: const Text('Abrir sesion'),
                     ),

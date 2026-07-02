@@ -45,7 +45,11 @@ class PurchasesScreen extends ConsumerWidget {
               title: 'Compras',
               subtitle: '${items.length} registros',
               trailing: IconButton.filledTonal(
-                onPressed: () {},
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Registro de compras próximamente disponible')),
+                  );
+                },
                 icon: const Icon(Icons.add_rounded),
               ),
             ),

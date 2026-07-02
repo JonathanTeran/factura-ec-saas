@@ -1,7 +1,7 @@
-/// Shared JSON parsing helpers used by all API model classes.
-///
-/// These functions provide safe, null-tolerant parsing of dynamic values
-/// coming from JSON API responses.
+// Shared JSON parsing helpers used by all API model classes.
+//
+// These functions provide safe, null-tolerant parsing of dynamic values
+// coming from JSON API responses.
 
 int intFrom(dynamic value) {
   if (value is int) return value;

@@ -7,10 +7,10 @@ import 'package:intl/intl.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass_panel.dart';
-import '../../core/widgets/loading_widget.dart';
 import '../../core/widgets/money_text.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/section_header.dart';
+import '../../data/models/subscription_model.dart';
 import '../../data/providers/auth_provider.dart';
 import '../../data/providers/subscription_provider.dart';
 
@@ -28,6 +28,7 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
   String? _errorText;
   String? _successText;
   int? _selectedPlanId;
+  String _billingCycle = 'monthly';
 
   @override
   void dispose() {
@@ -70,13 +71,20 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
 
     try {
       final api = ref.read(v1ApiServiceProvider);
-      await api.submitTransferPayment(
+      final user = await ref.read(meProvider.future);
+
+      await api.subscribeBankTransfer(
         planId: _selectedPlanId!,
-        reference: _referenceCtrl.text.trim(),
-        receiptPath: _receiptImage!.path,
+        billingCycle: _billingCycle,
+        receiptFilePath: _receiptImage!.path,
+        transferReference: _referenceCtrl.text.trim(),
+        billingName: user.name,
+        billingEmail: user.email,
       );
 
       ref.invalidate(currentSubscriptionProvider);
+      ref.invalidate(plansProvider);
+      ref.invalidate(bankAccountsProvider);
       setState(() {
         _successText =
             'Comprobante enviado. Revisaremos tu pago y activaremos tu plan.';
@@ -175,7 +183,7 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                     ? 'En período de prueba'
                     : subscription.isActive
                         ? 'Activa'
-                        : subscription.status.toUpperCase();
+                        : subscription.statusLabel;
 
                 return GlassPanel(
                   child: Column(
@@ -248,6 +256,25 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
             // ── Available plans ──
             const SectionHeader(title: 'Planes disponibles', actionText: ''),
             const SizedBox(height: 10),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment<String>(
+                  value: 'monthly',
+                  label: Text('Mensual'),
+                  icon: Icon(Icons.calendar_view_month_rounded),
+                ),
+                ButtonSegment<String>(
+                  value: 'yearly',
+                  label: Text('Anual'),
+                  icon: Icon(Icons.calendar_today_rounded),
+                ),
+              ],
+              selected: {_billingCycle},
+              onSelectionChanged: (selection) {
+                setState(() => _billingCycle = selection.first);
+              },
+            ),
+            const SizedBox(height: 12),
             plansAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) => GlassPanel(
@@ -278,6 +305,7 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                       _PlanCard(
                         plan: plans[i],
                         isSelected: _selectedPlanId == plans[i].id,
+                        billingCycle: _billingCycle,
                         onTap: () =>
                             setState(() => _selectedPlanId = plans[i].id),
                       ),
@@ -349,12 +377,24 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                               ),
                               _InfoRow(
                                 label: 'Titular',
-                                value: account.accountHolder,
+                                value: account.holderName,
                               ),
                               _InfoRow(
                                 label: 'RUC/CI',
-                                value: account.identificationNumber,
+                                value: account.holderIdentification,
                               ),
+                              if (account.instructions != null &&
+                                  account.instructions!.trim().isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  account.instructions!,
+                                  style: const TextStyle(
+                                    fontFamily: 'Avenir Next',
+                                    color: AppColors.textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -518,18 +558,22 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
 class _PlanCard extends StatelessWidget {
   final ApiPlan plan;
   final bool isSelected;
+  final String billingCycle;
   final VoidCallback onTap;
 
   const _PlanCard({
     required this.plan,
     required this.isSelected,
+    required this.billingCycle,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final borderColor =
-        isSelected ? AppColors.primary : AppColors.border;
+    final borderColor = isSelected ? AppColors.primary : AppColors.border;
+    final selectedPrice =
+        billingCycle == 'yearly' ? plan.priceYearly : plan.priceMonthly;
+    final selectedCycleLabel = billingCycle == 'yearly' ? '/año' : '/mes';
 
     return InkWell(
       borderRadius: BorderRadius.circular(20),
@@ -601,7 +645,7 @@ class _PlanCard extends StatelessWidget {
             Row(
               children: [
                 Text(
-                  currency(plan.monthlyPrice),
+                  currency(selectedPrice),
                   style: const TextStyle(
                     fontFamily: 'Avenir Next',
                     fontWeight: FontWeight.w800,
@@ -609,8 +653,8 @@ class _PlanCard extends StatelessWidget {
                     color: AppColors.textPrimary,
                   ),
                 ),
-                const Text(
-                  ' /mes',
+                Text(
+                  ' $selectedCycleLabel',
                   style: TextStyle(
                     fontFamily: 'Avenir Next',
                     color: AppColors.textSecondary,
@@ -619,9 +663,20 @@ class _PlanCard extends StatelessWidget {
                 ),
               ],
             ),
+            if ((plan.description ?? '').trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                plan.description!,
+                style: const TextStyle(
+                  fontFamily: 'Avenir Next',
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                ),
+              ),
+            ],
             const SizedBox(height: 4),
             Text(
-              '${currency(plan.yearlyPrice)}/año · ${plan.maxDocuments} docs · ${plan.maxUsers} usuarios',
+              '${currency(plan.priceMonthly)}/mes · ${currency(plan.priceYearly)}/año · ${plan.maxDocumentsPerMonth} docs · ${plan.maxUsers} usuarios',
               style: const TextStyle(
                 fontFamily: 'Avenir Next',
                 color: AppColors.textSecondary,

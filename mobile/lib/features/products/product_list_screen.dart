@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/entity_row.dart';
@@ -46,7 +47,8 @@ class ProductsScreen extends ConsumerWidget {
               title: 'Productos',
               subtitle: 'Inventario y catálogo de venta',
               trailing: IconButton.filledTonal(
-                onPressed: () {},
+                tooltip: 'Nuevo producto',
+                onPressed: () => context.push('/products/new'),
                 icon: const Icon(Icons.add_box_rounded),
               ),
             ),

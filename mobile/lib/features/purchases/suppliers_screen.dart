@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/entity_row.dart';
@@ -45,7 +46,8 @@ class SuppliersScreen extends ConsumerWidget {
               title: 'Proveedores',
               subtitle: '${items.length} proveedores activos',
               trailing: IconButton.filledTonal(
-                onPressed: () {},
+                tooltip: 'Nuevo proveedor',
+                onPressed: () => context.push('/suppliers/new'),
                 icon: const Icon(Icons.person_add_alt_1_rounded),
               ),
             ),

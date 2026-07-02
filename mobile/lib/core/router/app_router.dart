@@ -3,21 +3,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/widgets/app_scaffold.dart';
-import '../../core/widgets/aurora_background.dart';
 import '../../core/widgets/error_widget.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/register_screen.dart';
 import '../../features/auth/splash_screen.dart';
+import '../../features/customers/customer_create_screen.dart';
 import '../../features/customers/customer_list_screen.dart';
 import '../../features/dashboard/dashboard_screen.dart';
 import '../../features/documents/document_create_screen.dart';
 import '../../features/documents/document_detail_screen.dart';
 import '../../features/documents/document_list_screen.dart';
 import '../../features/pos/pos_screen.dart';
+import '../../features/products/product_create_screen.dart';
 import '../../features/products/product_list_screen.dart';
 import '../../features/purchases/purchases_screen.dart';
+import '../../features/purchases/supplier_create_screen.dart';
 import '../../features/purchases/suppliers_screen.dart';
 import '../../features/reports/reports_screen.dart';
+import '../../features/settings/billing_screen.dart';
 import '../../features/settings/settings_screen.dart';
 
 /// Central GoRouter provider. All screens are imported from feature modules.
@@ -75,11 +78,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/customers',
             name: 'customers',
             builder: (context, state) => const CustomersScreen(),
+            routes: [
+              GoRoute(
+                path: 'new',
+                name: 'new-customer',
+                builder: (context, state) => const CustomerCreateScreen(),
+              ),
+            ],
           ),
           GoRoute(
             path: '/products',
             name: 'products',
             builder: (context, state) => const ProductsScreen(),
+            routes: [
+              GoRoute(
+                path: 'new',
+                name: 'new-product',
+                builder: (context, state) => const ProductCreateScreen(),
+              ),
+            ],
           ),
           GoRoute(
             path: '/reports',
@@ -90,6 +107,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/settings',
             name: 'settings',
             builder: (context, state) => const SettingsScreen(),
+            routes: [
+              GoRoute(
+                path: 'billing',
+                name: 'billing',
+                builder: (context, state) => const BillingScreen(),
+              ),
+            ],
           ),
           GoRoute(
             path: '/pos',
@@ -105,6 +129,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/suppliers',
             name: 'suppliers',
             builder: (context, state) => const SuppliersScreen(),
+            routes: [
+              GoRoute(
+                path: 'new',
+                name: 'new-supplier',
+                builder: (context, state) => const SupplierCreateScreen(),
+              ),
+            ],
           ),
         ],
       ),

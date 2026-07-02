@@ -183,7 +183,11 @@ class DashboardScreen extends ConsumerWidget {
               identifier: meAsync.valueOrNull?.email ?? 'Sin perfil cargado',
             ),
             const SizedBox(height: 20),
-            const SectionHeader(title: 'Visión rápida', actionText: 'Ver más'),
+            SectionHeader(
+              title: 'Visión rápida',
+              actionText: 'Ver más',
+              onAction: () => context.go('/documents'),
+            ),
             const SizedBox(height: 10),
             GridView.builder(
                   shrinkWrap: true,
@@ -202,16 +206,22 @@ class DashboardScreen extends ConsumerWidget {
                 .fadeIn(duration: 420.ms)
                 .slideY(begin: 0.12, duration: 420.ms),
             const SizedBox(height: 20),
-            const SectionHeader(
+            SectionHeader(
               title: 'Evolución de gastos',
               actionText: '30 días',
+              onAction: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Próximamente disponible')),
+                );
+              },
             ),
             const SizedBox(height: 10),
             _TrendPanel(points: data.chartPoints),
             const SizedBox(height: 20),
-            const SectionHeader(
+            SectionHeader(
               title: 'Documentos recientes',
               actionText: 'Todos',
+              onAction: () => context.go('/documents'),
             ),
             const SizedBox(height: 10),
             SizedBox(
@@ -364,7 +374,7 @@ class _AccountHeroCard extends StatelessWidget {
             ),
           ),
           IconButton(
-            onPressed: () {},
+            onPressed: () => context.push('/settings'),
             icon: const Icon(Icons.chevron_right_rounded),
           ),
         ],

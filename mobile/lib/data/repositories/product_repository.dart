@@ -1,6 +1,4 @@
 import '../../core/api/v1_api_service.dart';
-import '../models/paginated_result.dart';
-import '../models/product_model.dart';
 
 /// Repository that wraps product-related API calls.
 class ProductRepository {

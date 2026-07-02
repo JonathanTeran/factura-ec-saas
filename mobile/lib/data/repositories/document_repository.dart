@@ -1,7 +1,4 @@
 import '../../core/api/v1_api_service.dart';
-import '../models/document_model.dart';
-import '../models/paginated_result.dart';
-import '../models/product_model.dart';
 
 /// Repository that wraps document-related API calls.
 class DocumentRepository {
@@ -24,6 +21,11 @@ class DocumentRepository {
       perPage: perPage,
       page: page,
     );
+  }
+
+  /// Fetch the full detail of a single document, including line items.
+  Future<ApiDocumentDetail> show(int documentId) {
+    return _api.getDocument(documentId);
   }
 
   /// Create a new document from the given input.

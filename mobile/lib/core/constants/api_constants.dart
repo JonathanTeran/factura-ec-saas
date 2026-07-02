@@ -47,12 +47,16 @@ class ApiConstants {
   static const String subscription = '/subscription';
   static const String subscriptionPlans = '$subscription/plans';
   static const String subscriptionCurrent = '$subscription/current';
-  static const String subscriptionBankTransfer = '$subscription/bank-transfer';
+  static const String subscriptionBankTransfer =
+      '$subscription/subscribe-bank-transfer';
   static const String subscriptionCancel = '$subscription/cancel';
   static const String subscriptionResume = '$subscription/resume';
   static const String subscriptionPayments = '$subscription/payments';
+  static const String subscriptionPaymentStatus =
+      '$subscription/payment-status';
   static const String subscriptionBankAccounts = '$subscription/bank-accounts';
-  static const String subscriptionValidateCoupon = '$subscription/validate-coupon';
+  static const String subscriptionValidateCoupon =
+      '$subscription/validate-coupon';
 
   // AI
   static const String ai = '/ai';

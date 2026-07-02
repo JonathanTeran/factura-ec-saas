@@ -22,3 +22,11 @@ final draftDocumentsProvider = FutureProvider<PaginatedResult<ApiDocument>>((
 ) async {
   return ref.read(v1ApiServiceProvider).documents(status: 'draft', perPage: 25);
 });
+
+/// Full detail of a single document, keyed by its id.
+final documentDetailProvider = FutureProvider.family<ApiDocumentDetail, int>((
+  ref,
+  documentId,
+) async {
+  return ref.read(v1ApiServiceProvider).getDocument(documentId);
+});
