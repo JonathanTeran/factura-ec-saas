@@ -101,6 +101,10 @@ deploy_full() {
     log "Iniciando aplicacion..."
     docker compose -f "$COMPOSE_FILE" up -d app
 
+    # Publicar assets Vite compilados al host (nginx los sirve desde public/).
+    log "Publicando assets compilados..."
+    docker cp factura-ec-app:/var/www/html/public/build "$BACKEND_DIR/public/" 2>/dev/null || true
+
     # Run Laravel setup
     log "Ejecutando migraciones..."
     docker compose -f "$COMPOSE_FILE" exec app php artisan migrate --force
@@ -160,9 +164,11 @@ deploy_update() {
         cd "$BACKEND_DIR" && git pull
     fi
 
-    # Rebuild app image
-    log "Reconstruyendo imagen..."
-    docker compose -f "$COMPOSE_FILE" build app
+    # Rebuild app + horizon + scheduler (comparten Dockerfile pero son
+    # imágenes separadas; si solo se reconstruye app, los workers quedan con
+    # código viejo y los jobs fallan con __PHP_Incomplete_Class).
+    log "Reconstruyendo imagenes (app, horizon, scheduler)..."
+    docker compose -f "$COMPOSE_FILE" build app horizon scheduler
 
     # Maintenance mode
     log "Activando modo mantenimiento..."
@@ -171,6 +177,10 @@ deploy_update() {
     # Update containers
     log "Actualizando contenedores..."
     docker compose -f "$COMPOSE_FILE" up -d app horizon scheduler
+
+    # Copiar assets Vite compilados al host (nginx los sirve desde public/).
+    log "Publicando assets compilados..."
+    docker cp factura-ec-app:/var/www/html/public/build "$BACKEND_DIR/public/" 2>/dev/null || true
 
     # Run migrations
     log "Ejecutando migraciones..."
