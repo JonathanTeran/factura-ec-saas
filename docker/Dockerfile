@@ -59,10 +59,10 @@ COPY --chown=$user:$user backend/ .
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
 # Compilar assets Vite (portal, landing y Livewire usan @vite)
-RUN apk add --no-cache nodejs npm \
-    && npm install \
-    && npm run build \
-    && rm -rf node_modules
+RUN apk add --no-cache nodejs npm && chown -R $user:$user /var/www/html
+USER $user
+RUN npm install && npm run build && rm -rf node_modules
+USER root
 
 # Permisos
 RUN chown -R $user:$user /var/www/html/storage /var/www/html/bootstrap/cache
