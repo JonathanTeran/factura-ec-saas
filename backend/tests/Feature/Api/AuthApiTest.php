@@ -51,6 +51,26 @@ class AuthApiTest extends TestCase
         $this->assertSame($plan->max_documents_per_month, $tenant->max_documents_per_month);
     }
 
+    public function test_registration_sends_welcome_email(): void
+    {
+        \Illuminate\Support\Facades\Notification::fake();
+        Plan::factory()->create(['slug' => 'emprendedor', 'is_active' => true, 'sort_order' => 1]);
+
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Nuevo Cliente',
+            'email' => 'nuevo@example.com',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+            'company_name' => 'Nueva Empresa',
+        ])->assertCreated();
+
+        $user = User::where('email', 'nuevo@example.com')->first();
+        \Illuminate\Support\Facades\Notification::assertSentTo(
+            $user,
+            \App\Notifications\WelcomeTenantNotification::class,
+        );
+    }
+
     public function test_registration_requires_unique_email(): void
     {
         Plan::factory()->create(['slug' => 'emprendedor', 'is_active' => true, 'sort_order' => 1]);

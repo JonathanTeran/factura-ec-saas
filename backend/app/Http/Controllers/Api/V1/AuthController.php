@@ -128,6 +128,10 @@ class AuthController extends ApiController
             return [$user, $token];
         });
 
+        // Correo de bienvenida al nuevo usuario con los pasos pendientes
+        // (configuración asistida). Encolado; lo procesa Horizon.
+        $user->notify(new \App\Notifications\WelcomeTenantNotification($user));
+
         return $this->created([
             'user' => new UserResource($user->load('tenant')),
             'token' => $token->plainTextToken,
