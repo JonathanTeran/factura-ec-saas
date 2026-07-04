@@ -115,8 +115,8 @@ deploy_full() {
     docker compose -f "$COMPOSE_FILE" exec app php artisan db:seed --force
 
     log "Cacheando configuracion..."
-    docker compose -f "$COMPOSE_FILE" exec app php artisan config:cache
-    docker compose -f "$COMPOSE_FILE" exec app php artisan route:cache
+    docker compose -f "$COMPOSE_FILE" exec app php artisan config:clear
+    docker compose -f "$COMPOSE_FILE" exec app php artisan route:clear
     docker compose -f "$COMPOSE_FILE" exec app php artisan view:cache
     docker compose -f "$COMPOSE_FILE" exec app php artisan event:cache
 
@@ -178,8 +178,8 @@ deploy_update() {
 
     # Clear and rebuild caches
     log "Recacheando..."
-    docker compose -f "$COMPOSE_FILE" exec app php artisan config:cache
-    docker compose -f "$COMPOSE_FILE" exec app php artisan route:cache
+    docker compose -f "$COMPOSE_FILE" exec app php artisan config:clear
+    docker compose -f "$COMPOSE_FILE" exec app php artisan route:clear
     docker compose -f "$COMPOSE_FILE" exec app php artisan view:cache
     docker compose -f "$COMPOSE_FILE" exec app php artisan event:cache
 
@@ -216,8 +216,8 @@ rollback() {
     fi
 
     # Recache
-    docker compose -f "$COMPOSE_FILE" exec app php artisan config:cache
-    docker compose -f "$COMPOSE_FILE" exec app php artisan route:cache
+    docker compose -f "$COMPOSE_FILE" exec app php artisan config:clear
+    docker compose -f "$COMPOSE_FILE" exec app php artisan route:clear
 
     # Up
     docker compose -f "$COMPOSE_FILE" exec app php artisan up
