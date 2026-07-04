@@ -40,7 +40,17 @@ Route::get('/', function () {
         $plans = collect();
     }
 
-    return view('welcome', compact('plans'));
+    // Textos editoriales de precios, administrables desde el super admin.
+    try {
+        $pricingContent = app(\App\Services\Settings\PricingContentSettings::class)->all();
+    } catch (\Throwable) {
+        $pricingContent = array_map(
+            fn ($d) => $d['default'],
+            \App\Services\Settings\PricingContentSettings::definitions(),
+        );
+    }
+
+    return view('welcome', compact('plans', 'pricingContent'));
 });
 
 // ─── Helpers ────────────────────────────────────────────────────

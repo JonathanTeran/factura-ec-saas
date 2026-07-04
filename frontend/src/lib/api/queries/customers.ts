@@ -21,6 +21,7 @@ export type CustomerInput = {
   additional_emails?: string[];
   phone?: string;
   address?: string;
+  economic_activity?: string;
   is_active?: boolean;
 };
 

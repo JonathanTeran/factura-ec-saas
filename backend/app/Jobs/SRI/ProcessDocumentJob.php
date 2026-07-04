@@ -30,7 +30,11 @@ class ProcessDocumentJob implements ShouldQueue
     public function __construct(
         public ElectronicDocument $document
     ) {
-        $this->queue = 'sri';
+        // Los tenants con la funcionalidad premium de cola prioritaria
+        // (plan Profesional en adelante) se procesan antes que el resto.
+        $this->queue = $document->tenant?->has_priority_queue
+            ? 'sri-priority'
+            : 'sri';
     }
 
     /**
@@ -72,15 +76,8 @@ class ProcessDocumentJob implements ShouldQueue
             return;
         }
 
-        if (empty($checklist['sri_password'])) {
-            $this->document->update([
-                'status' => DocumentStatus::FAILED,
-                'sri_errors' => ['validation' => 'La empresa no tiene configurada la clave del SRI.'],
-            ]);
-            Log::warning("Documento #{$this->document->id} no procesado: clave SRI no configurada");
-
-            return;
-        }
+        // La clave del SRI (portal) no se usa para firmar ni enviar al
+        // webservice; no debe impedir el procesamiento del documento.
 
         if (empty($checklist['digital_signature'])) {
             $this->document->update([

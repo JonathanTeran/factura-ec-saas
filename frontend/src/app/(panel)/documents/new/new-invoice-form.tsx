@@ -29,9 +29,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { EntityCombobox } from "@/components/forms/entity-combobox";
+import { useDocumentGate, DocumentGateBanner } from "@/components/panel/document-gate";
 import {
   useCompanies,
-  useEmissionPoints,
+  useCompanyBranches,
 } from "@/lib/api/queries/companies";
 import { useCustomers } from "@/lib/api/queries/customers";
 import { useProducts } from "@/lib/api/queries/products";
@@ -105,6 +106,7 @@ type InfoRow = { key: string; value: string };
 
 type FormState = {
   companyId: number | null;
+  branchId: number | null;
   emissionPointId: number | null;
   customerId: number | null;
   issueDate: string;
@@ -120,6 +122,7 @@ type FormState = {
 function blankState(): FormState {
   return {
     companyId: null,
+    branchId: null,
     emissionPointId: null,
     customerId: null,
     issueDate: new Date().toISOString().slice(0, 10),
@@ -136,6 +139,7 @@ function blankState(): FormState {
 function fromDocument(doc: Document): FormState {
   return {
     companyId: null, // company id is not exposed in DocumentResource directly
+    branchId: null,
     emissionPointId: null,
     customerId: doc.customer?.id ?? null,
     issueDate: (doc.issue_date ?? new Date().toISOString().slice(0, 10)).slice(0, 10),
@@ -221,8 +225,26 @@ export function NewInvoiceForm({
     setState((prev) => ({ ...prev, [key]: value }));
   };
 
+  const gate = useDocumentGate();
   const companiesQ = useCompanies();
-  const emissionsQ = useEmissionPoints(state.companyId);
+  const branchesQ = useCompanyBranches(state.companyId);
+  const selectedBranch = branchesQ.data?.find((b) => b.id === state.branchId);
+  const emissionPointOptions = selectedBranch?.emission_points ?? [];
+
+  // Preselecciona empresa/establecimiento/punto de emisión cuando solo hay
+  // una opción disponible, para no obligar a elegir lo obvio. Se ajusta
+  // durante el render (patrón usado en el resto del panel) en vez de un
+  // efecto con setState.
+  if (state.companyId === null && companiesQ.data?.length === 1) {
+    setField("companyId", companiesQ.data[0].id);
+  }
+  if (state.companyId && state.branchId === null && branchesQ.data?.length === 1) {
+    setField("branchId", branchesQ.data[0].id);
+  }
+  if (state.branchId && state.emissionPointId === null && emissionPointOptions.length === 1) {
+    setField("emissionPointId", emissionPointOptions[0].id);
+  }
+
   const customersQ = useCustomers({ search: customerSearch || undefined, per_page: 20 });
   const productsQ = useProducts({ search: productSearch || undefined, per_page: 20 });
   const refDocsQ = useDocuments({
@@ -428,13 +450,14 @@ export function NewInvoiceForm({
             Emisor, cliente y fecha del comprobante.
           </p>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-2">
             <Label>Empresa emisora</Label>
             <EntityCombobox
               value={state.companyId}
               onChange={(v) => {
                 setField("companyId", typeof v === "number" ? v : null);
+                setField("branchId", null);
                 setField("emissionPointId", null);
               }}
               options={
@@ -450,21 +473,40 @@ export function NewInvoiceForm({
           </div>
 
           <div className="space-y-2">
+            <Label>Establecimiento</Label>
+            <EntityCombobox
+              value={state.branchId}
+              onChange={(v) => {
+                setField("branchId", typeof v === "number" ? v : null);
+                setField("emissionPointId", null);
+              }}
+              options={
+                branchesQ.data?.map((b) => ({
+                  value: b.id,
+                  label: `${b.code} · ${b.name}`,
+                })) ?? []
+              }
+              isLoading={branchesQ.isLoading}
+              placeholder={
+                state.companyId ? "Selecciona establecimiento..." : "Primero elige empresa"
+              }
+            />
+          </div>
+
+          <div className="space-y-2">
             <Label>Punto de emisión</Label>
             <EntityCombobox
               value={state.emissionPointId}
               onChange={(v) =>
                 setField("emissionPointId", typeof v === "number" ? v : null)
               }
-              options={
-                emissionsQ.data?.map((e) => ({
-                  value: e.id,
-                  label: `${e.code}${e.description ? " · " + e.description : ""}`,
-                })) ?? []
-              }
-              isLoading={emissionsQ.isLoading}
+              options={emissionPointOptions.map((e) => ({
+                value: e.id,
+                label: `${e.code}${e.description ? " · " + e.description : ""}`,
+              }))}
+              isLoading={branchesQ.isLoading}
               placeholder={
-                state.companyId ? "Selecciona punto..." : "Primero elige empresa"
+                state.branchId ? "Selecciona punto..." : "Primero elige establecimiento"
               }
             />
           </div>
@@ -1000,6 +1042,7 @@ export function NewInvoiceForm({
 
       {/* Barra de acción fija */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/85 backdrop-blur-md lg:left-64">
+        <DocumentGateBanner reasons={gate.reasons} />
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 lg:px-6">
           <div className="flex items-baseline gap-2">
             <span className="text-sm text-muted-foreground">Total</span>
@@ -1018,7 +1061,7 @@ export function NewInvoiceForm({
             <Button
               type="submit"
               variant="outline"
-              disabled={submit.isPending}
+              disabled={submit.isPending || gate.blockCreate}
             >
               {pendingAction === "draft" && (
                 <Loader2 className="size-4 animate-spin" />
@@ -1027,7 +1070,7 @@ export function NewInvoiceForm({
             </Button>
             <Button
               type="button"
-              disabled={submit.isPending}
+              disabled={submit.isPending || gate.blockSend}
               onClick={saveAndSend}
             >
               {pendingAction === "send" ? (

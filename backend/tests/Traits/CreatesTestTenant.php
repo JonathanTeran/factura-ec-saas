@@ -30,6 +30,10 @@ trait CreatesTestTenant
             'max_documents_per_month' => 100,
             'max_users' => 10,
             'max_companies' => 3,
+            // Precio determinista: el factory lo elegía al azar, lo que hacía
+            // impredecible si un cambio de plan era upgrade o downgrade.
+            'price_monthly' => 14.99,
+            'price_yearly' => 149.99,
         ]);
 
         $this->tenant = Tenant::factory()->create([
@@ -63,7 +67,9 @@ trait CreatesTestTenant
             'branch_id' => $this->branch->id,
         ]);
 
-        $this->subscription = Subscription::factory()->active()->create([
+        // Ciclo mensual determinista: el factory base lo elegía al azar, lo que
+        // ahora hace flaky a los tests de límite de documentos (mensual vs anual).
+        $this->subscription = Subscription::factory()->active()->monthly()->create([
             'tenant_id' => $this->tenant->id,
             'plan_id' => $this->plan->id,
         ]);

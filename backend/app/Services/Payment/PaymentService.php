@@ -14,6 +14,7 @@ use App\Services\Payment\Gateways\StripeGateway;
 use App\Notifications\BankTransferPendingNotification;
 use App\Notifications\PaymentApprovedNotification;
 use App\Notifications\PaymentRejectedNotification;
+use App\Services\Cache\TenantCacheService;
 use App\Services\Notification\NotificationService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -154,6 +155,11 @@ class PaymentService
             if ($payment->subscription) {
                 $this->activateSubscription($payment->subscription);
             }
+
+            // El chequeo de suscripción al crear documentos usa un caché de
+            // 10 min; sin esto, el tenant seguiría viendo "Necesitas una
+            // suscripción activa" después de la aprobación.
+            TenantCacheService::invalidateTenant($payment->tenant_id);
 
             // Create referral commission
             $this->createReferralCommission($payment);

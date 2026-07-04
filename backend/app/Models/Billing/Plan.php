@@ -37,6 +37,13 @@ class Plan extends Model
         'has_multi_currency',
         'has_accountant_access',
         'has_ai_categorization',
+        'has_priority_queue',
+        'has_bulk_operations',
+        'has_custom_roles',
+        'has_sso',
+        'has_dedicated_manager',
+        'has_custom_integrations',
+        'has_sla',
         'support_level',
         'support_response_hours',
         'is_active',
@@ -64,6 +71,13 @@ class Plan extends Model
         'has_multi_currency' => 'boolean',
         'has_accountant_access' => 'boolean',
         'has_ai_categorization' => 'boolean',
+        'has_priority_queue' => 'boolean',
+        'has_bulk_operations' => 'boolean',
+        'has_custom_roles' => 'boolean',
+        'has_sso' => 'boolean',
+        'has_dedicated_manager' => 'boolean',
+        'has_custom_integrations' => 'boolean',
+        'has_sla' => 'boolean',
         'is_active' => 'boolean',
         'is_featured' => 'boolean',
         'features_json' => 'array',
@@ -128,6 +142,19 @@ class Plan extends Model
 
     public function getFeaturesList(): array
     {
+        // Si el super admin definió una lista personalizada de características
+        // para este plan, esa lista manda y se muestra tal cual en la web.
+        if (is_array($this->features_json)) {
+            $custom = array_values(array_filter(array_map(
+                fn ($f) => is_string($f) ? trim($f) : '',
+                $this->features_json
+            )));
+
+            if (count($custom) > 0) {
+                return $custom;
+            }
+        }
+
         $features = [];
 
         // Limits
@@ -143,10 +170,13 @@ class Plan extends Model
             $features[] = $this->max_users . ' usuario' . ($this->max_users > 1 ? 's' : '');
         }
 
+        // Multi-empresa: valor agregado visible en todos los planes.
         if ($this->max_companies === -1) {
-            $features[] = 'Empresas ilimitadas';
+            $features[] = 'Empresas (RUC) ilimitadas';
         } elseif ($this->max_companies > 1) {
-            $features[] = $this->max_companies . ' empresas';
+            $features[] = 'Hasta ' . $this->max_companies . ' empresas (RUCs)';
+        } else {
+            $features[] = '1 empresa (RUC)';
         }
 
         if ($this->max_emission_points === -1) {
@@ -156,7 +186,8 @@ class Plan extends Model
         }
 
         // Boolean features
-        if ($this->has_electronic_signature) $features[] = 'Firma electronica';
+        // La firma electronica NO se anuncia como incluida: el cliente usa su
+        // propio certificado (no lo vendemos). Firmamos por el con su .p12.
         if ($this->has_proformas) $features[] = 'Proformas';
         if ($this->has_ats) $features[] = 'ATS';
         if ($this->has_accountant_access) $features[] = 'Acceso para contador';
@@ -166,11 +197,18 @@ class Plan extends Model
         if ($this->has_recurring_invoices) $features[] = 'Facturacion recurrente';
         if ($this->has_advanced_reports) $features[] = 'Reportes avanzados';
         if ($this->has_thermal_printer) $features[] = 'Impresora termica';
-        if ($this->has_webhooks) $features[] = 'Webhooks';
+        // Webhooks aún no está implementado en el backend: no se anuncia.
         if ($this->has_client_portal) $features[] = 'Portal de clientes';
         if ($this->has_multi_currency) $features[] = 'Multi-moneda';
         if ($this->has_whitelabel_ride) $features[] = 'RIDE personalizado';
         if ($this->has_ai_categorization) $features[] = 'Categorizacion con IA';
+        if ($this->has_priority_queue) $features[] = 'Emision prioritaria al SRI';
+        if ($this->has_bulk_operations) $features[] = 'Emision y carga masiva';
+        if ($this->has_custom_roles) $features[] = 'Roles y permisos personalizados';
+        if ($this->has_sso) $features[] = 'Inicio de sesion SSO/SAML';
+        if ($this->has_dedicated_manager) $features[] = 'Ejecutivo de cuenta dedicado';
+        if ($this->has_custom_integrations) $features[] = 'Integraciones a medida';
+        if ($this->has_sla) $features[] = 'SLA de disponibilidad garantizado';
 
         // Support
         $supportLabels = [

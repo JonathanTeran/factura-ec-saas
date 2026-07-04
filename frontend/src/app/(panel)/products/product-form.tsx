@@ -35,6 +35,56 @@ import { StockAdjustDialog } from "./stock-adjust-dialog";
 
 const TAX_RATES = [0, 5, 12, 15];
 
+const CODE_LENGTH = 20;
+const CODE_STOPWORDS = new Set([
+  "de", "del", "la", "las", "el", "los", "y", "en", "para", "con", "al", "a", "un", "una",
+]);
+
+// Genera un código inteligible a partir del nombre: concatena palabras
+// completas (ignorando artículos/preposiciones) mientras quepan en el
+// límite, y si sobra espacio agrega el prefijo de la siguiente palabra.
+// Con nombres muy largos donde ni la primera palabra completa cabe, reparte
+// el límite entre hasta 3 palabras (iniciales). Máximo 20 caracteres
+// alfanuméricos, sin tildes ni símbolos.
+function slugifyCode(name: string): string {
+  const normalized = name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toUpperCase();
+
+  const words = normalized
+    .split(/[^A-Z0-9]+/)
+    .filter((w) => w.length > 0 && !CODE_STOPWORDS.has(w.toLowerCase()));
+
+  if (words.length === 0) return "";
+  if (words.length === 1) return words[0].slice(0, CODE_LENGTH);
+
+  let code = "";
+  let nextWordIndex = 0;
+  for (const word of words) {
+    if (code.length + word.length > CODE_LENGTH) break;
+    code += word;
+    nextWordIndex++;
+  }
+
+  if (code === "") {
+    const chosen = words.slice(0, 3);
+    const perWord = Math.max(1, Math.floor(CODE_LENGTH / chosen.length));
+    code = chosen.map((w) => w.slice(0, perWord)).join("");
+    if (code.length < CODE_LENGTH) {
+      const last = chosen[chosen.length - 1];
+      code += last.slice(perWord, perWord + (CODE_LENGTH - code.length));
+    }
+    return code.slice(0, CODE_LENGTH);
+  }
+
+  if (code.length < CODE_LENGTH && nextWordIndex < words.length) {
+    code += words[nextWordIndex].slice(0, CODE_LENGTH - code.length);
+  }
+
+  return code;
+}
+
 function fieldErrors(err: unknown): Record<string, string[]> {
   if (err instanceof ClientApiError) {
     const p = err.payload as { errors?: Record<string, string[]> } | null;
@@ -144,8 +194,22 @@ function ProductFormInner({
 
   const [form, setForm] = useState<ProductInput>(initial);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
+  // Al crear, el código se genera solo desde el nombre por defecto; al editar
+  // se respeta el código ya existente y se deja en modo manual.
+  const [autoCode, setAutoCode] = useState(!isEdit);
   const set = <K extends keyof ProductInput>(k: K, v: ProductInput[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
+
+  const setName = (name: string) =>
+    setForm((f) => ({ ...f, name, code: autoCode ? slugifyCode(name) : f.code }));
+
+  const toggleAutoCode = () => {
+    setAutoCode((prev) => {
+      const next = !prev;
+      if (next) setForm((f) => ({ ...f, code: slugifyCode(f.name) }));
+      return next;
+    });
+  };
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -176,16 +240,29 @@ function ProductFormInner({
             htmlFor="code"
             required
             error={errors.code?.[0]}
-            hint="Código interno único."
+            hint={
+              autoCode
+                ? "Se genera automáticamente a partir del nombre (máx. 20 caracteres)."
+                : "Código interno único, máximo 20 caracteres alfanuméricos."
+            }
           >
             <IconInput
               id="code"
               icon={Hash}
-              placeholder="PROD-001"
+              placeholder="PROD01"
+              maxLength={CODE_LENGTH}
               value={form.code}
               onChange={(e) => set("code", e.target.value)}
+              disabled={autoCode}
               required
             />
+            <button
+              type="button"
+              onClick={toggleAutoCode}
+              className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+            >
+              {autoCode ? "Escribir manualmente" : "Generar automáticamente"}
+            </button>
           </Field>
 
           <Field label="SKU / código auxiliar" htmlFor="sku">
@@ -210,7 +287,7 @@ function ProductFormInner({
               icon={Package}
               placeholder="Ej. Camiseta algodón talla M"
               value={form.name}
-              onChange={(e) => set("name", e.target.value)}
+              onChange={(e) => setName(e.target.value)}
               required
             />
           </Field>

@@ -65,6 +65,11 @@ class CustomerPortalService
             return null;
         }
 
+        // El portal de clientes es una funcionalidad de plan (Negocio+).
+        if (! $portalToken->tenant?->has_client_portal) {
+            return null;
+        }
+
         // Obtener nombre del cliente
         $customer = Customer::withoutTenantScope()
             ->where('tenant_id', $portalToken->tenant_id)

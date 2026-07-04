@@ -133,10 +133,11 @@ class SubscriptionApiTest extends TestCase
         $this->assertEquals(SubscriptionStatus::ACTIVE, $this->subscription->status);
     }
 
-    public function test_change_plan(): void
+    public function test_change_plan_downgrade(): void
     {
+        // Downgrade (más barato que el plan actual 14.99): se aplica de inmediato.
         $newPlan = Plan::factory()->create([
-            'price_monthly' => 49.99,
+            'price_monthly' => 4.99,
             'is_active' => true,
         ]);
 
@@ -149,6 +150,20 @@ class SubscriptionApiTest extends TestCase
 
         $this->subscription->refresh();
         $this->assertEquals($newPlan->id, $this->subscription->plan_id);
+    }
+
+    public function test_change_plan_upgrade_is_rejected(): void
+    {
+        // Upgrade (más caro): debe redirigir al pago por transferencia.
+        $newPlan = Plan::factory()->create([
+            'price_monthly' => 49.99,
+            'is_active' => true,
+        ]);
+
+        $this->postJson('/api/v1/subscription/change-plan', [
+            'plan_id' => $newPlan->id,
+            'billing_cycle' => 'monthly',
+        ])->assertStatus(400);
     }
 
     public function test_plans_are_ordered(): void

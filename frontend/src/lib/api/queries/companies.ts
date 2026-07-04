@@ -65,6 +65,7 @@ export type CompanyDetail = {
   address: string;
   phone: string | null;
   email: string;
+  logo_url: string | null;
   sri_environment: "1" | "2";
   is_special_taxpayer: boolean;
   special_taxpayer_number: string | null;
@@ -119,6 +120,36 @@ export function useUpdateCompany(companyId: number) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: companyKeys.all });
     },
+  });
+}
+
+export function useUploadCompanyLogo(companyId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const fd = new FormData();
+      fd.append("logo", file);
+      const res = await fetch(`/api/proxy/companies/${companyId}/logo`, {
+        method: "POST",
+        body: fd,
+        headers: { Accept: "application/json" },
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(payload?.message ?? "No se pudo subir el logo.");
+      }
+      return payload as ApiSuccess<{ logo_url: string }>;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: companyKeys.all }),
+  });
+}
+
+export function useDeleteCompanyLogo(companyId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api.delete<ApiSuccess<{ logo_url: null }>>(`companies/${companyId}/logo`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: companyKeys.all }),
   });
 }
 

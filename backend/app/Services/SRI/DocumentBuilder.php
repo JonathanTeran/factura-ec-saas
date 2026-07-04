@@ -178,7 +178,10 @@ class DocumentBuilder
         $company = $doc->company;
 
         return [
-            'ambiente' => $company->sri_environment,
+            // Reutiliza el código numérico de la clave generada en borrador
+            // para que la clave enviada al SRI coincida con la vista previa.
+            'codigoNumerico' => AccessKeyService::numericCodeFrom($doc->access_key),
+            'ambiente' => $doc->environment ?: $company->sri_environment,
             'razonSocial' => $company->business_name,
             'nombreComercial' => $company->trade_name ?? $company->business_name,
             'ruc' => $company->ruc,

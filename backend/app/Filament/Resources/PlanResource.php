@@ -121,6 +121,20 @@ class PlanResource extends Resource
                             ->label('Acceso Contador'),
                         Forms\Components\Toggle::make('has_ai_categorization')
                             ->label('IA Categorizacion'),
+                        Forms\Components\Toggle::make('has_priority_queue')
+                            ->label('Emision prioritaria'),
+                        Forms\Components\Toggle::make('has_bulk_operations')
+                            ->label('Carga masiva'),
+                        Forms\Components\Toggle::make('has_custom_roles')
+                            ->label('Roles personalizados'),
+                        Forms\Components\Toggle::make('has_sso')
+                            ->label('SSO / SAML'),
+                        Forms\Components\Toggle::make('has_dedicated_manager')
+                            ->label('Ejecutivo dedicado'),
+                        Forms\Components\Toggle::make('has_custom_integrations')
+                            ->label('Integraciones a medida'),
+                        Forms\Components\Toggle::make('has_sla')
+                            ->label('SLA garantizado'),
                     ])->columns(4),
 
                 Forms\Components\Section::make('Soporte')
@@ -139,6 +153,16 @@ class PlanResource extends Resource
                             ->numeric()
                             ->default(72),
                     ])->columns(2),
+
+                Forms\Components\Section::make('Caracteristicas mostradas en la web')
+                    ->description('Opcional. Si agregas caracteristicas aqui, esta lista REEMPLAZA a la generada automaticamente desde los toggles y se muestra tal cual en la pagina de precios. Dejala vacia para usar la lista automatica.')
+                    ->schema([
+                        Forms\Components\TagsInput::make('features_json')
+                            ->label('Caracteristicas personalizadas')
+                            ->placeholder('Escribe y presiona Enter')
+                            ->helperText('Cada etiqueta es una linea con viñeta en la tarjeta del plan.')
+                            ->columnSpanFull(),
+                    ])->collapsed(),
 
                 Forms\Components\Section::make('Estado')
                     ->schema([

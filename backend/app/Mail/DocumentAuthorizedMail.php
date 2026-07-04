@@ -16,9 +16,15 @@ class DocumentAuthorizedMail extends Mailable
 {
     use Queueable, SerializesModels;
 
+    /**
+     * @param array<int, array<string, string>> $customAttachments Rutas de adjuntos
+     *        a forzar; si está vacío se usan el RIDE y el XML del documento.
+     *        No se llama "$attachments" para no chocar con la propiedad tipada
+     *        del padre Mailable (fatal en PHP 8.4).
+     */
     public function __construct(
         public ElectronicDocument $document,
-        public array $attachments = [],
+        public array $customAttachments = [],
     ) {}
 
     public function envelope(): Envelope
@@ -65,25 +71,15 @@ class DocumentAuthorizedMail extends Mailable
 
     public function attachments(): array
     {
-        $attachments = $this->attachments ?: $this->defaultAttachments();
+        $attachments = $this->customAttachments ?: $this->defaultAttachments();
 
+        // Se adjunta desde el disco por defecto (local en dev, s3 en producción),
+        // el mismo donde se guardan el RIDE y el XML.
         return collect($attachments)
-            ->map(function (array $attachment) {
-                if (Storage::disk('s3')->exists($attachment['path'])) {
-                    return Attachment::fromStorageDisk('s3', $attachment['path'])
-                        ->as($attachment['as'])
-                        ->withMime($attachment['mime']);
-                }
-
-                if (Storage::exists($attachment['path'])) {
-                    return Attachment::fromStorage($attachment['path'])
-                        ->as($attachment['as'])
-                        ->withMime($attachment['mime']);
-                }
-
-                return null;
-            })
-            ->filter()
+            ->filter(fn (array $a) => Storage::exists($a['path']))
+            ->map(fn (array $a) => Attachment::fromStorage($a['path'])
+                ->as($a['as'])
+                ->withMime($a['mime']))
             ->values()
             ->all();
     }

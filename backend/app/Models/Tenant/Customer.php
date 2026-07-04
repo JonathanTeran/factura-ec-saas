@@ -26,6 +26,7 @@ class Customer extends Model
         'phone',
         'address',
         'city',
+        'economic_activity',
         'is_active',
         'total_invoiced',
         'last_invoice_date',

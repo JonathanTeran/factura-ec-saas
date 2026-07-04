@@ -70,9 +70,12 @@ Route::prefix('v1')->group(function () {
         // Companies
         Route::prefix('companies')->group(function () {
             Route::get('/', [CompanyController::class, 'index']);
+            Route::post('/', [CompanyController::class, 'store']);
             Route::get('{company}', [CompanyController::class, 'show']);
             Route::put('{company}', [CompanyController::class, 'update']);
             Route::post('{company}/switch', [CompanyController::class, 'switch']);
+            Route::post('{company}/logo', [CompanyController::class, 'uploadLogo']);
+            Route::delete('{company}/logo', [CompanyController::class, 'deleteLogo']);
             Route::get('{company}/branches', [CompanyController::class, 'branches']);
             Route::get('{company}/emission-points', [CompanyController::class, 'emissionPoints']);
         });
@@ -171,21 +174,25 @@ Route::prefix('v1')->group(function () {
             Route::post('validate-coupon', [SubscriptionController::class, 'validateCoupon']);
         });
 
-        // Reports
+        // Reports. ATS está incluido en todos los planes; los reportes
+        // avanzados solo desde Negocio (plan.feature:advanced_reports).
         Route::prefix('reports')->group(function () {
-            Route::get('dashboard', [ReportController::class, 'dashboard']);
-            Route::get('sales', [ReportController::class, 'sales']);
-            Route::get('taxes', [ReportController::class, 'taxes']);
-            Route::get('top-customers', [ReportController::class, 'topCustomers']);
-            Route::get('top-products', [ReportController::class, 'topProducts']);
-            Route::get('documents-by-status', [ReportController::class, 'documentsByStatus']);
-            Route::get('comparison', [ReportController::class, 'comparison']);
-            Route::get('withholdings', [ReportController::class, 'withholdings']);
             Route::get('ats', [ReportController::class, 'ats']);
+
+            Route::middleware('plan.feature:advanced_reports')->group(function () {
+                Route::get('dashboard', [ReportController::class, 'dashboard']);
+                Route::get('sales', [ReportController::class, 'sales']);
+                Route::get('taxes', [ReportController::class, 'taxes']);
+                Route::get('top-customers', [ReportController::class, 'topCustomers']);
+                Route::get('top-products', [ReportController::class, 'topProducts']);
+                Route::get('documents-by-status', [ReportController::class, 'documentsByStatus']);
+                Route::get('comparison', [ReportController::class, 'comparison']);
+                Route::get('withholdings', [ReportController::class, 'withholdings']);
+            });
         });
 
-        // Inventory
-        Route::prefix('inventory')->group(function () {
+        // Inventory (solo planes con has_inventory)
+        Route::prefix('inventory')->middleware('plan.feature:inventory')->group(function () {
             Route::get('/', [InventoryController::class, 'index']);
             Route::get('low-stock', [InventoryController::class, 'lowStock']);
             Route::get('summary', [InventoryController::class, 'summary']);
@@ -201,8 +208,8 @@ Route::prefix('v1')->group(function () {
         // Purchases (Compras)
         Route::apiResource('purchases', PurchaseController::class);
 
-        // POS (Punto de Venta)
-        Route::prefix('pos')->group(function () {
+        // POS (Punto de Venta) - solo planes con has_pos
+        Route::prefix('pos')->middleware('plan.feature:pos')->group(function () {
             Route::get('active-session', [PosController::class, 'activeSession']);
             Route::post('open-session', [PosController::class, 'openSession']);
             Route::post('sessions/{session}/close', [PosController::class, 'closeSession']);
@@ -236,6 +243,9 @@ Route::prefix('v1')->group(function () {
             Route::apiResource('journal-entries', \App\Http\Controllers\Api\V1\Accounting\JournalEntryController::class);
             Route::post('journal-entries/{entry}/post', [\App\Http\Controllers\Api\V1\Accounting\JournalEntryController::class, 'postEntry']);
             Route::post('journal-entries/{entry}/void', [\App\Http\Controllers\Api\V1\Accounting\JournalEntryController::class, 'voidEntry']);
+
+            // Saldos iniciales (asiento de apertura)
+            Route::post('opening-balance', [\App\Http\Controllers\Api\V1\Accounting\OpeningBalanceController::class, 'store']);
 
             // Centros de costo
             Route::apiResource('cost-centers', \App\Http\Controllers\Api\V1\Accounting\CostCenterController::class);
@@ -287,10 +297,12 @@ Route::prefix('v1')->group(function () {
         Route::get('personal-expenses-budget', [\App\Http\Controllers\Api\V1\PersonalExpenseController::class, 'budget']);
         Route::put('personal-expenses-budget', [\App\Http\Controllers\Api\V1\PersonalExpenseController::class, 'updateBudget']);
 
-        // Recurring invoices
-        Route::apiResource('recurring-invoices', \App\Http\Controllers\Api\V1\RecurringInvoiceController::class);
-        Route::post('recurring-invoices/{recurring_invoice}/pause', [\App\Http\Controllers\Api\V1\RecurringInvoiceController::class, 'pause']);
-        Route::post('recurring-invoices/{recurring_invoice}/resume', [\App\Http\Controllers\Api\V1\RecurringInvoiceController::class, 'resume']);
+        // Recurring invoices (solo planes con has_recurring_invoices)
+        Route::middleware('plan.feature:recurring_invoices')->group(function () {
+            Route::apiResource('recurring-invoices', \App\Http\Controllers\Api\V1\RecurringInvoiceController::class);
+            Route::post('recurring-invoices/{recurring_invoice}/pause', [\App\Http\Controllers\Api\V1\RecurringInvoiceController::class, 'pause']);
+            Route::post('recurring-invoices/{recurring_invoice}/resume', [\App\Http\Controllers\Api\V1\RecurringInvoiceController::class, 'resume']);
+        });
 
         // Support tickets
         Route::get('support/tickets', [\App\Http\Controllers\Api\V1\SupportTicketController::class, 'index']);

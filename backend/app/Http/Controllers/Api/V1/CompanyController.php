@@ -7,6 +7,7 @@ use App\Http\Resources\BranchResource;
 use App\Http\Resources\CompanyResource;
 use App\Http\Resources\EmissionPointResource;
 use App\Models\Tenant\Company;
+use App\Services\Billing\BillingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -30,6 +31,48 @@ class CompanyController extends ApiController
         return $this->success([
             'companies' => CompanyResource::collection($companies),
         ]);
+    }
+
+    /**
+     * Crear empresa
+     *
+     * Registra un nuevo emisor (RUC) en la cuenta. Valor agregado multi-empresa:
+     * el número de empresas permitidas depende del plan. Si se alcanza el tope,
+     * responde 403 con `error: limit_reached` para invitar a subir de plan.
+     */
+    public function store(CompanyRequest $request, BillingService $billing): JsonResponse
+    {
+        $tenant = $request->user()->tenant;
+
+        $limit = $billing->checkLimit($tenant, 'companies');
+
+        if (! ($limit['allowed'] ?? false)) {
+            return response()->json([
+                'error' => 'limit_reached',
+                'resource' => 'companies',
+                'message' => 'Alcanzaste el limite de empresas (RUCs) de tu plan'
+                    . ($limit['limit'] >= 0 ? " ({$limit['limit']})" : '')
+                    . '. Sube de plan para administrar mas empresas desde una sola cuenta.',
+                'limit' => $limit['limit'] ?? 0,
+                'used' => $limit['used'] ?? 0,
+            ], 403);
+        }
+
+        $data = $request->validated();
+        $sriPassword = $data['sri_password'] ?? null;
+        unset($data['sri_password']);
+        $data['tenant_id'] = $tenant->id;
+
+        $company = Company::create($data);
+
+        if (filled($sriPassword)) {
+            $company->setSriPassword($sriPassword);
+            $company->save();
+        }
+
+        return $this->created([
+            'company' => new CompanyResource($company->fresh()),
+        ], 'Empresa creada correctamente.');
     }
 
     /**
@@ -131,6 +174,49 @@ class CompanyController extends ApiController
         return $this->success([
             'emission_points' => EmissionPointResource::collection($emissionPoints),
         ]);
+    }
+
+    /**
+     * Subir logo
+     *
+     * Guarda el logo de la empresa (aparece en el RIDE y en el panel).
+     */
+    public function uploadLogo(Request $request, Company $company): JsonResponse
+    {
+        $this->authorizeCompany($request, $company);
+
+        $request->validate([
+            'logo' => ['required', 'image', 'max:2048'],
+        ], [
+            'logo.image' => 'El logo debe ser una imagen (PNG, JPG, WebP).',
+            'logo.max' => 'El logo no puede pesar más de 2 MB.',
+        ]);
+
+        if ($company->logo_path) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($company->logo_path);
+        }
+
+        $path = $request->file('logo')->store("logos/{$company->tenant_id}", 'public');
+        $company->update(['logo_path' => $path]);
+
+        return $this->success([
+            'logo_url' => asset('storage/'.$path),
+        ], 'Logo actualizado.');
+    }
+
+    /**
+     * Eliminar logo
+     */
+    public function deleteLogo(Request $request, Company $company): JsonResponse
+    {
+        $this->authorizeCompany($request, $company);
+
+        if ($company->logo_path) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($company->logo_path);
+            $company->update(['logo_path' => null]);
+        }
+
+        return $this->success(['logo_url' => null], 'Logo eliminado.');
     }
 
     protected function authorizeCompany(Request $request, Company $company): void

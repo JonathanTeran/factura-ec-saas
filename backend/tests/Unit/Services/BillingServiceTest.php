@@ -128,18 +128,31 @@ class BillingServiceTest extends TestCase
         $this->assertEquals(SubscriptionStatus::CANCELLED, $this->subscription->status);
     }
 
-    public function test_change_plan_updates_plan_id(): void
+    public function test_change_plan_downgrade_applies_immediately(): void
     {
-        $newPlan = Plan::factory()->create([
-            'price_monthly' => 34.99,
-            'max_documents_per_month' => -1,
+        // Downgrade (más barato que el plan actual de 14.99): se aplica ya.
+        $cheaperPlan = Plan::factory()->create([
+            'price_monthly' => 4.99,
+            'max_documents_per_month' => 50,
         ]);
 
-        $result = $this->billingService->changePlan($this->subscription, $newPlan, 'monthly');
+        $result = $this->billingService->changePlan($this->subscription, $cheaperPlan, 'monthly');
 
-        $this->assertEquals($newPlan->id, $result->plan_id);
+        $this->assertEquals($cheaperPlan->id, $result->plan_id);
         $this->tenant->refresh();
-        $this->assertEquals($newPlan->id, $this->tenant->current_plan_id);
+        $this->assertEquals($cheaperPlan->id, $this->tenant->current_plan_id);
+        $this->assertEquals(50, $this->tenant->max_documents_per_month);
+    }
+
+    public function test_change_plan_upgrade_requires_payment(): void
+    {
+        // Upgrade (más caro que el plan actual de 14.99): no se aplica por esta
+        // vía; debe pasar por el flujo de pago por transferencia.
+        $expensivePlan = Plan::factory()->create(['price_monthly' => 34.99]);
+
+        $this->expectException(\RuntimeException::class);
+
+        $this->billingService->changePlan($this->subscription, $expensivePlan, 'monthly');
     }
 
     public function test_check_document_limit_returns_correct_usage(): void

@@ -24,11 +24,14 @@ import {
   useCompanies,
   useCompanyDetail,
   useUpdateCompany,
+  useUploadCompanyLogo,
+  useDeleteCompanyLogo,
   type CompanyDetail,
   type CompanyUpdateInput,
 } from "@/lib/api/queries/companies";
 import { useRucLookup } from "@/lib/api/queries/onboarding";
 import { ClientApiError } from "@/lib/api/client";
+import { companyInitials } from "@/lib/format";
 
 function errMessage(err: unknown): string {
   if (err instanceof ClientApiError) {
@@ -39,6 +42,80 @@ function errMessage(err: unknown): string {
     return first ?? p?.message ?? err.message;
   }
   return err instanceof Error ? err.message : "Error inesperado";
+}
+
+function LogoSection({ company }: { company: CompanyDetail }) {
+  const upload = useUploadCompanyLogo(company.id);
+  const remove = useDeleteCompanyLogo(company.id);
+  const busy = upload.isPending || remove.isPending;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Logo</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-wrap items-center gap-4">
+        {company.logo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={company.logo_url}
+            alt="Logo de la empresa"
+            className="size-16 rounded-xl border border-border object-contain bg-white p-1"
+          />
+        ) : (
+          <span className="grid size-16 shrink-0 place-items-center rounded-xl bg-primary text-xl font-semibold text-primary-foreground">
+            {companyInitials(company.trade_name || company.business_name)}
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium">
+            {company.logo_url
+              ? "Aparece en tus comprobantes (RIDE) y en el panel."
+              : "Aún no subes un logo — mostramos las iniciales de tu empresa."}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            PNG, JPG o WebP · máximo 2 MB.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-input bg-card px-3.5 text-sm font-medium shadow-xs transition hover:bg-muted/50">
+            {busy && <Loader2 className="size-4 animate-spin" />}
+            {company.logo_url ? "Cambiar logo" : "Subir logo"}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              disabled={busy}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (!file) return;
+                upload.mutate(file, {
+                  onSuccess: () => toast.success("Logo actualizado."),
+                  onError: (err) => toast.error(errMessage(err)),
+                });
+              }}
+            />
+          </label>
+          {company.logo_url && (
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={busy}
+              onClick={() =>
+                remove.mutate(undefined, {
+                  onSuccess: () => toast.success("Logo eliminado."),
+                  onError: (err) => toast.error(errMessage(err)),
+                })
+              }
+            >
+              Quitar
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export function CompanySettingsForm() {
@@ -155,6 +232,8 @@ function FormInner({
 
   return (
     <div className="max-w-3xl space-y-6">
+      <LogoSection company={company} />
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Identificación</CardTitle>

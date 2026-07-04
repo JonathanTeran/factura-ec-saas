@@ -176,6 +176,11 @@ class SubscriptionController extends ApiController
         $request->validate([
             'plan_id' => 'required|exists:plans,id',
             'billing_cycle' => 'required|in:monthly,yearly',
+        ], [
+            'plan_id.required' => 'El plan es requerido.',
+            'plan_id.exists' => 'El plan seleccionado no existe.',
+            'billing_cycle.required' => 'El ciclo de facturación es requerido.',
+            'billing_cycle.in' => 'El ciclo debe ser mensual o anual.',
         ]);
 
         $tenant = $request->user()->tenant;
@@ -251,6 +256,18 @@ class SubscriptionController extends ApiController
             'billing_email' => 'required|email',
             'billing_identification' => 'nullable|string|max:20',
             'coupon_code' => 'nullable|string',
+        ], [
+            'plan_id.required' => 'El plan es requerido.',
+            'plan_id.exists' => 'El plan seleccionado no existe.',
+            'billing_cycle.required' => 'El ciclo de facturación es requerido.',
+            'billing_cycle.in' => 'El ciclo debe ser mensual o anual.',
+            'transfer_receipt.required' => 'El comprobante de transferencia es requerido.',
+            'transfer_receipt.image' => 'El comprobante debe ser una imagen.',
+            'transfer_receipt.max' => 'El comprobante no debe superar los 5MB.',
+            'transfer_reference.required' => 'El número de referencia es requerido.',
+            'billing_name.required' => 'El nombre de facturación es requerido.',
+            'billing_email.required' => 'El correo de facturación es requerido.',
+            'billing_email.email' => 'El correo de facturación no es válido.',
         ]);
 
         $tenant = $request->user()->tenant;
@@ -316,11 +333,14 @@ class SubscriptionController extends ApiController
 
             $tenant->update(['current_plan_id' => $plan->id]);
 
-            // Notify admins
+            // Avisar a los super admins de la BD y a los correos configurados.
             $admins = User::withoutGlobalScopes()->where('role', UserRole::SUPER_ADMIN)->get();
             foreach ($admins as $admin) {
                 $admin->notify(new BankTransferPendingNotification($payment));
             }
+            \App\Services\Notification\NotificationService::notifyConfiguredAdmins(
+                new BankTransferPendingNotification($payment)
+            );
 
             return $this->created([
                 'subscription' => new SubscriptionResource($subscription->load('plan')),

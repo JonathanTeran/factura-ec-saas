@@ -25,10 +25,12 @@ class BankTransferPendingNotification extends Notification implements ShouldQueu
     {
         $tenantName = $this->payment->tenant?->name ?? 'N/A';
         $planName = $this->payment->subscription?->plan?->name ?? 'N/A';
+        // El notifiable puede ser un correo suelto (AnonymousNotifiable) sin ->name.
+        $adminName = $notifiable->name ?? 'Administrador';
 
         return (new MailMessage)
             ->subject("Transferencia pendiente de aprobacion - {$tenantName}")
-            ->greeting("Hola {$notifiable->name},")
+            ->greeting("Hola {$adminName},")
             ->line("Se ha registrado un nuevo pago por transferencia bancaria que requiere tu aprobacion.")
             ->line("Tenant: {$tenantName}")
             ->line("Plan: {$planName}")

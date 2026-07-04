@@ -16,7 +16,7 @@
 
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link
-        href="https://fonts.bunny.net/css?family=inter:300,400,500,600,700,800&family=space-grotesk:500,600,700&display=swap"
+        href="https://fonts.bunny.net/css?family=bricolage-grotesque:600,700,800&family=hanken-grotesk:400,500,600,700&display=swap"
         rel="stylesheet" />
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -26,8 +26,19 @@
             display: none !important;
         }
 
+        /* Tipografía de marca: Bricolage Grotesque (display) + Hanken Grotesk
+           (cuerpo). Se sobreescribe --font-sans de Tailwind sin recompilar. */
+        :root {
+            --font-sans: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+        }
+
+        body {
+            font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+        }
+
         .font-display {
-            font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+            font-family: 'Bricolage Grotesque', 'Hanken Grotesk', system-ui, sans-serif;
+            letter-spacing: -0.018em;
         }
 
         /* Subtle noise texture */
@@ -99,7 +110,7 @@
                         <a href="#planes"
                             class="px-4 py-2 text-[13px] font-medium text-slate-500 dark:text-slate-400 rounded-lg transition-colors hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/60 dark:hover:bg-slate-800/60">Planes</a>
                         <a href="#testimonios"
-                            class="px-4 py-2 text-[13px] font-medium text-slate-500 dark:text-slate-400 rounded-lg transition-colors hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/60 dark:hover:bg-slate-800/60">Testimonios</a>
+                            class="px-4 py-2 text-[13px] font-medium text-slate-500 dark:text-slate-400 rounded-lg transition-colors hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/60 dark:hover:bg-slate-800/60">Por qué</a>
                         <a href="#faq"
                             class="px-4 py-2 text-[13px] font-medium text-slate-500 dark:text-slate-400 rounded-lg transition-colors hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/60 dark:hover:bg-slate-800/60">Preguntas</a>
                     </div>
@@ -166,7 +177,7 @@
                         <a href="#planes" @click="mobileMenu = false"
                             class="px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800">Planes</a>
                         <a href="#testimonios" @click="mobileMenu = false"
-                            class="px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800">Testimonios</a>
+                            class="px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800">Por qué</a>
                         <a href="#faq" @click="mobileMenu = false"
                             class="px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800">Preguntas</a>
                         <hr class="my-2 border-slate-100 dark:border-slate-800">
@@ -252,22 +263,24 @@
                         </a>
                     </div>
 
-                    {{-- Trust indicators --}}
+                    {{-- Value props (capacidades reales, sin cifras infladas) --}}
                     <div class="mt-10 pt-8 border-t border-slate-100 dark:border-slate-800/60">
                         <div class="grid grid-cols-3 gap-6">
                             <div>
-                                <div class="font-display text-2xl font-bold text-slate-900 dark:text-white">2,400+
-                                </div>
-                                <div class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">Empresas activas</div>
+                                <div class="font-display text-2xl font-bold text-slate-900 dark:text-white">6</div>
+                                <div class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">Comprobantes
+                                    electronicos</div>
                             </div>
                             <div>
-                                <div class="font-display text-2xl font-bold text-slate-900 dark:text-white">1.2M</div>
-                                <div class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">Documentos emitidos
+                                <div class="font-display text-2xl font-bold text-slate-900 dark:text-white">Segundos
+                                </div>
+                                <div class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">Autorizacion del SRI
                                 </div>
                             </div>
                             <div>
-                                <div class="font-display text-2xl font-bold text-slate-900 dark:text-white">99.9%</div>
-                                <div class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">Disponibilidad</div>
+                                <div class="font-display text-2xl font-bold text-slate-900 dark:text-white">100%</div>
+                                <div class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">Ficha tecnica del SRI
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -418,11 +431,11 @@
                     Funcionalidades</p>
                 <h2
                     class="mt-3 font-display text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
-                    Todo lo que el SRI requiere, nada que te sobre
+                    Mucho más que facturar
                 </h2>
                 <p class="mt-4 text-base text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Desarrollado especificamente para la normativa tributaria ecuatoriana. Cada funcionalidad esta
-                    pensada para ahorrarte tiempo y evitar errores.
+                    Emisión al SRI, punto de venta, inventario, compras, contabilidad y portal para tus clientes —
+                    todo tu negocio en una sola plataforma, hecha para la normativa ecuatoriana.
                 </p>
             </div>
 
@@ -475,11 +488,16 @@
                                 d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                         </svg>
                     </div>
-                    <h3 class="mt-5 text-lg font-semibold text-slate-900 dark:text-white">Firma electronica XAdES-BES
+                    <h3 class="mt-5 text-lg font-semibold text-slate-900 dark:text-white">Firmamos por ti
                     </h3>
                     <p class="mt-2 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                        Sube tu certificado .p12 una sola vez. Cada documento se firma automaticamente con el estandar
-                        que exige el SRI.
+                        Sube <span class="font-medium text-slate-700 dark:text-slate-300">tu</span> certificado .p12
+                        una sola vez y firmamos cada comprobante con el estandar XAdES-BES que exige el SRI. Sin
+                        instalar nada.
+                    </p>
+                    <p class="mt-3 inline-flex items-center gap-1.5 rounded-md bg-amber-50 dark:bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-700 dark:text-amber-400 ring-1 ring-amber-200/60 dark:ring-amber-500/20">
+                        <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                        No vendemos certificados — usa el tuyo del BCE, Security Data o ANF
                     </p>
                 </div>
 
@@ -518,22 +536,106 @@
                     </p>
                 </div>
 
-                {{-- Feature 5 --}}
+                {{-- Feature 5: POS --}}
+                <div
+                    class="group relative rounded-2xl bg-slate-50 dark:bg-slate-900/60 p-8 ring-1 ring-slate-200/60 dark:ring-slate-800/60 transition-all hover:ring-slate-300 dark:hover:ring-slate-700">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500 text-white">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M15.75 15.75V18m-7.5-6.75h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25V13.5zm0 2.25h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25V18zm2.498-6.75h.007v.008h-.007v-.008zm0 2.25h.007v.008h-.007V13.5zm0 2.25h.007v.008h-.007v-.008zm0 2.25h.007v.008h-.007V18zm2.504-6.75h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V13.5zm0 2.25h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V18zm2.498-6.75h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V13.5zM8.25 6h7.5v2.25h-7.5V6zM12 2.25c-1.892 0-3.758.11-5.593.322C5.307 2.7 4.5 3.65 4.5 4.757V19.5a2.25 2.25 0 002.25 2.25h10.5a2.25 2.25 0 002.25-2.25V4.757c0-1.108-.806-2.057-1.907-2.185A48.507 48.507 0 0012 2.25z" />
+                        </svg>
+                    </div>
+                    <h3 class="mt-5 text-lg font-semibold text-slate-900 dark:text-white">Punto de venta (POS)</h3>
+                    <p class="mt-2 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                        Vende con sesiones de caja, genera la factura al instante e imprime el recibo en impresora
+                        termica.
+                    </p>
+                </div>
+
+                {{-- Feature 6: Inventario y compras --}}
+                <div
+                    class="group relative rounded-2xl bg-slate-50 dark:bg-slate-900/60 p-8 ring-1 ring-slate-200/60 dark:ring-slate-800/60 transition-all hover:ring-slate-300 dark:hover:ring-slate-700">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-500 text-white">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+                        </svg>
+                    </div>
+                    <h3 class="mt-5 text-lg font-semibold text-slate-900 dark:text-white">Inventario y compras</h3>
+                    <p class="mt-2 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                        Controla stock con alertas de minimos, registra compras a proveedores y los documentos que
+                        recibes.
+                    </p>
+                </div>
+
+                {{-- Feature 7: Contabilidad y ATS --}}
                 <div
                     class="group relative rounded-2xl bg-slate-50 dark:bg-slate-900/60 p-8 ring-1 ring-slate-200/60 dark:ring-slate-800/60 transition-all hover:ring-slate-300 dark:hover:ring-slate-700">
                     <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-500 text-white">
-                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                            stroke="currentColor">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round"
-                                d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+                                d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
                         </svg>
                     </div>
-                    <h3 class="mt-5 text-lg font-semibold text-slate-900 dark:text-white">Reportes y ATS</h3>
+                    <h3 class="mt-5 text-lg font-semibold text-slate-900 dark:text-white">Contabilidad y ATS</h3>
                     <p class="mt-2 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                        Genera reportes de ventas, retenciones e IVA. Exporta el Anexo Transaccional Simplificado listo
-                        para el SRI.
+                        Plan de cuentas, asientos automaticos, reportes de ventas e IVA y el Anexo Transaccional (ATS)
+                        listo para el SRI.
                     </p>
                 </div>
+
+                {{-- Feature 8: Portal de clientes --}}
+                <div
+                    class="group relative rounded-2xl bg-slate-50 dark:bg-slate-900/60 p-8 ring-1 ring-slate-200/60 dark:ring-slate-800/60 transition-all hover:ring-slate-300 dark:hover:ring-slate-700">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-500 text-white">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+                        </svg>
+                    </div>
+                    <h3 class="mt-5 text-lg font-semibold text-slate-900 dark:text-white">Portal de clientes</h3>
+                    <p class="mt-2 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                        Tus clientes descargan sus comprobantes (PDF y XML) desde su propio portal, sin tener que
+                        pedirtelos.
+                    </p>
+                </div>
+
+                {{-- Feature 9: Multi-empresa --}}
+                <div
+                    class="group relative rounded-2xl bg-slate-50 dark:bg-slate-900/60 p-8 ring-1 ring-slate-200/60 dark:ring-slate-800/60 transition-all hover:ring-slate-300 dark:hover:ring-slate-700">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-500 text-white">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
+                        </svg>
+                    </div>
+                    <h3 class="mt-5 text-lg font-semibold text-slate-900 dark:text-white">Multi-empresa</h3>
+                    <p class="mt-2 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                        Administra <span class="font-medium text-slate-700 dark:text-slate-300">varios RUCs</span>
+                        desde una sola cuenta: cambia de empresa con un clic, sin pagar otra suscripcion por cada una.
+                    </p>
+                    <p class="mt-3 inline-flex items-center gap-1.5 rounded-md bg-violet-50 dark:bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-violet-700 dark:text-violet-400 ring-1 ring-violet-200/60 dark:ring-violet-500/20">
+                        <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                        Desde el plan Profesional
+                    </p>
+                </div>
+            </div>
+
+            {{-- Also-includes strip --}}
+            <div class="mt-8 flex flex-wrap items-center gap-2.5">
+                <span class="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mr-1">
+                    Tambien incluye</span>
+                @foreach (['Facturacion recurrente', 'Cotizaciones / proformas', 'Multi-usuario con roles', 'App movil', 'Gestion de cobros', 'Categorizacion con IA'] as $extra)
+                    <span
+                        class="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-slate-800/60 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 ring-1 ring-slate-200/70 dark:ring-slate-700/50">
+                        <svg class="h-3 w-3 text-teal-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd"
+                                d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
+                                clip-rule="evenodd" />
+                        </svg>
+                        {{ $extra }}
+                    </span>
+                @endforeach
             </div>
         </div>
     </section>
@@ -568,10 +670,10 @@
                         class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white dark:bg-slate-800 shadow-sm ring-1 ring-slate-200/60 dark:ring-slate-700/60">
                         <span class="font-display text-xl font-bold text-teal-600 dark:text-teal-400">2</span>
                     </div>
-                    <h3 class="mt-5 text-base font-semibold text-slate-900 dark:text-white">Sube tu firma electronica
+                    <h3 class="mt-5 text-base font-semibold text-slate-900 dark:text-white">Sube tu certificado
                     </h3>
-                    <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">Carga tu archivo .p12 y nosotros nos
-                        encargamos de firmar cada documento automaticamente.</p>
+                    <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">Carga tu propio archivo .p12 (del BCE,
+                        Security Data o ANF) y nosotros firmamos cada documento por ti.</p>
                 </div>
                 <div class="relative text-center">
                     <div
@@ -593,15 +695,25 @@
         <section id="planes" class="relative py-24 sm:py-32" x-data="{ yearly: false }">
             <div class="mx-auto max-w-6xl px-5 sm:px-8">
                 <div class="text-center max-w-2xl mx-auto">
-                    <p class="text-xs font-semibold uppercase tracking-widest text-teal-600 dark:text-teal-400">Planes
+                    <p class="text-xs font-semibold uppercase tracking-widest text-teal-600 dark:text-teal-400">{{ $pricingContent['eyebrow'] }}
                     </p>
                     <h2
                         class="mt-3 font-display text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
-                        Precios transparentes, sin sorpresas
+                        {{ $pricingContent['title'] }}
                     </h2>
                     <p class="mt-4 text-base text-slate-500 dark:text-slate-400">
-                        Sin comisiones por documento. Escoge el plan que se ajuste a tu negocio.
+                        {{ $pricingContent['subtitle'] }}
                     </p>
+                    @if (!empty($pricingContent['badge_enabled']) && filled($pricingContent['badge_text']))
+                        <span
+                            class="mt-5 inline-flex items-center gap-2 rounded-full bg-violet-50 dark:bg-violet-500/10 px-4 py-1.5 text-sm font-medium text-violet-700 dark:text-violet-300 ring-1 ring-violet-200/70 dark:ring-violet-500/20">
+                            <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15" />
+                            </svg>
+                            {{ $pricingContent['badge_text'] }}
+                        </span>
+                    @endif
                 </div>
 
                 {{-- Billing toggle --}}
@@ -707,85 +819,67 @@
                     @endforeach
                 </div>
 
-                <p class="mt-8 text-center text-sm text-slate-400 dark:text-slate-500">
-                    Todos los planes incluyen soporte por email. Pago seguro por transferencia bancaria.
-                </p>
+                @if (filled($pricingContent['footer_note']))
+                    <p class="mt-8 text-center text-sm text-slate-400 dark:text-slate-500">
+                        {{ $pricingContent['footer_note'] }}
+                    </p>
+                @endif
             </div>
         </section>
     @endif
 
     {{-- ============================================================ --}}
-    {{-- TESTIMONIALS --}}
+    {{-- POR QUÉ AMEPHIA (diferenciadores reales, sin testimonios inventados) --}}
     {{-- ============================================================ --}}
     <section id="testimonios"
         class="relative py-24 sm:py-32 bg-slate-50 dark:bg-slate-900/30 border-y border-slate-100 dark:border-slate-800/40">
         <div class="mx-auto max-w-6xl px-5 sm:px-8">
             <div class="max-w-2xl">
-                <p class="text-xs font-semibold uppercase tracking-widest text-teal-600 dark:text-teal-400">Testimonios
-                </p>
+                <p class="text-xs font-semibold uppercase tracking-widest text-teal-600 dark:text-teal-400">Por qué
+                    AmePhia</p>
                 <h2
                     class="mt-3 font-display text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
-                    Lo que dicen quienes ya facturan con nosotros
+                    No es un sistema genérico adaptado a Ecuador
                 </h2>
+                <p class="mt-4 text-base text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Lo construimos desde cero sobre la normativa del SRI. Cada detalle está pensado para el
+                    contribuyente ecuatoriano.
+                </p>
             </div>
 
-            <div class="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                @php
-                    $testimonials = [
-                        [
-                            'text' =>
-                                'Antes facturaba en un sistema que se caia cada fin de mes. Con AmePhia emito mis documentos en segundos y nunca he tenido problemas de disponibilidad. El soporte responde inmediatamente.',
-                            'name' => 'Maria Gonzalez',
-                            'role' => 'Gerente, Comercial Express',
-                            'city' => 'Quito',
-                            'initials' => 'MG',
-                            'color' => 'from-teal-500 to-emerald-500',
-                        ],
-                        [
-                            'text' =>
-                                'Como contador manejo la facturacion de 12 clientes. La gestion multi-empresa me permite cambiar entre ellos sin cerrar sesion. El ATS me ahorra horas cada mes.',
-                            'name' => 'Carlos Mendoza',
-                            'role' => 'Contador, Mendoza & Asociados',
-                            'city' => 'Guayaquil',
-                            'initials' => 'CM',
-                            'color' => 'from-violet-500 to-indigo-500',
-                        ],
-                        [
-                            'text' =>
-                                'Integre mi tienda online con la API en una tarde. Cada venta genera automaticamente su factura electronica, se firma y se envia al cliente. Es transparente.',
-                            'name' => 'Ana Rodriguez',
-                            'role' => 'CTO, TechStore EC',
-                            'city' => 'Cuenca',
-                            'initials' => 'AR',
-                            'color' => 'from-amber-500 to-orange-500',
-                        ],
-                    ];
-                @endphp
+            @php
+                $reasons = [
+                    [
+                        'title' => 'Cumplimiento SRI de verdad',
+                        'text' => 'Generamos el XML según la ficha técnica oficial, firmamos con XAdES-BES y nos comunicamos directo con los web services del SRI. Los 6 comprobantes, retenciones y ATS incluidos.',
+                        'color' => 'bg-teal-600',
+                        'icon' => '<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />',
+                    ],
+                    [
+                        'title' => 'Todo tu negocio en un lugar',
+                        'text' => 'Facturación, punto de venta, inventario, contabilidad básica, compras y un portal donde tus clientes descargan sus comprobantes. Sin integrar cinco sistemas distintos.',
+                        'color' => 'bg-violet-500',
+                        'icon' => '<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />',
+                    ],
+                    [
+                        'title' => 'Sin trabajo manual',
+                        'text' => 'Creas el documento y nosotros lo firmamos con tu certificado, lo enviamos al SRI y le mandamos el PDF y el XML a tu cliente por correo. Todo automático, en segundos.',
+                        'color' => 'bg-amber-500',
+                        'icon' => '<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />',
+                    ],
+                ];
+            @endphp
 
-                @foreach ($testimonials as $t)
+            <div class="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                @foreach ($reasons as $r)
                     <div
-                        class="rounded-2xl bg-white dark:bg-slate-900 p-7 ring-1 ring-slate-200/60 dark:ring-slate-800/60">
-                        <div class="flex gap-0.5 mb-4">
-                            @for ($i = 0; $i < 5; $i++)
-                                <svg class="h-4 w-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
-                                    <path
-                                        d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                </svg>
-                            @endfor
+                        class="rounded-2xl bg-white dark:bg-slate-900 p-7 ring-1 ring-slate-200/60 dark:ring-slate-800/60 transition-all hover:ring-slate-300 dark:hover:ring-slate-700 hover:-translate-y-0.5">
+                        <div class="flex h-11 w-11 items-center justify-center rounded-xl {{ $r['color'] }} text-white">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                                stroke="currentColor">{!! $r['icon'] !!}</svg>
                         </div>
-                        <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">"{{ $t['text'] }}"
-                        </p>
-                        <div
-                            class="mt-6 flex items-center gap-3 pt-5 border-t border-slate-100 dark:border-slate-800/60">
-                            <div
-                                class="h-10 w-10 rounded-full bg-gradient-to-br {{ $t['color'] }} flex items-center justify-center text-xs font-bold text-white">
-                                {{ $t['initials'] }}</div>
-                            <div>
-                                <p class="text-sm font-semibold text-slate-900 dark:text-white">{{ $t['name'] }}
-                                </p>
-                                <p class="text-xs text-slate-400">{{ $t['role'] }} — {{ $t['city'] }}</p>
-                            </div>
-                        </div>
+                        <h3 class="mt-5 text-lg font-semibold text-slate-900 dark:text-white">{{ $r['title'] }}</h3>
+                        <p class="mt-2 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">{{ $r['text'] }}</p>
                     </div>
                 @endforeach
             </div>

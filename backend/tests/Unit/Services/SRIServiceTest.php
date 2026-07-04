@@ -23,7 +23,7 @@ class SRIServiceTest extends TestCase
     {
         parent::setUp();
         $this->setUpTenantContext();
-        Storage::fake('s3');
+        Storage::fake();
     }
 
     public function test_document_builder_creates_invoice_array(): void

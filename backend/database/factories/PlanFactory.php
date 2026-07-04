@@ -43,13 +43,20 @@ class PlanFactory extends Factory
             'has_multi_currency' => fake()->boolean(20),
             'has_accountant_access' => fake()->boolean(30),
             'has_ai_categorization' => fake()->boolean(20),
+            'has_priority_queue' => false,
+            'has_bulk_operations' => false,
+            'has_custom_roles' => false,
+            'has_sso' => false,
+            'has_dedicated_manager' => false,
+            'has_custom_integrations' => false,
+            'has_sla' => false,
             'support_level' => fake()->randomElement(['community', 'email', 'priority']),
             'support_response_hours' => fake()->randomElement([72, 48, 24, 4]),
             'is_active' => true,
             'is_featured' => fake()->boolean(20),
             'sort_order' => fake()->numberBetween(1, 10),
             'trial_days' => 14,
-            'features_json' => ['feature1', 'feature2'],
+            'features_json' => [],
         ];
     }
 

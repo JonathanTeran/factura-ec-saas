@@ -155,7 +155,7 @@ class SRIService
 
         // Guardar XML firmado
         if (isset($result['xmlFirmado'])) {
-            Storage::disk('s3')->put("{$basePath}/signed.xml", $result['xmlFirmado']);
+            Storage::put("{$basePath}/signed.xml", $result['xmlFirmado']);
             $update['xml_signed_path'] = "{$basePath}/signed.xml";
         }
 
@@ -176,7 +176,7 @@ class SRIService
 
             // Guardar XML autorizado
             if (isset($result['xmlAutorizado'])) {
-                Storage::disk('s3')->put("{$basePath}/authorized.xml", $result['xmlAutorizado']);
+                Storage::put("{$basePath}/authorized.xml", $result['xmlAutorizado']);
                 $update['xml_authorized_path'] = "{$basePath}/authorized.xml";
             }
 

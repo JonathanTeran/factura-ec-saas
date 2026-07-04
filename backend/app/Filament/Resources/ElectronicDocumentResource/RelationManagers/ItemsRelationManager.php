@@ -5,6 +5,7 @@ namespace App\Filament\Resources\ElectronicDocumentResource\RelationManagers;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\DB;
 
 class ItemsRelationManager extends RelationManager
 {
@@ -57,10 +58,17 @@ class ItemsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('tax_value')
                     ->label('Impuesto')
                     ->money('USD'),
-                Tables\Columns\TextColumn::make('total')
+                // No existe columna "total" en document_items: el total de línea
+                // (base + IVA) se calcula como subtotal + tax_value.
+                Tables\Columns\TextColumn::make('line_total')
                     ->label('Total')
+                    ->state(fn ($record) => (float) $record->subtotal + (float) $record->tax_value)
                     ->money('USD')
-                    ->summarize(Tables\Columns\Summarizers\Sum::make()->money('USD')),
+                    ->summarize(
+                        Tables\Columns\Summarizers\Summarizer::make()
+                            ->using(fn ($query) => $query->sum(DB::raw('subtotal + tax_value')))
+                            ->money('USD'),
+                    ),
             ])
             ->paginated(false);
     }

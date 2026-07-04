@@ -18,6 +18,10 @@ import {
   UserRound,
   ShieldCheck,
   ListPlus,
+  Building2,
+  Truck,
+  CreditCard,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -54,13 +58,37 @@ import {
 } from "@/lib/api/queries/documents";
 import { ClientApiError } from "@/lib/api/client";
 import { documentStatusMeta } from "@/lib/status";
-import { formatDate, formatMoney } from "@/lib/format";
+import { companyInitials, formatDate, formatMoney } from "@/lib/format";
 import { DeleteConfirmButton } from "@/components/forms/delete-confirm-button";
 import { PaymentsCard } from "./payments-card";
 
 function errMessage(err: unknown): string {
   if (err instanceof ClientApiError) return err.message;
   return err instanceof Error ? err.message : "Error inesperado";
+}
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  "01": "Sin utilización del sistema financiero",
+  "15": "Compensación de deudas",
+  "16": "Tarjeta de débito",
+  "17": "Dinero electrónico",
+  "18": "Tarjeta prepago",
+  "19": "Tarjeta de crédito",
+  "20": "Otros con utilización del sistema financiero",
+  "21": "Endoso de títulos",
+};
+
+type SriMessage = {
+  identificador?: string;
+  mensaje?: string;
+  informacionAdicional?: string;
+  tipo?: string;
+};
+
+function normalizeSriMessages(raw: unknown): SriMessage[] {
+  if (!raw) return [];
+  const list = Array.isArray(raw) ? raw : [raw];
+  return list.filter((m): m is SriMessage => typeof m === "object" && m !== null);
 }
 
 export function DocumentDetail({ id }: { id: number }) {
@@ -102,10 +130,24 @@ export function DocumentDetail({ id }: { id: number }) {
   const canVoid =
     doc.status === "authorized" || doc.status === "draft" || doc.status === "sent";
   const canDelete = doc.status === "draft";
-  const canDownloadRide = doc.has_ride || doc.status === "authorized";
+  const isAuthorized = doc.status === "authorized";
   const canDownloadXml = doc.has_xml;
+  const isGuide = String(doc.document_type) === "06";
+  const isRetention = String(doc.document_type) === "07";
   const info = doc.additional_info ?? null;
-  const infoEntries = info ? Object.entries(info) : [];
+  // Solo valores escalares: la guía guarda aquí estructuras anidadas
+  // (destinatarios/transporte) que se muestran en su propia tarjeta.
+  const infoEntries = info
+    ? Object.entries(info).filter(
+        (e): e is [string, string | number | boolean] =>
+          ["string", "number", "boolean"].includes(typeof e[1]) &&
+          e[1] !== "" &&
+          !(isGuide && GUIDE_TRANSPORT_KEYS.has(e[0])),
+      )
+    : [];
+  const sriMessages = normalizeSriMessages(doc.sri_messages);
+  const payments = doc.payment_methods ?? [];
+  const withholdings = doc.withholding_details ?? [];
 
   const copyAccessKey = async () => {
     if (!doc.access_key) return;
@@ -168,16 +210,21 @@ export function DocumentDetail({ id }: { id: number }) {
 
           <Button
             variant="outline"
-            disabled={!canDownloadRide}
+            title={
+              isAuthorized
+                ? "Descargar RIDE (PDF)"
+                : "Vista previa del PDF con marca de agua de borrador"
+            }
             onClick={async () => {
               try {
-                await downloadDocumentRide(doc.id, `${doc.document_number}.pdf`);
+                await downloadDocumentRide(doc.id);
               } catch (e) {
                 toast.error(errMessage(e));
               }
             }}
           >
-            <FileText className="size-4" /> RIDE
+            <FileText className="size-4" />
+            {isAuthorized ? "RIDE" : "Vista previa PDF"}
           </Button>
 
           <Button
@@ -344,82 +391,222 @@ export function DocumentDetail({ id }: { id: number }) {
 
       {/* Contenido */}
       <div className="grid gap-5 lg:grid-cols-3">
-        {/* Detalle de ítems + totales */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Detalle</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead>Código</TableHead>
-                    <TableHead>Descripción</TableHead>
-                    <TableHead className="text-right">Cant.</TableHead>
-                    <TableHead className="text-right">P. unit.</TableHead>
-                    <TableHead className="text-right">Desc.</TableHead>
-                    <TableHead className="text-right">Subtotal</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(doc.items ?? []).map((it) => (
-                    <TableRow key={it.id}>
-                      <TableCell className="font-mono text-xs">
-                        {it.main_code}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {it.description}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {it.quantity}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatMoney(it.unit_price)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatMoney(it.discount)}
-                      </TableCell>
-                      <TableCell className="text-right font-medium tabular-nums">
-                        {formatMoney(it.subtotal)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+        <div className="space-y-5 lg:col-span-2">
+          {/* Detalle de ítems (o retenciones) + totales */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Detalle</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isRetention ? (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead>Sustento</TableHead>
+                        <TableHead>Impuesto</TableHead>
+                        <TableHead>Código</TableHead>
+                        <TableHead className="text-right">Base imponible</TableHead>
+                        <TableHead className="text-right">%</TableHead>
+                        <TableHead className="text-right">Retenido</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {withholdings.map((w) => (
+                        <TableRow key={w.id}>
+                          <TableCell className="font-mono text-xs">
+                            {w.support_doc_number}
+                            {w.support_doc_date
+                              ? ` · ${formatDate(w.support_doc_date)}`
+                              : ""}
+                          </TableCell>
+                          <TableCell className="uppercase">{w.tax_type}</TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {w.retention_code}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {formatMoney(w.tax_base)}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {w.retention_rate}%
+                          </TableCell>
+                          <TableCell className="text-right font-medium tabular-nums">
+                            {formatMoney(w.retained_value)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead>Código</TableHead>
+                        <TableHead>Descripción</TableHead>
+                        <TableHead className="text-right">Cant.</TableHead>
+                        <TableHead className="text-right">P. unit.</TableHead>
+                        <TableHead className="text-right">Desc.</TableHead>
+                        {!isGuide && (
+                          <TableHead className="text-right">IVA</TableHead>
+                        )}
+                        <TableHead className="text-right">Subtotal</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(doc.items ?? []).map((it) => (
+                        <TableRow key={it.id}>
+                          <TableCell className="font-mono text-xs">
+                            {it.main_code}
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {it.description}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {it.quantity}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {formatMoney(it.unit_price)}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {formatMoney(it.discount)}
+                          </TableCell>
+                          {!isGuide && (
+                            <TableCell className="text-right tabular-nums">
+                              {it.tax_rate}%
+                            </TableCell>
+                          )}
+                          <TableCell className="text-right font-medium tabular-nums">
+                            {formatMoney(it.subtotal)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
 
-            <div className="ml-auto mt-5 max-w-xs space-y-1.5 text-sm">
-              <Row label="Subtotal sin impuesto" value={doc.subtotal_no_tax} />
-              <Row label="Subtotal 0%" value={doc.subtotal_0} />
-              {!!doc.subtotal_5 && (
-                <Row label="Subtotal 5%" value={doc.subtotal_5} />
+              {!isGuide && (
+                <div className="ml-auto mt-5 max-w-xs space-y-1.5 text-sm">
+                  {isRetention ? (
+                    <div className="flex items-baseline justify-between border-t border-border pt-3">
+                      <span className="font-medium">Total retenido</span>
+                      <span className="text-2xl font-semibold tabular-nums">
+                        {formatMoney(doc.total)}
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <Row label="Subtotal sin impuesto" value={doc.subtotal_no_tax} />
+                      <Row label="Subtotal 0%" value={doc.subtotal_0} />
+                      {!!doc.subtotal_5 && (
+                        <Row label="Subtotal 5%" value={doc.subtotal_5} />
+                      )}
+                      {!!doc.subtotal_12 && (
+                        <Row label="Subtotal 12%" value={doc.subtotal_12} />
+                      )}
+                      {!!doc.subtotal_15 && (
+                        <Row label="Subtotal 15%" value={doc.subtotal_15} />
+                      )}
+                      <Row label="Descuento" value={doc.total_discount} />
+                      <Row label="IVA" value={doc.total_tax} />
+                      <Row label="Propina" value={doc.tip} />
+                      <div className="mt-3 flex items-baseline justify-between border-t border-border pt-3">
+                        <span className="font-medium">Total</span>
+                        <span className="text-2xl font-semibold tabular-nums">
+                          {formatMoney(doc.total)}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
               )}
-              {!!doc.subtotal_12 && (
-                <Row label="Subtotal 12%" value={doc.subtotal_12} />
-              )}
-              {!!doc.subtotal_15 && (
-                <Row label="Subtotal 15%" value={doc.subtotal_15} />
-              )}
-              <Row label="Descuento" value={doc.total_discount} />
-              <Row label="IVA" value={doc.total_tax} />
-              <div className="mt-3 flex items-baseline justify-between border-t border-border pt-3">
-                <span className="font-medium">Total</span>
-                <span className="text-2xl font-semibold tabular-nums">
-                  {formatMoney(doc.total)}
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          {/* Guía de remisión: transporte y destinatarios */}
+          {isGuide && <GuideTransportCard info={info} />}
+
+          {/* Mensajes del SRI (rechazos / advertencias) */}
+          {sriMessages.length > 0 && (
+            <Card className="border-destructive/30">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <AlertTriangle className="size-4 text-destructive" />
+                  Respuesta del SRI
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {sriMessages.map((m, i) => (
+                  <div key={i} className="rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm">
+                    <p className="font-medium">
+                      {m.identificador ? `${m.identificador} · ` : ""}
+                      {m.mensaje ?? "Mensaje del SRI"}
+                    </p>
+                    {m.informacionAdicional && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {m.informacionAdicional}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </div>
 
         {/* Panel lateral */}
         <div className="space-y-5">
+          {doc.company && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <Building2 className="size-4 text-primary" />
+                  Emisor
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex items-start gap-3">
+                {doc.company.logo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={doc.company.logo_url}
+                    alt="Logo"
+                    className="size-11 shrink-0 rounded-lg border border-border bg-white object-contain p-0.5"
+                  />
+                ) : (
+                  <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground">
+                    {companyInitials(
+                      doc.company.trade_name || doc.company.business_name,
+                    )}
+                  </span>
+                )}
+                <div className="min-w-0 space-y-0.5">
+                  <p className="font-medium">{doc.company.business_name}</p>
+                  <p className="font-mono text-xs text-muted-foreground">
+                    RUC {doc.company.ruc}
+                  </p>
+                  {doc.company.address && (
+                    <p className="text-sm text-muted-foreground">
+                      {doc.company.address}
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-sm">
                 <UserRound className="size-4 text-primary" />
-                Cliente
+                {isRetention
+                  ? "Sujeto retenido"
+                  : isGuide
+                    ? "Destinatario"
+                    : String(doc.document_type) === "03"
+                      ? "Proveedor"
+                      : "Cliente"}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-1">
@@ -432,8 +619,37 @@ export function DocumentDetail({ id }: { id: number }) {
                   {doc.customer.email}
                 </p>
               )}
+              {doc.customer?.address && (
+                <p className="text-sm text-muted-foreground">
+                  {doc.customer.address}
+                </p>
+              )}
             </CardContent>
           </Card>
+
+          {payments.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <CreditCard className="size-4 text-primary" />
+                  Forma de pago
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {payments.map((pm, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2 text-sm">
+                    <span className="text-muted-foreground">
+                      {PAYMENT_METHOD_LABELS[pm.code] ?? `Código ${pm.code}`}
+                      {pm.term ? ` · ${pm.term} días` : ""}
+                    </span>
+                    <span className="font-medium tabular-nums">
+                      {formatMoney(pm.amount ?? doc.total)}
+                    </span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
           {doc.status === "authorized" &&
             ["01", "05"].includes(String(doc.document_type)) && (
@@ -570,5 +786,102 @@ function Row({ label, value }: { label: string; value?: number }) {
       <span>{label}</span>
       <span className="tabular-nums">{formatMoney(value)}</span>
     </div>
+  );
+}
+
+const GUIDE_TRANSPORT_KEYS = new Set([
+  "dirPartida",
+  "razonSocialTransportista",
+  "tipoIdTransportista",
+  "rucTransportista",
+  "fechaIniTransporte",
+  "fechaFinTransporte",
+  "placa",
+  "destinatarios",
+]);
+
+type GuideRecipient = {
+  razonSocialDestinatario?: string;
+  identificacionDestinatario?: string;
+  dirDestinatario?: string;
+  motivoTraslado?: string;
+  numDocSustento?: string;
+  detalles?: Array<{
+    codigoInterno?: string;
+    descripcion?: string;
+    cantidad?: string;
+  }>;
+};
+
+function GuideTransportCard({ info }: { info: Record<string, unknown> | null }) {
+  if (!info) return null;
+  const str = (k: string) => (typeof info[k] === "string" ? (info[k] as string) : "—");
+  const recipients = Array.isArray(info.destinatarios)
+    ? (info.destinatarios as GuideRecipient[])
+    : [];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <Truck className="size-4 text-primary" />
+          Transporte y destinatarios
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-xs text-muted-foreground">Transportista</dt>
+            <dd className="font-medium">{str("razonSocialTransportista")}</dd>
+            <dd className="font-mono text-xs text-muted-foreground">
+              {str("rucTransportista")}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Placa</dt>
+            <dd className="font-mono font-medium">{str("placa")}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Dirección de partida</dt>
+            <dd>{str("dirPartida")}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Transporte</dt>
+            <dd>
+              {str("fechaIniTransporte")} — {str("fechaFinTransporte")}
+            </dd>
+          </div>
+        </dl>
+
+        {recipients.map((r, i) => (
+          <div key={i} className="rounded-lg border border-border p-3">
+            <p className="font-medium">{r.razonSocialDestinatario ?? "—"}</p>
+            <p className="font-mono text-xs text-muted-foreground">
+              {r.identificacionDestinatario ?? "—"}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {r.dirDestinatario ?? "—"} · {r.motivoTraslado ?? "—"}
+            </p>
+            {(r.detalles ?? []).length > 0 && (
+              <ul className="mt-2 space-y-1 border-t border-border pt-2 text-sm">
+                {(r.detalles ?? []).map((d, j) => (
+                  <li key={j} className="flex justify-between gap-3">
+                    <span>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {d.codigoInterno}
+                      </span>{" "}
+                      {d.descripcion}
+                    </span>
+                    <span className="tabular-nums text-muted-foreground">
+                      × {d.cantidad}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }

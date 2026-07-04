@@ -19,6 +19,7 @@ class CustomerResource extends JsonResource
             'additional_emails' => $this->additional_emails,
             'phone' => $this->phone,
             'address' => $this->address,
+            'economic_activity' => $this->economic_activity,
             'is_active' => (bool) $this->is_active,
             'documents_count' => $this->whenCounted('documents'),
             'created_at' => $this->created_at->toISOString(),

@@ -69,6 +69,13 @@ class PortalAuthController extends Controller
             return redirect()->route('portal.link-sent');
         }
 
+        // El portal de clientes es una funcionalidad de plan (Negocio+). Si el
+        // emisor no lo tiene, no se envía enlace (sin revelar el motivo).
+        $tenant = \App\Models\Tenant\Tenant::find($customer->tenant_id);
+        if (! $tenant || ! $tenant->has_client_portal) {
+            return redirect()->route('portal.link-sent');
+        }
+
         // Enviar magic link
         $this->portalService->sendMagicLink(
             $customer->tenant_id,

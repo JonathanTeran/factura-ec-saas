@@ -42,6 +42,16 @@ class Tenant extends Model
         'has_webhooks',
         'has_ai_categorization',
         'has_accounting',
+        'has_client_portal',
+        'has_multi_currency',
+        'has_thermal_printer',
+        'has_priority_queue',
+        'has_bulk_operations',
+        'has_custom_roles',
+        'has_sso',
+        'has_dedicated_manager',
+        'has_custom_integrations',
+        'has_sla',
         'documents_this_month',
         'documents_month_reset_at',
         'referral_code',
@@ -64,6 +74,16 @@ class Tenant extends Model
         'has_webhooks' => 'boolean',
         'has_ai_categorization' => 'boolean',
         'has_accounting' => 'boolean',
+        'has_client_portal' => 'boolean',
+        'has_multi_currency' => 'boolean',
+        'has_thermal_printer' => 'boolean',
+        'has_priority_queue' => 'boolean',
+        'has_bulk_operations' => 'boolean',
+        'has_custom_roles' => 'boolean',
+        'has_sso' => 'boolean',
+        'has_dedicated_manager' => 'boolean',
+        'has_custom_integrations' => 'boolean',
+        'has_sla' => 'boolean',
         'settings' => 'array',
     ];
 
@@ -169,11 +189,60 @@ class Tenant extends Model
 
     public function hasReachedDocumentLimit(): bool
     {
-        if ($this->max_documents_per_month === -1) {
+        $limit = $this->effectiveDocumentLimit();
+
+        if ($limit === -1) {
             return false;
         }
 
-        return $this->documents_this_month >= $this->max_documents_per_month;
+        return $this->documentsUsedThisPeriod() >= $limit;
+    }
+
+    /**
+     * Cupo de documentos del período según el ciclo de facturación:
+     * plan mensual => tope mensual; plan anual => 12× el tope mensual.
+     * -1 significa ilimitado.
+     */
+    public function effectiveDocumentLimit(): int
+    {
+        $base = (int) $this->max_documents_per_month;
+
+        if ($base === -1) {
+            return -1;
+        }
+
+        return $this->isYearlyBilling() ? $base * 12 : $base;
+    }
+
+    /**
+     * Inicio del período de conteo vigente: el mes calendario (plan mensual)
+     * o la ventana anual desde el aniversario de la suscripción (plan anual).
+     */
+    public function currentDocumentPeriodStart(): \Carbon\Carbon
+    {
+        if (! $this->isYearlyBilling()) {
+            return now()->startOfMonth();
+        }
+
+        $anchor = ($this->activeSubscription?->starts_at ?? $this->created_at ?? now())->copy();
+        while ($anchor->copy()->addYear()->isPast()) {
+            $anchor->addYear();
+        }
+
+        return $anchor->startOfDay();
+    }
+
+    /** Documentos creados en el período vigente (contados en vivo desde la BD). */
+    public function documentsUsedThisPeriod(): int
+    {
+        return $this->documents()
+            ->where('created_at', '>=', $this->currentDocumentPeriodStart())
+            ->count();
+    }
+
+    private function isYearlyBilling(): bool
+    {
+        return $this->activeSubscription?->billing_cycle === 'yearly';
     }
 
     public function remainingDocuments(): int
@@ -213,6 +282,16 @@ class Tenant extends Model
             'webhooks' => $this->has_webhooks,
             'ai_categorization' => $this->has_ai_categorization,
             'accounting' => $this->has_accounting,
+            'client_portal' => $this->has_client_portal,
+            'multi_currency' => $this->has_multi_currency,
+            'thermal_printer' => $this->has_thermal_printer,
+            'priority_queue' => $this->has_priority_queue,
+            'bulk_operations' => $this->has_bulk_operations,
+            'custom_roles' => $this->has_custom_roles,
+            'sso' => $this->has_sso,
+            'dedicated_manager' => $this->has_dedicated_manager,
+            'custom_integrations' => $this->has_custom_integrations,
+            'sla' => $this->has_sla,
             default => false,
         };
     }
@@ -241,6 +320,16 @@ class Tenant extends Model
             'has_whitelabel_ride' => $plan->has_whitelabel_ride,
             'has_webhooks' => $plan->has_webhooks,
             'has_ai_categorization' => $plan->has_ai_categorization,
+            'has_client_portal' => $plan->has_client_portal,
+            'has_multi_currency' => $plan->has_multi_currency,
+            'has_thermal_printer' => $plan->has_thermal_printer,
+            'has_priority_queue' => $plan->has_priority_queue,
+            'has_bulk_operations' => $plan->has_bulk_operations,
+            'has_custom_roles' => $plan->has_custom_roles,
+            'has_sso' => $plan->has_sso,
+            'has_dedicated_manager' => $plan->has_dedicated_manager,
+            'has_custom_integrations' => $plan->has_custom_integrations,
+            'has_sla' => $plan->has_sla,
         ]);
     }
 

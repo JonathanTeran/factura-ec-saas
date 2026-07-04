@@ -1,6 +1,15 @@
 import './bootstrap';
 import './chart-component';
 
+// ==================== ALPINE.JS ====================
+// La landing (welcome.blade.php) y otras vistas Blade usan directivas Alpine
+// (x-data, x-text, @click, :class): toggle de precios, FAQ, menu movil, etc.
+// Sin arrancar Alpine, toda esa interactividad queda muerta.
+import Alpine from 'alpinejs';
+
+window.Alpine = Alpine;
+Alpine.start();
+
 // ==================== DARK MODE ====================
 function initDarkMode() {
     const darkModeToggle = document.getElementById('dark-mode-toggle');

@@ -98,6 +98,11 @@ class AuthController extends ApiController
                 'has_recurring_invoices' => $defaultPlan?->has_recurring_invoices ?? false,
                 'has_advanced_reports' => $defaultPlan?->has_advanced_reports ?? false,
                 'has_whitelabel_ride' => $defaultPlan?->has_whitelabel_ride ?? false,
+                'has_webhooks' => $defaultPlan?->has_webhooks ?? false,
+                'has_ai_categorization' => $defaultPlan?->has_ai_categorization ?? false,
+                'has_client_portal' => $defaultPlan?->has_client_portal ?? false,
+                'has_multi_currency' => $defaultPlan?->has_multi_currency ?? false,
+                'has_thermal_printer' => $defaultPlan?->has_thermal_printer ?? false,
                 'documents_this_month' => 0,
                 'documents_month_reset_at' => now()->startOfMonth(),
             ]);

@@ -8,6 +8,8 @@ use App\Exceptions\InvalidCertificateException;
 use App\Models\Tenant\Company;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Crypt;
+use Teran\Sri\Exceptions\CertificateException;
+use Teran\Sri\Signing\CertificateLoader;
 
 class SignatureManager
 {
@@ -20,8 +22,8 @@ class SignatureManager
             throw new CertificateNotFoundException($company->id);
         }
 
-        // Obtener contenido del .p12 desde S3
-        $content = Storage::disk('s3')->get($company->signature_path);
+        // Obtener contenido del .p12 desde el disco por defecto
+        $content = Storage::get($company->signature_path);
 
         if (!$content) {
             throw new CertificateNotFoundException($company->id);
@@ -38,14 +40,16 @@ class SignatureManager
      */
     public function validate(string $p12Content, string $password): array
     {
-        $certs = [];
-
-        if (!openssl_pkcs12_read($p12Content, $certs, $password)) {
+        // Muchos certificados emitidos por entidades de certificación ecuatorianas
+        // usan cifrados PKCS12 "legacy" (RC2-40, 3DES) que openssl_pkcs12_read()
+        // no puede leer en OpenSSL 3.x sin el provider legacy cargado. El
+        // CertificateLoader del paquete SRI intenta el lector nativo y, si
+        // falla, recurre a un fallback seguro por CLI de openssl con -legacy.
+        try {
+            $certInfo = (new CertificateLoader())->load($p12Content, $password)->x509Info();
+        } catch (CertificateException) {
             throw new InvalidCertificateException('No se pudo leer el certificado. Verifique la contrasena.');
         }
-
-        // Obtener información del certificado
-        $certInfo = openssl_x509_parse($certs['cert']);
 
         if (!$certInfo) {
             throw new InvalidCertificateException('No se pudo obtener informacion del certificado');
@@ -83,9 +87,9 @@ class SignatureManager
         // Validar la firma
         $info = $this->validate($content, $password);
 
-        // Guardar en S3 con path seguro
+        // Guardar con path seguro en el disco por defecto
         $path = "tenants/{$company->tenant_id}/signatures/{$company->id}/{$company->ruc}.p12";
-        Storage::disk('s3')->put($path, $content);
+        Storage::put($path, $content);
 
         // Actualizar empresa
         $company->update([

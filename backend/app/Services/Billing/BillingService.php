@@ -193,24 +193,47 @@ class BillingService
         }
 
         $subscription->cancel($reason);
+
+        // Avisar a los correos de administración de la cancelación.
+        \App\Services\Notification\NotificationService::notifyConfiguredAdmins(
+            new \App\Notifications\SubscriptionCancelledAdminNotification($subscription, $reason)
+        );
     }
 
     /**
-     * Cambiar de plan (upgrade/downgrade).
+     * Cambiar de plan. Solo aplica de inmediato para downgrades o el mismo
+     * nivel; los upgrades deben pasar por el flujo de pago por transferencia
+     * (subscribeBankTransfer) para no otorgar acceso pagado sin cobrar.
+     *
+     * @throws \RuntimeException si se intenta un upgrade por esta vía.
      */
     public function changePlan(Subscription $subscription, Plan $newPlan, string $billingCycle): Subscription
     {
         $tenant = $subscription->tenant;
+        $currentPlan = $subscription->plan;
 
         $newPrice = $billingCycle === 'yearly' ? $newPlan->price_yearly : $newPlan->price_monthly;
+        $currentPrice = $subscription->billing_cycle === 'yearly'
+            ? ($currentPlan->price_yearly ?? 0)
+            : ($currentPlan->price_monthly ?? 0);
 
+        if ($newPrice > $currentPrice) {
+            throw new \RuntimeException(
+                'Para subir de plan debes realizar el pago por transferencia. '
+                . 'Tu nuevo plan se activa cuando confirmemos el pago.'
+            );
+        }
+
+        // Downgrade o mismo nivel: se aplica de inmediato.
         $subscription->update([
             'plan_id' => $newPlan->id,
             'billing_cycle' => $billingCycle,
             'amount' => $newPrice,
         ]);
 
-        $tenant->update(['current_plan_id' => $newPlan->id]);
+        // Re-sincroniza límites y features del tenant con el nuevo plan.
+        $tenant->syncPlanLimits($newPlan);
+        \App\Services\Cache\TenantCacheService::invalidateTenant($tenant->id);
 
         return $subscription;
     }
@@ -241,21 +264,29 @@ class BillingService
         foreach ($admins as $admin) {
             $admin->notify(new BankTransferPendingNotification($payment));
         }
+
+        // También a los correos de administración configurados.
+        \App\Services\Notification\NotificationService::notifyConfiguredAdmins(
+            new BankTransferPendingNotification($payment)
+        );
     }
 
     private function checkDocumentLimit(Tenant $tenant, Plan $plan): array
     {
-        if ($plan->max_documents_per_month === -1) {
+        // Límite efectivo según el ciclo: mensual, o 12× para planes anuales.
+        $limit = $tenant->effectiveDocumentLimit();
+
+        if ($limit === -1) {
             return ['allowed' => true, 'message' => 'Ilimitado', 'limit' => -1, 'used' => 0];
         }
 
-        $used = $tenant->documentsThisMonth()->count();
-        $allowed = $used < $plan->max_documents_per_month;
+        $used = $tenant->documentsUsedThisPeriod();
+        $allowed = $used < $limit;
 
         return [
             'allowed' => $allowed,
             'message' => $allowed ? 'OK' : 'Límite de documentos alcanzado',
-            'limit' => $plan->max_documents_per_month,
+            'limit' => $limit,
             'used' => $used,
         ];
     }

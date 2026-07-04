@@ -103,11 +103,13 @@ export type ItemPayload = {
   tax_percentage_code: string;
 };
 
-export function buildItemPayload(it: CalculatedItem): ItemPayload {
+export function buildItemPayload(it: CalculatedItem, index = 0): ItemPayload {
   const codes = getTaxCodes(it.tax_rate);
   return {
     product_id: it.product_id,
-    main_code: it.main_code,
+    // Ítems manuales (sin producto del catálogo) no traen código; el SRI
+    // exige codigoPrincipal, así que se genera uno.
+    main_code: it.main_code || `ITEM-${index + 1}`,
     description: it.description,
     quantity: it.quantity,
     unit_price: it.unit_price,

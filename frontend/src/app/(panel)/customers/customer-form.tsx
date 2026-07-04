@@ -10,6 +10,8 @@ import {
   Phone,
   MapPin,
   UserRound,
+  Search,
+  Briefcase,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -61,6 +63,7 @@ const blankCustomer: CustomerInput = {
   additional_emails: [],
   phone: "",
   address: "",
+  economic_activity: "",
   is_active: true,
 };
 
@@ -73,6 +76,7 @@ function fromCustomer(c: Customer): CustomerInput {
     additional_emails: c.additional_emails ?? [],
     phone: c.phone ?? "",
     address: c.address ?? "",
+    economic_activity: c.economic_activity ?? "",
     is_active: c.is_active,
   };
 }
@@ -130,18 +134,28 @@ function CustomerFormInner({
 
   const sriLookup = useSriIdentificationLookup();
 
-  async function lookupSri() {
-    if (!/^([0-9]{10}|[0-9]{13})$/.test(form.identification_number)) return;
+  async function lookupSri(opts: { silent?: boolean } = {}) {
+    if (!/^([0-9]{10}|[0-9]{13})$/.test(form.identification_number)) {
+      if (!opts.silent) {
+        toast.error("Ingresa una cédula (10 dígitos) o RUC (13 dígitos) válidos.");
+      }
+      return;
+    }
     try {
       const res = await sriLookup.mutateAsync(form.identification_number);
       const d = res.data;
       setForm((f) => ({
         ...f,
         name: f.name || d.business_name,
+        address: f.address || d.address || f.address,
+        economic_activity: f.economic_activity || d.main_activity || f.economic_activity,
       }));
-      toast.success("Nombre cargado desde el SRI.");
+      toast.success("Datos cargados automáticamente desde el SRI.");
     } catch {
       // Sin registro en el catastro (p. ej. cédula sin RUC): se ingresa manual
+      if (!opts.silent) {
+        toast.error("No se encontró esa identificación en el catastro del SRI.");
+      }
     }
   }
 
@@ -194,20 +208,42 @@ function CustomerFormInner({
             htmlFor="identification_number"
             required
             error={errors.identification_number?.[0]}
-            hint="Cédula (10) o RUC (13 dígitos)."
+            hint="Cédula (10) o RUC (13 dígitos). Se completan los datos desde el SRI."
           >
-            <IconInput
-              id="identification_number"
-              icon={Hash}
-              inputMode="numeric"
-              placeholder="1712345678"
-              value={form.identification_number}
-              onChange={(e) => set("identification_number", e.target.value)}
-              onBlur={() => {
-                if (!form.name) void lookupSri();
-              }}
-              required
-            />
+            <div className="flex gap-2">
+              <IconInput
+                id="identification_number"
+                icon={Hash}
+                inputMode="numeric"
+                placeholder="1712345678"
+                value={form.identification_number}
+                onChange={(e) => set("identification_number", e.target.value)}
+                onBlur={() => {
+                  if (
+                    ["04", "05"].includes(form.identification_type) &&
+                    !form.name
+                  ) {
+                    void lookupSri({ silent: true });
+                  }
+                }}
+                required
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => void lookupSri()}
+                disabled={sriLookup.isPending}
+                title="Buscar en el SRI"
+              >
+                {sriLookup.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Search className="size-4" />
+                )}
+              </Button>
+            </div>
           </Field>
 
           <Field
@@ -286,6 +322,22 @@ function CustomerFormInner({
               placeholder="Av. Amazonas N34-45 y Av. Atahualpa"
               value={form.address ?? ""}
               onChange={(e) => set("address", e.target.value)}
+            />
+          </Field>
+
+          <Field
+            label="Actividad económica"
+            htmlFor="economic_activity"
+            className="sm:col-span-2"
+            error={errors.economic_activity?.[0]}
+            hint="Detectada automáticamente desde el SRI; puedes editarla."
+          >
+            <IconInput
+              id="economic_activity"
+              icon={Briefcase}
+              placeholder="Ej. Venta al por menor de prendas de vestir"
+              value={form.economic_activity ?? ""}
+              onChange={(e) => set("economic_activity", e.target.value)}
             />
           </Field>
         </FormSection>

@@ -12,6 +12,7 @@ export type SriTaxpayer = {
   retention_agent: boolean;
   special_taxpayer: boolean;
   main_activity: string | null;
+  address: string | null;
 };
 
 /**

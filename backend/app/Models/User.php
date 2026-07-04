@@ -71,6 +71,17 @@ class User extends Authenticatable implements FilamentUser
                 }
             }
         });
+
+        // Aviso a la administración cuando se registra un nuevo dueño de cuenta.
+        // Cubre ambas vías de registro (API y web con Fortify), que crean un
+        // usuario TENANT_OWNER. Nunca debe romper el registro.
+        static::created(function (User $user) {
+            if ($user->role === UserRole::TENANT_OWNER) {
+                \App\Services\Notification\NotificationService::notifyConfiguredAdmins(
+                    new \App\Notifications\NewTenantRegisteredNotification($user)
+                );
+            }
+        });
     }
 
     // ==================== RELACIONES ====================

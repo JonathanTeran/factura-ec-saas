@@ -33,6 +33,7 @@ class CustomerRequest extends FormRequest
             'additional_emails.*' => ['email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20'],
             'address' => ['nullable', 'string', 'max:300'],
+            'economic_activity' => ['nullable', 'string', 'max:300'],
             'is_active' => ['nullable', 'boolean'],
         ];
     }

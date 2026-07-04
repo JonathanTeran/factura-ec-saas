@@ -35,6 +35,9 @@ class TenantFactory extends Factory
             'has_recurring_invoices' => false,
             'has_advanced_reports' => false,
             'has_whitelabel_ride' => false,
+            'has_client_portal' => true,
+            'has_multi_currency' => false,
+            'has_thermal_printer' => false,
             'documents_this_month' => 0,
             'settings' => [],
         ];

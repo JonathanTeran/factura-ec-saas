@@ -6,52 +6,79 @@ use App\Models\SRI\ElectronicDocument;
 use App\Enums\DocumentType;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
-use chillerlan\QRCode\QRCode;
-use chillerlan\QRCode\QROptions;
+use Picqer\Barcode\BarcodeGeneratorPNG;
 
 class RIDEGenerator
 {
     /**
-     * Generar RIDE (PDF) para un documento
+     * Versión del diseño de las plantillas RIDE. Súbela al cambiar el diseño
+     * para invalidar las vistas previas cacheadas de documentos no editados.
      */
-    public function generate(ElectronicDocument $doc, array $sriResult = []): string
+    private const TEMPLATE_VERSION = 7;
+
+    /**
+     * Generar RIDE (PDF) para un documento.
+     *
+     * En modo $preview (documentos sin autorizar) el PDF lleva marca de agua
+     * "BORRADOR" y se guarda en una ruta aparte que se regenera siempre,
+     * porque el borrador puede seguir cambiando.
+     */
+    public function generate(ElectronicDocument $doc, array $sriResult = [], bool $preview = false): string
     {
+        $dir = "tenants/{$doc->tenant_id}/documents/{$doc->id}";
+
+        // La vista previa se cachea por versión del documento + versión del
+        // diseño: se regenera si cambia cualquiera de las dos.
+        if ($preview) {
+            $path = "{$dir}/ride-preview-v".self::TEMPLATE_VERSION."-{$doc->updated_at->getTimestamp()}.pdf";
+            if (Storage::exists($path)) {
+                return $path;
+            }
+        } else {
+            $path = "{$dir}/ride.pdf";
+        }
+
         $template = $this->getTemplate($doc->document_type);
         $data = $this->prepareData($doc, $sriResult);
+        $data['preview'] = $preview;
 
         $pdf = Pdf::loadView($template, $data);
         $pdf->setPaper('a4', 'portrait');
 
-        $content = $pdf->output();
+        // Guardar en el disco por defecto (local en dev, s3 en producción)
+        Storage::put($path, $pdf->output());
 
-        // Guardar en S3
-        $path = "tenants/{$doc->tenant_id}/documents/{$doc->id}/ride.pdf";
-        Storage::disk('s3')->put($path, $content);
+        if ($preview) {
+            $this->purgeStalePreviews($dir, $path);
+        }
 
         return $path;
     }
 
-    /**
-     * Generar QR Code
-     */
-    public function generateQRCode(ElectronicDocument $doc): string
+    /** Elimina vistas previas de versiones anteriores del documento. */
+    private function purgeStalePreviews(string $dir, string $currentPath): void
     {
-        $data = implode('|', [
-            $doc->access_key,
-            $doc->company->ruc,
-            $doc->document_type->value,
-            $doc->total,
-        ]);
+        foreach (Storage::files($dir) as $file) {
+            if ($file !== $currentPath && str_contains(basename($file), 'ride-preview')) {
+                Storage::delete($file);
+            }
+        }
+    }
 
-        $options = new QROptions([
-            'outputType' => QRCode::OUTPUT_IMAGE_PNG,
-            'eccLevel' => QRCode::ECC_M,
-            'scale' => 5,
-        ]);
+    /**
+     * Código de barras Code 128 de la clave de acceso, como exige el formato
+     * oficial del RIDE. Null si el documento aún no tiene clave.
+     */
+    public function generateBarcode(ElectronicDocument $doc): ?string
+    {
+        if (empty($doc->access_key)) {
+            return null;
+        }
 
-        $qrcode = new QRCode($options);
+        $generator = new BarcodeGeneratorPNG();
+        $png = $generator->getBarcode($doc->access_key, BarcodeGeneratorPNG::TYPE_CODE_128, 2, 46);
 
-        return $qrcode->render($data);
+        return 'data:image/png;base64,'.base64_encode($png);
     }
 
     /**
@@ -85,7 +112,7 @@ class RIDEGenerator
             'accessKey' => $doc->access_key,
             'authorizationNumber' => $doc->authorization_number,
             'authorizationDate' => $doc->authorization_date,
-            'qrCode' => $this->generateQRCode($doc),
+            'barcode' => $this->generateBarcode($doc),
             'documentNumber' => $doc->getDocumentNumber(),
             'sriResult' => $sriResult,
         ];
@@ -107,7 +134,7 @@ class RIDEGenerator
         $content = $pdf->output();
 
         $path = "tenants/{$doc->tenant_id}/documents/{$doc->id}/ride-thermal.pdf";
-        Storage::disk('s3')->put($path, $content);
+        Storage::put($path, $content);
 
         return $path;
     }

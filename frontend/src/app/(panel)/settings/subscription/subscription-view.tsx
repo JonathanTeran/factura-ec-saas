@@ -36,6 +36,8 @@ import {
 } from "@/lib/api/queries/subscription";
 import { ClientApiError } from "@/lib/api/client";
 import { formatDate, formatMoney } from "@/lib/format";
+import { SubscribeDialog } from "./subscribe-dialog";
+import type { Plan } from "@/lib/api/types";
 
 function errMessage(err: unknown): string {
   if (err instanceof ClientApiError) {
@@ -55,6 +57,7 @@ export function SubscriptionView() {
   const change = useChangePlan();
 
   const [confirmingPlan, setConfirmingPlan] = useState<number | null>(null);
+  const [subscribingPlan, setSubscribingPlan] = useState<Plan | null>(null);
 
   if (currentQ.isLoading) {
     return (
@@ -95,7 +98,7 @@ export function SubscriptionView() {
           <div>
             <p className="text-xs text-muted-foreground">Próxima renovación</p>
             <p className="text-sm font-medium">
-              {sub?.current_period_end ? formatDate(sub.current_period_end) : "—"}
+              {sub?.ends_at ? formatDate(sub.ends_at) : "—"}
             </p>
           </div>
           <div className="sm:col-span-3 flex gap-2">
@@ -181,29 +184,51 @@ export function SubscriptionView() {
                         <Badge variant="default" className="w-full justify-center py-1">
                           Plan actual
                         </Badge>
+                      ) : sub?.is_active ? (
+                        // Upgrade (plan más caro) => pago por transferencia.
+                        // Downgrade / mismo precio => cambio inmediato.
+                        plan && p.price > plan.price ? (
+                          <Button
+                            className="w-full"
+                            onClick={() => setSubscribingPlan(p)}
+                          >
+                            Mejorar a este plan
+                          </Button>
+                        ) : (
+                          <Button
+                            className="w-full"
+                            variant="outline"
+                            disabled={change.isPending}
+                            onClick={() => {
+                              setConfirmingPlan(p.id);
+                              change.mutate(
+                                { planId: p.id, billingCycle: sub.billing_cycle ?? "monthly" },
+                                {
+                                  onSuccess: () => {
+                                    toast.success(`Cambiaste al plan ${p.name}`);
+                                    setConfirmingPlan(null);
+                                  },
+                                  onError: (e) => {
+                                    toast.error(errMessage(e));
+                                    setConfirmingPlan(null);
+                                  },
+                                },
+                              );
+                            }}
+                          >
+                            {change.isPending && confirmingPlan === p.id && (
+                              <Loader2 className="size-4 animate-spin" />
+                            )}
+                            Cambiar a este plan
+                          </Button>
+                        )
                       ) : (
                         <Button
                           className="w-full"
                           variant="outline"
-                          disabled={change.isPending}
-                          onClick={() => {
-                            setConfirmingPlan(p.id);
-                            change.mutate(p.id, {
-                              onSuccess: () => {
-                                toast.success(`Cambio a ${p.name} solicitado`);
-                                setConfirmingPlan(null);
-                              },
-                              onError: (e) => {
-                                toast.error(errMessage(e));
-                                setConfirmingPlan(null);
-                              },
-                            });
-                          }}
+                          onClick={() => setSubscribingPlan(p)}
                         >
-                          {change.isPending && confirmingPlan === p.id && (
-                            <Loader2 className="size-4 animate-spin" />
-                          )}
-                          Cambiar a este plan
+                          Suscribirme
                         </Button>
                       )}
                     </CardContent>
@@ -314,6 +339,13 @@ export function SubscriptionView() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <SubscribeDialog
+        plan={subscribingPlan}
+        onOpenChange={(open) => {
+          if (!open) setSubscribingPlan(null);
+        }}
+      />
     </div>
   );
 }

@@ -13,6 +13,7 @@ export type BankAccount = {
   account_type?: string;
   holder_name?: string;
   holder_identification?: string;
+  instructions?: string | null;
 };
 
 export type Payment = {
@@ -50,8 +51,9 @@ const FEATURE_LABELS: Record<string, string> = {
   has_thermal_printer: "Impresora térmica",
   has_advanced_reports: "Reportes avanzados",
   has_whitelabel_ride: "RIDE personalizado",
-  has_webhooks: "Webhooks",
   has_client_portal: "Portal de clientes",
+  has_multi_currency: "Multi-moneda",
+  has_ai_categorization: "Categorización con IA",
 };
 
 function normalizePlanFeatures(
@@ -64,6 +66,11 @@ function normalizePlanFeatures(
     .map(([key]) => FEATURE_LABELS[key] ?? key);
 }
 
+function toNumber(v: number | string | null | undefined): number {
+  if (v == null) return 0;
+  return typeof v === "string" ? Number(v) : v;
+}
+
 function normalizePlan(raw: RawPlan): Plan {
   const price =
     raw.price ?? raw.price_monthly ?? raw.price_yearly ?? 0;
@@ -71,6 +78,8 @@ function normalizePlan(raw: RawPlan): Plan {
     id: raw.id,
     name: raw.name,
     price: typeof price === "string" ? Number(price) : (price ?? 0),
+    priceMonthly: toNumber(raw.price_monthly),
+    priceYearly: toNumber(raw.price_yearly),
     currency: raw.currency ?? "USD",
     interval:
       raw.interval ?? (raw.price_monthly != null ? "mes" : "año"),
@@ -101,12 +110,21 @@ export function useCurrentSubscription() {
     queryKey: subscriptionKeys.current(),
     queryFn: () =>
       api.get<
-        ApiSuccess<{ subscription: Subscription | null; plan: RawPlan | null }>
+        ApiSuccess<{
+          subscription: (Subscription & { plan?: RawPlan | null }) | null;
+          plan: RawPlan | null;
+        }>
       >("subscription/current"),
-    select: (raw) => ({
-      subscription: raw.data.subscription ?? null,
-      plan: raw.data.plan ? normalizePlan(raw.data.plan) : null,
-    }),
+    select: (raw) => {
+      // Con suscripción activa, el backend anida el plan dentro de
+      // `subscription.plan`; sin suscripción, lo manda como `plan` suelto
+      // (vista previa del plan elegido en onboarding, sin pago aún).
+      const rawPlan = raw.data.subscription?.plan ?? raw.data.plan;
+      return {
+        subscription: raw.data.subscription ?? null,
+        plan: rawPlan ? normalizePlan(rawPlan) : null,
+      };
+    },
   });
 }
 
@@ -168,10 +186,62 @@ export function useResumeSubscription() {
 export function useChangePlan() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (planId: number) =>
+    mutationFn: (input: { planId: number; billingCycle: "monthly" | "yearly" }) =>
       api.post<ApiSuccess<unknown>>("subscription/change-plan", {
-        plan_id: planId,
+        plan_id: input.planId,
+        billing_cycle: input.billingCycle,
       }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: subscriptionKeys.all }),
+  });
+}
+
+export type SubscribeBankTransferInput = {
+  planId: number;
+  billingCycle: "monthly" | "yearly";
+  bankAccountId: number;
+  transferReceipt: File;
+  transferReference: string;
+  billingName: string;
+  billingEmail: string;
+  billingIdentification?: string;
+  couponCode?: string;
+};
+
+/**
+ * Único camino real para que un tenant sin suscripción activa obtenga la
+ * primera: sube el comprobante de transferencia y queda con un pago
+ * PENDING hasta que el super admin lo apruebe (no hay pasarela de pago).
+ * Usa fetch crudo (no el cliente `api`) porque el body es FormData.
+ */
+export function useSubscribeBankTransfer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: SubscribeBankTransferInput) => {
+      const fd = new FormData();
+      fd.append("plan_id", String(input.planId));
+      fd.append("billing_cycle", input.billingCycle);
+      fd.append("transfer_receipt", input.transferReceipt);
+      fd.append("transfer_reference", input.transferReference);
+      fd.append("billing_name", input.billingName);
+      fd.append("billing_email", input.billingEmail);
+      if (input.billingIdentification) {
+        fd.append("billing_identification", input.billingIdentification);
+      }
+      if (input.couponCode) fd.append("coupon_code", input.couponCode);
+
+      const res = await fetch("/api/proxy/subscription/subscribe-bank-transfer", {
+        method: "POST",
+        body: fd,
+        headers: { Accept: "application/json" },
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(
+          payload?.message ?? "No se pudo registrar la suscripción.",
+        );
+      }
+      return payload as ApiSuccess<unknown>;
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: subscriptionKeys.all }),
   });
 }

@@ -37,3 +37,16 @@ export function deltaPct(current: number, previous: number): number {
   if (previous === 0) return current === 0 ? 0 : 100;
   return ((current - previous) / previous) * 100;
 }
+
+/** Iniciales de las 2 primeras palabras significativas de un nombre de empresa. */
+export function companyInitials(name: string): string {
+  return (
+    name
+      .toUpperCase()
+      .split(/\s+/)
+      .filter((w) => w.length > 2 || /^\d+$/.test(w))
+      .slice(0, 2)
+      .map((w) => w[0])
+      .join("") || "EC"
+  );
+}

@@ -54,6 +54,13 @@ class SriLookupController extends ApiController
             return $this->notFound('Identificación no encontrada en el catastro del SRI.');
         }
 
+        // La cédula se consulta con el RUC de persona natural (cédula + "001");
+        // reutilizamos el mismo cómputo para traer la dirección de la matriz.
+        $ruc = strlen($identification) === 10 ? $identification . '001' : $identification;
+        $establishments = $this->lookupService->establishments($ruc);
+        $main = collect($establishments)->firstWhere('is_main', true) ?? ($establishments[0] ?? null);
+        $taxpayer['address'] = $main['address'] ?? null;
+
         return $this->success($taxpayer);
     }
 

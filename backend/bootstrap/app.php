@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.active' => \App\Http\Middleware\EnsureTenantIsActive::class,
             'tenant.scope' => \App\Http\Middleware\SetTenantScope::class,
             'plan.limits' => \App\Http\Middleware\CheckPlanLimits::class,
+            'plan.feature' => \App\Http\Middleware\RequirePlanFeature::class,
             'portal.auth' => \App\Http\Middleware\CustomerPortalAuth::class,
             'onboarding' => \App\Http\Middleware\CheckOnboarding::class,
             'security.headers' => \App\Http\Middleware\SecurityHeaders::class,

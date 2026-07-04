@@ -12,6 +12,7 @@ use App\Models\SRI\ElectronicDocument;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\EmissionPoint;
 use App\Services\Cache\TenantCacheService;
+use App\Services\SRI\AccessKeyService;
 use App\Services\SRI\RIDEGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -94,6 +95,14 @@ class DocumentController extends ApiController
     {
         $user   = $request->user();
         $tenant = TenantCacheService::tenantWithSubscription($user->tenant_id) ?? $user->tenant;
+
+        if (! $tenant->activeSubscription) {
+            // El caché dura 10 min: si el super admin acaba de aprobar el
+            // pago, la copia cacheada puede estar desactualizada. Antes de
+            // rechazar, se invalida y se consulta una vez en fresco.
+            TenantCacheService::invalidateTenant($user->tenant_id);
+            $tenant = TenantCacheService::tenantWithSubscription($user->tenant_id) ?? $user->tenant;
+        }
 
         if (! $tenant->activeSubscription) {
             return $this->error(
@@ -186,6 +195,10 @@ class DocumentController extends ApiController
             'created_by' => $user->id,
         ]);
 
+        // La clave de acceso es determinística (Módulo 11): se genera desde
+        // el borrador para mostrarla en el detalle y la vista previa del PDF.
+        $document->update(['access_key' => app(AccessKeyService::class)->generate($document)]);
+
         // Create document items
         foreach ($request->items ?? [] as $item) {
             $document->items()->create([
@@ -263,6 +276,10 @@ class DocumentController extends ApiController
 
         $document->update($request->validated());
 
+        // La fecha de emisión (u otros datos) pudieron cambiar: la clave de
+        // acceso depende de ellos, así que se regenera para el borrador.
+        $document->update(['access_key' => app(AccessKeyService::class)->generate($document->fresh())]);
+
         // Update items
         if ($request->has('items')) {
             $document->items()->delete();
@@ -334,12 +351,9 @@ class DocumentController extends ApiController
             );
         }
 
-        if (! $checklist['sri_password']) {
-            return $this->error(
-                'La empresa no tiene configurada la clave del SRI.',
-                400
-            );
-        }
+        // La clave del SRI (portal "SRI en línea") no participa en la emisión:
+        // la firma usa el certificado .p12 y el webservice de recepción/
+        // autorización no la requiere. No debe bloquear el envío.
 
         // Dispatch job to process document
         $document->update(['status' => DocumentStatus::PROCESSING]);
@@ -390,25 +404,35 @@ class DocumentController extends ApiController
     {
         $this->authorizeDocument($request, $document);
 
-        if (! in_array($document->status, [DocumentStatus::AUTHORIZED, DocumentStatus::REJECTED])) {
-            return $this->error('El RIDE solo está disponible para documentos autorizados.', 400);
+        $document->load(['company', 'branch', 'emissionPoint', 'customer', 'items', 'withholdingDetails']);
+
+        // Borradores creados antes de que la clave se generara en el alta.
+        if (! $document->access_key && $document->status === DocumentStatus::DRAFT) {
+            $document->update(['access_key' => app(AccessKeyService::class)->generate($document)]);
         }
 
-        // Generate RIDE if not exists
-        if (! $document->ride_path || ! Storage::disk('local')->exists($document->ride_path)) {
-            $rideGenerator = app(RIDEGenerator::class);
-            $ridePath = $rideGenerator->generate($document);
-            $document->update(['ride_path' => $ridePath]);
+        $rideGenerator = app(RIDEGenerator::class);
+        $isFinal = in_array($document->status, [DocumentStatus::AUTHORIZED, DocumentStatus::REJECTED]);
+
+        if ($isFinal) {
+            // RIDE definitivo: se genera una vez y se reutiliza.
+            if (! $document->ride_pdf_path || ! Storage::exists($document->ride_pdf_path)) {
+                $document->update(['ride_pdf_path' => $rideGenerator->generate($document)]);
+            }
+            $path = $document->ride_pdf_path;
+            $filename = $document->document_number.'.pdf';
+        } else {
+            // Vista previa (borrador/en proceso): se regenera siempre con
+            // marca de agua, porque el documento puede seguir cambiando.
+            $path = $rideGenerator->generate($document, [], preview: true);
+            $filename = 'borrador-'.$document->document_number.'.pdf';
         }
 
-        $url = Storage::disk('local')->temporaryUrl(
-            $document->ride_path,
-            now()->addMinutes(30)
-        );
+        $url = Storage::temporaryUrl($path, now()->addMinutes(30));
 
         return $this->success([
             'url' => $url,
-            'filename' => $document->document_number.'.pdf',
+            'filename' => $filename,
         ]);
     }
 
@@ -425,7 +449,8 @@ class DocumentController extends ApiController
             return $this->error('El XML firmado no está disponible.', 400);
         }
 
-        $url = Storage::disk('local')->temporaryUrl(
+        // Disco por defecto: local en dev, s3 en producción (FILESYSTEM_DISK).
+        $url = Storage::temporaryUrl(
             $document->xml_signed_path,
             now()->addMinutes(30)
         );

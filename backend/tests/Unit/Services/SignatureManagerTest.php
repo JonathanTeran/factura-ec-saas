@@ -18,7 +18,7 @@ class SignatureManagerTest extends TestCase
     {
         parent::setUp();
         $this->setUpTenantContext();
-        Storage::fake('s3');
+        Storage::fake();
     }
 
     public function test_check_status_returns_missing_when_no_signature(): void

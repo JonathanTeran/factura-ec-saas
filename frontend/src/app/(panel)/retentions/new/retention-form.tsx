@@ -29,7 +29,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { EntityCombobox } from "@/components/forms/entity-combobox";
-import { useCompanies, useEmissionPoints } from "@/lib/api/queries/companies";
+import { useDocumentGate, DocumentGateBanner } from "@/components/panel/document-gate";
+import { useCompanies, useCompanyBranches } from "@/lib/api/queries/companies";
 import { useCustomers } from "@/lib/api/queries/customers";
 import {
   documentKeys,
@@ -88,6 +89,7 @@ export function RetentionForm() {
   const qc = useQueryClient();
 
   const [companyId, setCompanyId] = useState<number | null>(null);
+  const [branchId, setBranchId] = useState<number | null>(null);
   const [emissionPointId, setEmissionPointId] = useState<number | null>(null);
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -106,8 +108,24 @@ export function RetentionForm() {
 
   const [rows, setRows] = useState<RetentionRow[]>([emptyRow()]);
 
+  const gate = useDocumentGate();
   const companiesQ = useCompanies();
-  const emissionsQ = useEmissionPoints(companyId);
+  const branchesQ = useCompanyBranches(companyId);
+  const selectedBranch = branchesQ.data?.find((b) => b.id === branchId);
+  const emissionPointOptions = selectedBranch?.emission_points ?? [];
+
+  // Preselecciona empresa/establecimiento/punto de emisión cuando solo hay
+  // una opción disponible.
+  if (companyId === null && companiesQ.data?.length === 1) {
+    setCompanyId(companiesQ.data[0].id);
+  }
+  if (companyId && branchId === null && branchesQ.data?.length === 1) {
+    setBranchId(branchesQ.data[0].id);
+  }
+  if (branchId && emissionPointId === null && emissionPointOptions.length === 1) {
+    setEmissionPointId(emissionPointOptions[0].id);
+  }
+
   const customersQ = useCustomers({
     search: customerSearch || undefined,
     per_page: 20,
@@ -277,6 +295,7 @@ export function RetentionForm() {
               value={companyId}
               onChange={(v) => {
                 setCompanyId(typeof v === "number" ? v : null);
+                setBranchId(null);
                 setEmissionPointId(null);
               }}
               options={
@@ -292,21 +311,40 @@ export function RetentionForm() {
           </div>
 
           <div className="space-y-2">
+            <Label>Establecimiento</Label>
+            <EntityCombobox
+              value={branchId}
+              onChange={(v) => {
+                setBranchId(typeof v === "number" ? v : null);
+                setEmissionPointId(null);
+              }}
+              options={
+                branchesQ.data?.map((b) => ({
+                  value: b.id,
+                  label: `${b.code} · ${b.name}`,
+                })) ?? []
+              }
+              isLoading={branchesQ.isLoading}
+              placeholder={
+                companyId ? "Selecciona establecimiento..." : "Primero elige empresa"
+              }
+            />
+          </div>
+
+          <div className="space-y-2">
             <Label>Punto de emisión</Label>
             <EntityCombobox
               value={emissionPointId}
               onChange={(v) =>
                 setEmissionPointId(typeof v === "number" ? v : null)
               }
-              options={
-                emissionsQ.data?.map((e) => ({
-                  value: e.id,
-                  label: `${e.code}${e.description ? " · " + e.description : ""}`,
-                })) ?? []
-              }
-              isLoading={emissionsQ.isLoading}
+              options={emissionPointOptions.map((e) => ({
+                value: e.id,
+                label: `${e.code}${e.description ? " · " + e.description : ""}`,
+              }))}
+              isLoading={branchesQ.isLoading}
               placeholder={
-                companyId ? "Selecciona punto..." : "Primero elige empresa"
+                branchId ? "Selecciona punto..." : "Primero elige establecimiento"
               }
             />
           </div>
@@ -617,6 +655,7 @@ export function RetentionForm() {
 
       {/* Barra de acción fija */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/85 backdrop-blur-md lg:left-64">
+        <DocumentGateBanner reasons={gate.reasons} />
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 lg:px-6">
           <div className="flex items-baseline gap-2">
             <span className="text-sm text-muted-foreground">
@@ -637,7 +676,7 @@ export function RetentionForm() {
             <Button
               type="submit"
               variant="outline"
-              disabled={submit.isPending}
+              disabled={submit.isPending || gate.blockCreate}
             >
               {pendingAction === "draft" && (
                 <Loader2 className="size-4 animate-spin" />
@@ -646,7 +685,7 @@ export function RetentionForm() {
             </Button>
             <Button
               type="button"
-              disabled={submit.isPending}
+              disabled={submit.isPending || gate.blockSend}
               onClick={saveAndSend}
             >
               {pendingAction === "send" ? (

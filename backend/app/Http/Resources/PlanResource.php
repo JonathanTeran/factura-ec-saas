@@ -35,8 +35,10 @@ class PlanResource extends JsonResource
                 'has_thermal_printer' => (bool) $this->has_thermal_printer,
                 'has_advanced_reports' => (bool) $this->has_advanced_reports,
                 'has_whitelabel_ride' => (bool) $this->has_whitelabel_ride,
-                'has_webhooks' => (bool) $this->has_webhooks,
+                // has_webhooks omitido: la funcionalidad aún no existe.
                 'has_client_portal' => (bool) $this->has_client_portal,
+                'has_multi_currency' => (bool) $this->has_multi_currency,
+                'has_ai_categorization' => (bool) $this->has_ai_categorization,
             ],
             'support' => [
                 'level' => $this->support_level,

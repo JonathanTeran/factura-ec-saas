@@ -96,7 +96,7 @@ class NotificationService
 
             $mediaUrls = [];
             if ($document->ride_pdf_path) {
-                $mediaUrls[] = Storage::disk('s3')->temporaryUrl(
+                $mediaUrls[] = Storage::temporaryUrl(
                     $document->ride_pdf_path,
                     now()->addMinutes(30)
                 );
@@ -176,6 +176,29 @@ class NotificationService
             Log::info('Admin notification sent', [
                 'admin_id' => $admin->id,
                 'event' => $event,
+            ]);
+        }
+    }
+
+    /**
+     * Envía una notificación a los correos de administración configurados
+     * (config notifications.admin_recipients). Punto único para avisar a los
+     * dueños de la plataforma de eventos importantes. Nunca lanza excepción.
+     */
+    public static function notifyConfiguredAdmins(\Illuminate\Notifications\Notification $notification): void
+    {
+        $recipients = config('notifications.admin_recipients', []);
+
+        if (empty($recipients)) {
+            return;
+        }
+
+        try {
+            \Illuminate\Support\Facades\Notification::route('mail', $recipients)
+                ->notify($notification);
+        } catch (\Throwable $e) {
+            Log::warning('No se pudo avisar a los admins configurados', [
+                'error' => $e->getMessage(),
             ]);
         }
     }

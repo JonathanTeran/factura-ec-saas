@@ -97,6 +97,14 @@ class FiscalPeriodService
             throw new \RuntimeException("Existen {$draftEntries} asientos en borrador. Contabilice o anule todos los asientos antes de cerrar el periodo.");
         }
 
+        // Al cerrar el año se genera el asiento de cierre (resultado → patrimonio)
+        // ANTES de marcar el período como cerrado, para que el asiento entre en él.
+        if ($period->period_type === 'annual') {
+            app(YearEndClosingService::class)
+                ->forCompany($this->company)
+                ->generateClosingEntry($period);
+        }
+
         $period->update([
             'status' => FiscalPeriodStatus::CLOSED,
             'closed_by' => auth()->id(),

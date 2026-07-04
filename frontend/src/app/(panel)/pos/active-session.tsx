@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Loader2, Plus, Trash2, ShoppingCart, Search, Power } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -79,17 +79,19 @@ export function ActiveSession({ session }: { session: PosSession }) {
   const productsQ = useProducts({ search: search || undefined, per_page: 24 });
   const customersQ = useCustomers({ search: customerSearch || undefined, per_page: 20 });
 
-  // Productos usados recientemente en esta caja: primeros en la grilla
+  // Productos usados recientemente en esta caja: primeros en la grilla.
+  // Se lee de localStorage con un inicializador perezoso (no en un efecto)
+  // para evitar el patrón setState-en-effect.
   const RECENTS_KEY = "pos_recent_products";
-  const [recentIds, setRecentIds] = useState<number[]>([]);
-  useEffect(() => {
+  const [recentIds, setRecentIds] = useState<number[]>(() => {
+    if (typeof window === "undefined") return [];
     try {
-      const raw = localStorage.getItem(RECENTS_KEY);
-      if (raw) setRecentIds(JSON.parse(raw) as number[]);
+      const raw = window.localStorage.getItem(RECENTS_KEY);
+      return raw ? (JSON.parse(raw) as number[]) : [];
     } catch {
-      // localStorage no disponible: la grilla mantiene el orden del servidor
+      return [];
     }
-  }, []);
+  });
 
   const rememberProduct = (id: number) => {
     setRecentIds((prev) => {

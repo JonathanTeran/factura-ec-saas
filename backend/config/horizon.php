@@ -151,7 +151,9 @@ return [
             ],
             'supervisor-sri' => [
                 'connection' => 'redis',
-                'queue' => ['sri'],
+                // 'sri-priority' se lista primero: los documentos de planes
+                // Profesional+ se procesan antes que la cola estándar.
+                'queue' => ['sri-priority', 'sri'],
                 'balance' => 'auto',
                 'autoScalingStrategy' => 'time',
                 'minProcesses' => 2,
@@ -190,7 +192,7 @@ return [
         'local' => [
             'supervisor-1' => [
                 'connection' => 'redis',
-                'queue' => ['high', 'sri', 'documents', 'emails', 'default'],
+                'queue' => ['high', 'sri-priority', 'sri', 'documents', 'emails', 'default'],
                 'balance' => 'auto',
                 'autoScalingStrategy' => 'time',
                 'minProcesses' => 1,

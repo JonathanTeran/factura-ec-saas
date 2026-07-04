@@ -42,6 +42,8 @@ export type Plan = {
   id: number;
   name: string;
   price: number;
+  priceMonthly: number;
+  priceYearly: number;
   currency: string;
   interval: string;
   features: string[] | null;
@@ -50,8 +52,10 @@ export type Plan = {
 export type Subscription = {
   id: number;
   status: string;
+  billing_cycle: "monthly" | "yearly" | null;
+  is_active: boolean;
   trial_ends_at: string | null;
-  current_period_end: string | null;
+  ends_at: string | null;
 };
 
 export type User = {
@@ -500,6 +504,7 @@ export type Customer = {
   additional_emails?: string[] | null;
   phone?: string | null;
   address?: string | null;
+  economic_activity?: string | null;
   is_active: boolean;
   documents_count?: number;
 };
@@ -527,6 +532,7 @@ export type DocumentItem = {
   id: number;
   product_id: number | null;
   main_code: string;
+  aux_code?: string | null;
   description: string;
   quantity: number;
   unit_price: number;
@@ -534,6 +540,19 @@ export type DocumentItem = {
   subtotal: number;
   tax_rate: number;
   tax_value: number;
+};
+
+export type WithholdingDetail = {
+  id: number;
+  support_doc_code: string;
+  support_doc_number: string;
+  support_doc_date?: string | null;
+  support_doc_total: number;
+  tax_type: string;
+  retention_code: string;
+  tax_base: number;
+  retention_rate: number;
+  retained_value: number;
 };
 
 export type Document = {
@@ -544,7 +563,7 @@ export type Document = {
   document_number?: string;
   number?: string;
   access_key?: string | null;
-  additional_info?: Record<string, string> | null;
+  additional_info?: Record<string, unknown> | null;
   email_sent?: boolean;
   email_sent_at?: string | null;
   email_sent_to?: string | null;
@@ -579,7 +598,17 @@ export type Document = {
   customer?: Customer | null;
   customer_name?: string;
   customer_identification?: string;
+  company?: {
+    id: number;
+    ruc: string;
+    business_name: string;
+    trade_name?: string | null;
+    address?: string;
+    email?: string;
+    logo_url?: string | null;
+  } | null;
   items?: DocumentItem[];
+  withholding_details?: WithholdingDetail[];
   created_at?: string;
   updated_at?: string;
 };
