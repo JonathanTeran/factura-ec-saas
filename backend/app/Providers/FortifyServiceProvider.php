@@ -34,6 +34,19 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::updateUserPasswordsUsing(UpdateUserPassword::class);
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
 
+        // El enlace de recuperación debe abrir la página de Next.js
+        // (/reset-password) con token y email como query params, que es lo
+        // que espera el frontend. Sin esto, el link por defecto usa el token
+        // en el path (/reset-password/{token}) y cae en 404.
+        \Illuminate\Auth\Notifications\ResetPassword::createUrlUsing(
+            function ($notifiable, string $token) {
+                $base = rtrim((string) config('app.url'), '/');
+                $email = urlencode($notifiable->getEmailForPasswordReset());
+
+                return "{$base}/reset-password?token={$token}&email={$email}";
+            }
+        );
+
         RateLimiter::for('login', function (Request $request) {
             $throttleKey = Str::transliterate(Str::lower($request->input(Fortify::username())).'|'.$request->ip());
 
