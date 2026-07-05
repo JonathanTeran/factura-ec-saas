@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
-import 'glass_panel.dart';
+import 'ui_kit.dart';
 
 enum AppDataState { ready, loading, empty, error, offline }
 
+/// Vista de estado compartida por los módulos (clientes, productos, compras,
+/// reportes, POS…). Carga → skeletons con shimmer (percepción de velocidad);
+/// vacío/error/offline → panel centrado, cálido y consistente.
 class ModuleStateView extends StatelessWidget {
   final String module;
   final AppDataState state;
@@ -19,85 +22,113 @@ class ModuleStateView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = switch (state) {
-      AppDataState.loading => (
-        Icons.sync_rounded,
-        'Sincronizando $module',
-        'Estamos actualizando datos para mostrar el panel más reciente.',
-        'Actualizar ahora',
-      ),
+    if (state == AppDataState.loading) {
+      return const _ModuleSkeleton();
+    }
+
+    final (IconData icon, String title, String message, String action) =
+        switch (state) {
       AppDataState.empty => (
-        Icons.inbox_rounded,
-        'No hay datos en $module',
-        'Crea tu primer documento para comenzar a operar.',
-        'Crear primer documento',
-      ),
+          Icons.inbox_rounded,
+          'Todavía no hay nada aquí',
+          'Cuando agregues información en $module, la verás en esta pantalla.',
+          'Agregar',
+        ),
       AppDataState.error => (
-        Icons.error_outline_rounded,
-        'Error al cargar $module',
-        'No pudimos completar la sincronización en este momento.',
-        'Reintentar sincronización',
-      ),
+          Icons.cloud_off_rounded,
+          'No se pudo cargar',
+          'Tuvimos un problema al sincronizar $module. Volvé a intentarlo.',
+          'Reintentar',
+        ),
       AppDataState.offline => (
-        Icons.wifi_off_rounded,
-        'Sin conexión',
-        'No hay internet. Puedes continuar con los datos guardados.',
-        'Usar datos en caché',
-      ),
+          Icons.wifi_off_rounded,
+          'Sin conexión',
+          'No hay internet. Podés seguir con los datos guardados.',
+          'Usar datos en caché',
+        ),
       AppDataState.ready => (
-        Icons.check_circle_rounded,
-        '$module listo',
-        'La información está actualizada.',
-        'Continuar',
-      ),
+          Icons.check_circle_rounded,
+          '$module listo',
+          'La información está actualizada.',
+          'Continuar',
+        ),
+      AppDataState.loading => (Icons.sync_rounded, '', '', ''),
     };
 
+    final textTheme = Theme.of(context).textTheme;
     return SafeArea(
       child: Center(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          child: GlassPanel(
+        child: FadeInUp(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(32, 16, 32, 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(text.$1, size: 52, color: AppColors.primaryLight),
-                const SizedBox(height: 10),
-                Text(
-                  text.$2,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontFamily: 'Avenir Next',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 22,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  text.$3,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontFamily: 'Avenir Next',
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                if (state == AppDataState.loading)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: LinearProgressIndicator(minHeight: 6),
-                  ),
-                if (state != AppDataState.loading)
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: onPrimaryAction,
-                      child: Text(text.$4),
+                Container(
+                  width: 76,
+                  height: 76,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.primary.withValues(alpha: 0.10),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.20),
                     ),
                   ),
+                  child: Icon(icon, size: 34, color: AppColors.primary),
+                ),
+                const SizedBox(height: 20),
+                Text(title, textAlign: TextAlign.center, style: textTheme.titleLarge),
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: textTheme.bodyMedium?.copyWith(color: AppColors.textMuted),
+                ),
+                const SizedBox(height: 22),
+                FilledButton(onPressed: onPrimaryAction, child: Text(action)),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Placeholder de carga con shimmer que imita filas de contenido.
+class _ModuleSkeleton extends StatelessWidget {
+  const _ModuleSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+      itemCount: 8,
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      itemBuilder: (context, index) => Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.surface.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            const Skeleton.circle(size: 42),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Skeleton(width: 160, height: 13),
+                  SizedBox(height: 9),
+                  Skeleton(width: 100, height: 11),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Skeleton(width: 48, height: 20, radius: 10),
+          ],
         ),
       ),
     );

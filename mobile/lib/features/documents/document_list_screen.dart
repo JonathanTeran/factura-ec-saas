@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/search_bar_widget.dart';
+import '../../core/widgets/ui_kit.dart';
 import '../../data/providers/document_provider.dart';
 
 enum DocumentStatus { validated, pending, rejected, draft }
@@ -174,7 +175,7 @@ class _DocumentsTab extends ConsumerWidget {
     final asyncValue = ref.watch(provider);
 
     return asyncValue.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const _DocumentsSkeleton(),
       error: (error, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -202,20 +203,10 @@ class _DocumentsTab extends ConsumerWidget {
       ),
       data: (result) {
         if (result.items.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: GlassPanel(
-                child: Text(
-                  emptyMessage,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontFamily: 'Avenir Next',
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ),
-            ),
+          return EmptyState(
+            icon: Icons.receipt_long_rounded,
+            title: 'Nada por aquí todavía',
+            message: emptyMessage,
           );
         }
 
@@ -223,6 +214,45 @@ class _DocumentsTab extends ConsumerWidget {
             result.items.map(_documentItemFromApi).toList(growable: false);
         return _DocumentsList(items: items);
       },
+    );
+  }
+}
+
+class _DocumentsSkeleton extends StatelessWidget {
+  const _DocumentsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(20, 2, 20, 14),
+      itemCount: 7,
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      itemBuilder: (context, index) => Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.surface.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            const Skeleton.circle(size: 40),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Skeleton(width: 150, height: 13),
+                  SizedBox(height: 8),
+                  Skeleton(width: 90, height: 11),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Skeleton(width: 54, height: 22, radius: 11),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -236,7 +266,10 @@ class _DocumentsList extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 2, 20, 14),
-      itemBuilder: (context, index) => _DocumentTile(item: items[index]),
+      itemBuilder: (context, index) => FadeInUp(
+        index: index,
+        child: _DocumentTile(item: items[index]),
+      ),
       separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemCount: items.length,
     );
