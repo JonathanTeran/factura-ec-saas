@@ -3,7 +3,9 @@ class ApiConstants {
       bool.fromEnvironment('ENABLE_BACKEND', defaultValue: true);
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://127.0.0.1:8000',
+    // Producción por defecto. Para desarrollo local, compilar con:
+    //   flutter run --dart-define=API_BASE_URL=http://127.0.0.1:8000
+    defaultValue: 'https://facturacion.amephia.com',
   );
   static const String apiVersion = 'v1';
   static const String apiPath = '/api/$apiVersion';
