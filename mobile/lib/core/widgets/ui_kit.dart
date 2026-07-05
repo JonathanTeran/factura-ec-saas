@@ -141,53 +141,6 @@ class EmptyState extends StatelessWidget {
   }
 }
 
-/// Encabezado de sección consistente: título (y opcional acción a la derecha).
-class SectionHeader extends StatelessWidget {
-  final String title;
-  final String? actionLabel;
-  final VoidCallback? onAction;
-
-  const SectionHeader({
-    super.key,
-    required this.title,
-    this.actionLabel,
-    this.onAction,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontFamily: 'Avenir Next',
-                fontWeight: FontWeight.w700,
-                fontSize: 17,
-                letterSpacing: -0.2,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ),
-          if (actionLabel != null && onAction != null)
-            TextButton(
-              onPressed: onAction,
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: Text(actionLabel!),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
 /// Entrada animada (fade + slide) escalonada para elementos de lista. Envolver
 /// cada item con un índice creciente para un reveal secuencial y fluido.
 class FadeInUp extends StatefulWidget {
