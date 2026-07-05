@@ -59,6 +59,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
+  /// Tras autenticar, enruta al onboarding si aún no hay empresa configurada.
+  Future<void> _routeAfterAuth() async {
+    try {
+      final status = await ref.read(v1ApiServiceProvider).onboardingStatus();
+      if (!mounted) return;
+      context.go(status.hasCompany ? '/' : '/onboarding');
+    } catch (_) {
+      if (mounted) context.go('/');
+    }
+  }
+
   Future<void> _submitBiometric() async {
     FocusScope.of(context).unfocus();
     setState(() {
@@ -81,7 +92,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ref.invalidate(meProvider);
       ref.invalidate(companiesProvider);
       if (!mounted) return;
-      context.go('/');
+      await _routeAfterAuth();
     } catch (error) {
       setState(() => _errorText = error.toString());
     } finally {
@@ -126,7 +137,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ref.invalidate(meProvider);
       ref.invalidate(companiesProvider);
       if (!mounted) return;
-      context.go('/');
+      await _routeAfterAuth();
     } catch (error) {
       setState(() => _errorText = error.toString());
     } finally {

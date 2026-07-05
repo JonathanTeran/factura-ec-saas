@@ -55,7 +55,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       ref.invalidate(meProvider);
       ref.invalidate(companiesProvider);
       if (!mounted) return;
-      context.go('/');
+      // Cuenta nueva: aún no tiene empresa configurada -> onboarding.
+      context.go('/onboarding');
     } catch (error) {
       setState(() => _errorText = error.toString());
     } finally {

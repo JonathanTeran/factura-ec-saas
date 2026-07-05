@@ -10,6 +10,7 @@ import '../../features/auth/splash_screen.dart';
 import '../../features/customers/customer_create_screen.dart';
 import '../../features/customers/customer_list_screen.dart';
 import '../../features/dashboard/dashboard_screen.dart';
+import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/documents/document_create_screen.dart';
 import '../../features/documents/document_detail_screen.dart';
 import '../../features/documents/document_list_screen.dart';
@@ -44,6 +45,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/register',
         name: 'register',
         builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/onboarding',
+        name: 'onboarding',
+        builder: (context, state) => const OnboardingScreen(),
       ),
       ShellRoute(
         builder: (context, state, child) =>

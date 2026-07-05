@@ -50,6 +50,54 @@ class CreateDocumentInput {
   });
 }
 
+class OnboardingStatus {
+  final bool completed;
+  final bool hasCompany;
+  final bool hasCertificate;
+  final bool hasEstablishment;
+  final bool hasSequentials;
+
+  const OnboardingStatus({
+    required this.completed,
+    required this.hasCompany,
+    required this.hasCertificate,
+    required this.hasEstablishment,
+    required this.hasSequentials,
+  });
+}
+
+class RucEstablishment {
+  final String code;
+  final String? tradeName;
+  final String? address;
+  final bool isMain;
+
+  const RucEstablishment({
+    required this.code,
+    this.tradeName,
+    this.address,
+    required this.isMain,
+  });
+}
+
+class RucLookupResult {
+  final String businessName;
+  final String taxpayerType;
+  final bool obligatedAccounting;
+  final String regime;
+  final String status;
+  final List<RucEstablishment> establishments;
+
+  const RucLookupResult({
+    required this.businessName,
+    required this.taxpayerType,
+    required this.obligatedAccounting,
+    required this.regime,
+    required this.status,
+    required this.establishments,
+  });
+}
+
 class V1ApiService {
   static const String _accessTokenKey = 'access_token';
 
@@ -799,6 +847,85 @@ class V1ApiService {
   }
 
   // ───────── INTERNAL HELPERS ─────────
+
+  // ==================== ONBOARDING ====================
+
+  Future<OnboardingStatus> onboardingStatus() async {
+    return _guard(() async {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '/onboarding/status',
+      );
+      final data = _payloadMapFromResponse(response);
+      bool b(dynamic v) => v == true || v == 1 || v == '1';
+      return OnboardingStatus(
+        completed: b(data['completed']),
+        hasCompany: b(data['has_company']),
+        hasCertificate: b(data['has_certificate']),
+        hasEstablishment: b(data['has_establishment']),
+        hasSequentials: b(data['has_sequentials']),
+      );
+    });
+  }
+
+  Future<RucLookupResult> lookupRuc(String ruc) async {
+    return _guard(() async {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '/sri/ruc/$ruc',
+      );
+      final data = _payloadMapFromResponse(response);
+      bool b(dynamic v) => v == true || v == 1 || v == '1';
+      String? orNull(dynamic v) {
+        final s = stringFrom(v);
+        return s.isEmpty ? null : s;
+      }
+
+      final establishments = listFrom(data['establishments']).map((item) {
+        final m = mapFrom(item);
+        return RucEstablishment(
+          code: stringFrom(m['code']),
+          tradeName: orNull(m['trade_name']),
+          address: orNull(m['address']),
+          isMain: b(m['is_main']),
+        );
+      }).toList(growable: false);
+
+      return RucLookupResult(
+        businessName: stringFrom(data['business_name']),
+        taxpayerType: stringFrom(data['taxpayer_type']),
+        obligatedAccounting: b(data['obligated_accounting']),
+        regime: stringFrom(data['regime']),
+        status: stringFrom(data['status']),
+        establishments: establishments,
+      );
+    });
+  }
+
+  Future<void> saveOnboardingCompany(Map<String, dynamic> data) async {
+    return _guard(() async {
+      await _apiClient.post<Map<String, dynamic>>(
+        '/onboarding/company',
+        data: data,
+      );
+    });
+  }
+
+  Future<int?> saveOnboardingEstablishment(Map<String, dynamic> data) async {
+    return _guard(() async {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '/onboarding/establishment',
+        data: data,
+      );
+      final d = _payloadMapFromResponse(response);
+      final ep = mapFrom(d['emission_point']);
+      return ep['id'] == null ? null : intFrom(ep['id']);
+    });
+  }
+
+  Future<void> completeOnboarding() async {
+    return _guard(() async {
+      await _apiClient.post<Map<String, dynamic>>('/onboarding/complete');
+    });
+  }
 
   Future<T> _guard<T>(Future<T> Function() run) async {
     try {
