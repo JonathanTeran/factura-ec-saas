@@ -154,6 +154,66 @@ class AuthController extends ApiController
     }
 
     /**
+     * Eliminar cuenta
+     *
+     * Elimina la cuenta del usuario (requisito de App Store y Play Store).
+     * Requiere confirmar la contraseña. Cancela la suscripción, revoca todos
+     * los tokens y elimina (soft-delete) el usuario y su cuenta. Los
+     * comprobantes fiscales se conservan el tiempo que exige la ley del SRI y
+     * luego se purgan definitivamente.
+     */
+    public function deleteAccount(Request $request): JsonResponse
+    {
+        $request->validate([
+            'password' => ['required', 'string'],
+        ], [
+            'password.required' => 'Confirma tu contraseña para eliminar la cuenta.',
+        ]);
+
+        $user = $request->user();
+
+        if (! Hash::check($request->password, $user->password)) {
+            return $this->error('La contraseña es incorrecta.', 422);
+        }
+
+        $tenant = $user->tenant;
+
+        DB::transaction(function () use ($user, $tenant) {
+            // Cancelar la suscripción activa si existe.
+            $tenant?->activeSubscription?->cancel('Cuenta eliminada por el usuario');
+
+            // Revocar todos los tokens de acceso del usuario.
+            $user->tokens()->delete();
+
+            // Soft-delete: la cuenta queda inaccesible de inmediato; los datos
+            // fiscales se conservan por retención legal y se purgan después.
+            $user->update(['is_active' => false]);
+            $user->delete();
+            $tenant?->update(['status' => TenantStatus::CANCELLED]);
+            $tenant?->delete();
+        });
+
+        // Aviso a la administración (comunicar siempre los eventos importantes).
+        try {
+            \App\Services\Notification\NotificationService::notifyConfiguredAdmins(
+                new \App\Notifications\AccountDeletedAdminNotification(
+                    $user->name,
+                    $user->email,
+                    $tenant?->name,
+                ),
+            );
+        } catch (\Throwable) {
+            // El borrado no debe fallar por un problema de notificación.
+        }
+
+        return $this->success(
+            null,
+            'Tu cuenta fue eliminada. Los comprobantes fiscales se conservan el '
+            . 'tiempo que exige la ley y luego se eliminan definitivamente.'
+        );
+    }
+
+    /**
      * Renovar token
      *
      * Revoca el token actual y genera uno nuevo.

@@ -203,6 +203,17 @@ class V1ApiService {
     });
   }
 
+  /// Elimina la cuenta del usuario (requiere confirmar la contraseña).
+  Future<void> deleteAccount(String password) async {
+    return _guard(() async {
+      await _apiClient.delete<Map<String, dynamic>>(
+        '/auth/account',
+        data: {'password': password},
+      );
+      await clearSession();
+    });
+  }
+
   Future<void> logout() async {
     try {
       await _apiClient.post<Map<String, dynamic>>(ApiConstants.logout);

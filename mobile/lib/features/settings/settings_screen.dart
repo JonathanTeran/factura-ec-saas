@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/v1_api_service.dart';
 import '../../core/constants/api_constants.dart';
@@ -92,6 +93,77 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     } finally {
       if (mounted) {
         setState(() => _updatingBiometrics = false);
+      }
+    }
+  }
+
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.parse(url);
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo abrir el enlace.')),
+      );
+    }
+  }
+
+  Future<void> _confirmDeleteAccount() async {
+    final passwordCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar cuenta'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Esta acción es permanente. Se cancela tu suscripción y NO se '
+              'realizan devoluciones. Tus comprobantes fiscales se conservan el '
+              'tiempo que exige la ley y luego se eliminan definitivamente.',
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: passwordCtrl,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Confirma tu contraseña',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Eliminar cuenta'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) {
+      passwordCtrl.dispose();
+      return;
+    }
+    final password = passwordCtrl.text;
+    passwordCtrl.dispose();
+
+    try {
+      await ref.read(v1ApiServiceProvider).deleteAccount(password);
+      ref.invalidate(backendAvailabilityProvider);
+      ref.invalidate(meProvider);
+      ref.invalidate(companiesProvider);
+      if (mounted) context.go('/login');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
       }
     }
   }
@@ -472,6 +544,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         const SnackBar(content: Text('Proximamente')),
                       );
                     },
+                  ),
+                  const Divider(height: 20),
+                  _MenuTile(
+                    icon: Icons.description_outlined,
+                    title: 'Términos y condiciones',
+                    subtitle: 'Suscripción, cancelación y sin devoluciones.',
+                    onTap: () =>
+                        _openUrl('https://facturacion.amephia.com/terms'),
+                  ),
+                  const Divider(height: 20),
+                  _MenuTile(
+                    icon: Icons.privacy_tip_outlined,
+                    title: 'Política de privacidad',
+                    subtitle: 'Cómo tratamos y protegemos tus datos.',
+                    onTap: () =>
+                        _openUrl('https://facturacion.amephia.com/privacy'),
+                  ),
+                  const Divider(height: 20),
+                  _MenuTile(
+                    icon: Icons.delete_forever_outlined,
+                    title: 'Eliminar cuenta',
+                    subtitle: 'Elimina tu cuenta de forma permanente.',
+                    onTap: _confirmDeleteAccount,
                   ),
                 ],
               ),

@@ -72,16 +72,20 @@
             <li>Los pagos se realizan de forma mensual o anual segun el ciclo elegido.</li>
             <li>En caso de falta de pago, el acceso al Servicio podra ser suspendido tras un periodo de gracia de 7 dias.</li>
             <li>Los precios pueden ser modificados con un aviso previo de 30 dias.</li>
+            <li><strong>Renovacion automatica:</strong> salvo cancelacion previa, las suscripciones se renuevan automaticamente al final de cada ciclo (mensual o anual) y se cobra el plan vigente. Puede desactivar la renovacion en cualquier momento desde la configuracion de su cuenta.</li>
+            <li><strong>Sin devoluciones ni reembolsos:</strong> todos los pagos son definitivos. NO se realizan devoluciones ni reembolsos, totales ni parciales, por periodos no utilizados, cancelacion anticipada, cambio de plan a uno inferior, ni inactividad de la cuenta.</li>
         </ul>
 
         <h2>8. Periodo de Prueba</h2>
         <p>Ofrecemos un periodo de prueba gratuito. Al finalizar, debera suscribirse a un plan pago para continuar utilizando el Servicio.</p>
 
-        <h2>9. Cancelacion</h2>
+        <h2>9. Cancelacion y Eliminacion de Cuenta</h2>
         <ul>
             <li>Puede cancelar su suscripcion en cualquier momento desde la configuracion de su cuenta.</li>
-            <li>Tras la cancelacion, mantendra acceso hasta el final del periodo facturado.</li>
-            <li>Los documentos electronicos emitidos y sus archivos XML permanecen disponibles por un periodo minimo de 7 anos conforme a la normativa tributaria ecuatoriana.</li>
+            <li>Tras la cancelacion, mantendra acceso hasta el final del periodo ya facturado.</li>
+            <li><strong>La cancelacion NO genera devoluciones ni reembolsos</strong> por el tiempo restante del periodo pagado.</li>
+            <li><strong>Eliminacion de cuenta:</strong> puede eliminar su cuenta de forma permanente desde la aplicacion (Ajustes &rarr; Eliminar cuenta) o escribiendo a soporte. Al eliminarla se cancela la suscripcion, se revoca el acceso y sus datos personales dejan de estar disponibles.</li>
+            <li><strong>Retencion legal:</strong> los comprobantes electronicos emitidos y sus archivos XML se conservan por el periodo minimo de 7 anos que exige la normativa tributaria ecuatoriana (SRI); cumplido ese plazo se eliminan definitivamente. La eliminacion de la cuenta no genera reembolsos.</li>
         </ul>
 
         <h2>10. Propiedad Intelectual</h2>
