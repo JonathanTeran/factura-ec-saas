@@ -178,6 +178,11 @@ deploy_update() {
     log "Actualizando contenedores..."
     docker compose -f "$COMPOSE_FILE" up -d app horizon scheduler
 
+    # nginx cachea la IP del upstream 'app'; al recrear el contenedor cambia
+    # de IP y nginx sigue con la vieja -> 502 en cascada. Recargarlo lo evita.
+    log "Recargando nginx (re-resolver upstream)..."
+    docker compose -f "$COMPOSE_FILE" restart nginx
+
     # Copiar assets Vite compilados al host (nginx los sirve desde public/).
     log "Publicando assets compilados..."
     docker cp factura-ec-app:/var/www/html/public/build "$BACKEND_DIR/public/" 2>/dev/null || true
