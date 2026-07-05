@@ -485,6 +485,9 @@ class V1ApiService {
         'tip': 0,
         'total': total,
         'payment_method': '01',
+        'payment_methods': [
+          {'code': '01', 'amount': total},
+        ],
         'payment_term': 0,
         'additional_info': <String>[],
         'items': [
