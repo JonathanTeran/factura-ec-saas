@@ -337,7 +337,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               Align(
                                 alignment: Alignment.centerRight,
                                 child: TextButton(
-                                  onPressed: _submitting ? null : () {},
+                                  onPressed: _submitting
+                                      ? null
+                                      : () => context.push('/forgot-password'),
                                   child: const Text(
                                     '¿Olvidaste tu contraseña?',
                                   ),

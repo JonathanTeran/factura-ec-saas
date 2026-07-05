@@ -193,6 +193,16 @@ class V1ApiService {
     });
   }
 
+  /// Solicita el correo de recuperación de contraseña.
+  Future<void> forgotPassword(String email) async {
+    return _guard(() async {
+      await _apiClient.post<Map<String, dynamic>>(
+        '/auth/forgot-password',
+        data: {'email': email.trim()},
+      );
+    });
+  }
+
   Future<void> logout() async {
     try {
       await _apiClient.post<Map<String, dynamic>>(ApiConstants.logout);
