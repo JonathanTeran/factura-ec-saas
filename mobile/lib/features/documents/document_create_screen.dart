@@ -332,6 +332,7 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
               items: const [
                 DropdownMenuItem(value: '01', child: Text('Factura')),
                 DropdownMenuItem(value: '04', child: Text('Nota de crédito')),
+                DropdownMenuItem(value: '05', child: Text('Nota de débito')),
                 DropdownMenuItem(value: '07', child: Text('Retención')),
               ],
               onChanged: (value) => setState(() {
