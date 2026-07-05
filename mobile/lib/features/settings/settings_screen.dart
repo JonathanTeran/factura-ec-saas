@@ -664,6 +664,46 @@ class _SwitchCompanySheet extends StatelessWidget {
               ),
             );
           }),
+          const SizedBox(height: 4),
+          InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () {
+              final router = GoRouter.of(context);
+              Navigator.of(context).maybePop();
+              router.push('/settings/company/new');
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 12,
+              ),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.4),
+                ),
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.add_business_rounded,
+                    color: AppColors.primaryLight,
+                    size: 20,
+                  ),
+                  SizedBox(width: 12),
+                  Text(
+                    'Agregar empresa',
+                    style: TextStyle(
+                      fontFamily: 'Avenir Next',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );

@@ -22,6 +22,7 @@ import '../../features/purchases/supplier_create_screen.dart';
 import '../../features/purchases/suppliers_screen.dart';
 import '../../features/reports/reports_screen.dart';
 import '../../features/settings/billing_screen.dart';
+import '../../features/settings/company_create_screen.dart';
 import '../../features/settings/settings_screen.dart';
 
 /// Central GoRouter provider. All screens are imported from feature modules.
@@ -118,6 +119,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: 'billing',
                 name: 'billing',
                 builder: (context, state) => const BillingScreen(),
+              ),
+              GoRoute(
+                path: 'company/new',
+                name: 'company-new',
+                builder: (context, state) => const CompanyCreateScreen(),
               ),
             ],
           ),

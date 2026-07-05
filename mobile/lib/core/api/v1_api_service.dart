@@ -223,6 +223,17 @@ class V1ApiService {
     });
   }
 
+  Future<ApiCompany> createCompany(Map<String, dynamic> data) async {
+    return _guard(() async {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        ApiConstants.companies,
+        data: data,
+      );
+      final d = _payloadMapFromResponse(response);
+      return ApiCompany.fromJson(mapFrom(d['company']));
+    });
+  }
+
   Future<ApiCompany> switchCompany(int companyId) async {
     return _guard(() async {
       final response = await _apiClient.post<Map<String, dynamic>>(
