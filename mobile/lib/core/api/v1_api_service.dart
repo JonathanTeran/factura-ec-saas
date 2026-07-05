@@ -98,6 +98,18 @@ class RucLookupResult {
   });
 }
 
+class OnboardingCertInfo {
+  final String subject;
+  final int daysUntilExpiry;
+  final DateTime? expiresAt;
+
+  const OnboardingCertInfo({
+    required this.subject,
+    required this.daysUntilExpiry,
+    this.expiresAt,
+  });
+}
+
 class V1ApiService {
   static const String _accessTokenKey = 'access_token';
 
@@ -929,6 +941,43 @@ class V1ApiService {
       final d = _payloadMapFromResponse(response);
       final ep = mapFrom(d['emission_point']);
       return ep['id'] == null ? null : intFrom(ep['id']);
+    });
+  }
+
+  Future<OnboardingCertInfo> uploadOnboardingCertificate({
+    required String filePath,
+    required String password,
+  }) async {
+    return _guard(() async {
+      final formData = FormData.fromMap({
+        'certificate': await MultipartFile.fromFile(filePath),
+        'password': password,
+      });
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '/onboarding/certificate',
+        data: formData,
+      );
+      final data = _payloadMapFromResponse(response);
+      return OnboardingCertInfo(
+        subject: stringFrom(data['signature_subject']),
+        daysUntilExpiry: intFrom(data['days_until_expiry']),
+        expiresAt: dateFrom(data['signature_expires_at']),
+      );
+    });
+  }
+
+  Future<void> saveOnboardingSequentials({
+    required int emissionPointId,
+    required List<Map<String, dynamic>> sequentials,
+  }) async {
+    return _guard(() async {
+      await _apiClient.post<Map<String, dynamic>>(
+        '/onboarding/sequentials',
+        data: {
+          'emission_point_id': emissionPointId,
+          'sequentials': sequentials,
+        },
+      );
     });
   }
 

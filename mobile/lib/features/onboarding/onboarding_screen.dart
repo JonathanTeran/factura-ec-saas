@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,8 +10,17 @@ import '../../core/widgets/glass_panel.dart';
 import '../../data/providers/auth_provider.dart';
 import '../../data/providers/company_provider.dart';
 
-/// Configuración asistida móvil: empresa + establecimiento. La firma
-/// electrónica (.p12) se sube desde el portal web (el móvil no la carga).
+const _docTypes = [
+  {'code': '01', 'label': 'Factura'},
+  {'code': '04', 'label': 'Nota de crédito'},
+  {'code': '05', 'label': 'Nota de débito'},
+  {'code': '06', 'label': 'Guía de remisión'},
+  {'code': '07', 'label': 'Retención'},
+  {'code': '03', 'label': 'Liquidación de compra'},
+];
+
+/// Configuración asistida móvil (paridad con la web): empresa, firma
+/// electrónica (.p12), establecimiento y secuenciales de migración.
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -32,8 +42,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _addrCtrl = TextEditingController();
   String _taxpayerType = 'natural';
   String _sriEnv = '1';
-  bool _obligatedAccounting = false;
   bool _sriLookupDone = false;
+
+  // Firma
+  String? _certPath;
+  String? _certName;
+  final _certPwdCtrl = TextEditingController();
+  OnboardingCertInfo? _certInfo;
 
   // Establecimiento
   final _brNameCtrl = TextEditingController(text: 'Matriz');
@@ -41,6 +56,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _brAddrCtrl = TextEditingController();
   final _epNameCtrl = TextEditingController(text: 'Punto de emisión principal');
   final _epCodeCtrl = TextEditingController(text: '001');
+  int? _emissionPointId;
+
+  // Secuenciales
+  bool? _migrated;
+  final Map<String, String> _seq = {};
 
   @override
   void dispose() {
@@ -49,6 +69,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     _tnCtrl.dispose();
     _emailCtrl.dispose();
     _addrCtrl.dispose();
+    _certPwdCtrl.dispose();
     _brNameCtrl.dispose();
     _brCodeCtrl.dispose();
     _brAddrCtrl.dispose();
@@ -83,7 +104,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       setState(() {
         if (r.businessName.isNotEmpty) _bnCtrl.text = r.businessName;
         _taxpayerType = r.taxpayerType == 'natural' ? 'natural' : 'sociedad';
-        _obligatedAccounting = r.obligatedAccounting;
         if (_tnCtrl.text.isEmpty && (main?.tradeName ?? '').isNotEmpty) {
           _tnCtrl.text = main!.tradeName!;
         }
@@ -113,6 +133,51 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
   }
 
+  Future<void> _pickCert() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['p12', 'pfx'],
+      );
+      final path = result?.files.single.path;
+      if (path != null) {
+        setState(() {
+          _certPath = path;
+          _certName = result!.files.single.name;
+        });
+      }
+    } catch (_) {
+      _toast('No se pudo abrir el selector de archivos.');
+    }
+  }
+
+  Future<void> _validateCert() async {
+    if (_certPath == null || _certPwdCtrl.text.isEmpty) {
+      setState(() => _error = 'Selecciona tu certificado e ingresa la contraseña.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final info = await ref.read(v1ApiServiceProvider).uploadOnboardingCertificate(
+            filePath: _certPath!,
+            password: _certPwdCtrl.text,
+          );
+      setState(() => _certInfo = info);
+      _toast(
+        info.daysUntilExpiry <= 30
+            ? 'Firma válida. Vence en ${info.daysUntilExpiry} días.'
+            : 'Certificado validado.',
+      );
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _next() async {
     FocusScope.of(context).unfocus();
     setState(() => _error = null);
@@ -133,22 +198,48 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             'email': _emailCtrl.text.trim(),
             'taxpayer_type': _taxpayerType,
             'sri_environment': _sriEnv,
-            'obligated_accounting': _obligatedAccounting,
+            'obligated_accounting': false,
           }));
     } else if (_step == 1) {
+      // Firma: si no está validada aún y hay archivo+clave, valida y quédate.
+      if (_certInfo == null && _certPath != null) {
+        await _validateCert();
+        return;
+      }
+      setState(() => _step = 2);
+    } else if (_step == 2) {
       if (_brAddrCtrl.text.trim().isEmpty) {
         setState(() => _error = 'Ingresa la dirección del establecimiento.');
         return;
       }
-      await _run(() =>
-          ref.read(v1ApiServiceProvider).saveOnboardingEstablishment({
-            'name': _brNameCtrl.text.trim(),
-            'code': _brCodeCtrl.text.trim(),
-            'address': _brAddrCtrl.text.trim(),
-            'ep_code': _epCodeCtrl.text.trim(),
-            'ep_name': _epNameCtrl.text.trim(),
-            'import_sri_establishments': _sriLookupDone,
-          }));
+      await _run(() async {
+        _emissionPointId = await ref
+            .read(v1ApiServiceProvider)
+            .saveOnboardingEstablishment({
+          'name': _brNameCtrl.text.trim(),
+          'code': _brCodeCtrl.text.trim(),
+          'address': _brAddrCtrl.text.trim(),
+          'ep_code': _epCodeCtrl.text.trim(),
+          'ep_name': _epNameCtrl.text.trim(),
+          'import_sri_establishments': _sriLookupDone,
+        });
+      });
+    } else if (_step == 3) {
+      if (_migrated == true && _emissionPointId != null) {
+        final items = <Map<String, dynamic>>[];
+        for (final d in _docTypes) {
+          final n = int.tryParse(_seq[d['code']] ?? '') ?? 0;
+          if (n > 0) {
+            items.add({'document_type': d['code'], 'last_number': n});
+          }
+        }
+        await _run(() => ref.read(v1ApiServiceProvider).saveOnboardingSequentials(
+              emissionPointId: _emissionPointId!,
+              sequentials: items,
+            ));
+      } else {
+        setState(() => _step = 4);
+      }
     }
   }
 
@@ -157,7 +248,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     try {
       await action();
       if (!mounted) return;
-      setState(() => _step = (_step + 1).clamp(0, 2));
+      setState(() => _step = (_step + 1).clamp(0, 4));
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -186,12 +277,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final textTheme = Theme.of(context).textTheme;
     const titles = [
       'Datos de tu empresa',
+      'Firma electrónica',
       'Establecimiento',
+      '¿Ya facturabas antes?',
       '¡Todo listo!',
     ];
     const subtitles = [
       'Los datos que el SRI usa para identificar tus comprobantes.',
+      'Sube tu certificado .p12. Puedes hacerlo más tarde.',
       'Tu matriz y el punto desde donde emitirás.',
+      'Si ya emitías en otro sistema, continuamos tu numeración.',
       'Tu cuenta quedó configurada.',
     ];
 
@@ -207,7 +302,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 children: [
                   Row(
                     children: [
-                      Text('Paso ${_step + 1} de 3', style: textTheme.bodyMedium),
+                      Text('Paso ${_step + 1} de 5', style: textTheme.bodyMedium),
                       const Spacer(),
                       TextButton(
                         onPressed: _busy ? null : () => context.go('/'),
@@ -227,8 +322,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         if (_step == 0) ..._companyFields(),
-                        if (_step == 1) ..._establishmentFields(),
-                        if (_step == 2) ..._doneContent(textTheme),
+                        if (_step == 1) ..._certFields(textTheme),
+                        if (_step == 2) ..._establishmentFields(),
+                        if (_step == 3) ..._sequentialFields(textTheme),
+                        if (_step == 4) ..._doneContent(textTheme),
                         if (_error != null) ...[
                           const SizedBox(height: 12),
                           Text(
@@ -245,7 +342,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      if (_step > 0 && _step < 2)
+                      if (_step > 0 && _step < 4)
                         OutlinedButton(
                           onPressed: _busy
                               ? null
@@ -253,10 +350,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           child: const Text('Atrás'),
                         ),
                       const Spacer(),
+                      if (_step == 1 && _certInfo == null)
+                        TextButton(
+                          onPressed: _busy ? null : () => setState(() => _step = 2),
+                          child: const Text('Configurar más tarde'),
+                        ),
+                      const SizedBox(width: 8),
                       ElevatedButton.icon(
-                        onPressed: _busy
-                            ? null
-                            : (_step == 2 ? _finish : _next),
+                        onPressed:
+                            _busy ? null : (_step == 4 ? _finish : _next),
                         icon: _busy
                             ? const SizedBox(
                                 width: 16,
@@ -265,7 +367,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                     CircularProgressIndicator(strokeWidth: 2),
                               )
                             : const Icon(Icons.arrow_forward_rounded),
-                        label: Text(_step == 2 ? 'Ir al panel' : 'Continuar'),
+                        label: Text(
+                          _step == 4
+                              ? 'Ir al panel'
+                              : (_step == 1 && _certInfo == null && _certPath != null
+                                  ? 'Validar firma'
+                                  : 'Continuar'),
+                        ),
                       ),
                     ],
                   ),
@@ -350,6 +458,48 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     ];
   }
 
+  List<Widget> _certFields(TextTheme textTheme) {
+    if (_certInfo != null) {
+      final warn = _certInfo!.daysUntilExpiry <= 30;
+      return [
+        Icon(
+          warn ? Icons.warning_amber_rounded : Icons.verified_rounded,
+          size: 44,
+          color: warn ? AppColors.warning : AppColors.success,
+        ),
+        const SizedBox(height: 10),
+        Text(
+          warn
+              ? 'Tu firma vence en ${_certInfo!.daysUntilExpiry} días'
+              : 'Certificado válido',
+          style: textTheme.titleMedium,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          _certInfo!.subject,
+          style: textTheme.bodyMedium,
+          textAlign: TextAlign.center,
+        ),
+      ];
+    }
+    return [
+      OutlinedButton.icon(
+        onPressed: _busy ? null : _pickCert,
+        icon: const Icon(Icons.upload_file_rounded),
+        label: Text(_certName ?? 'Seleccionar certificado (.p12)'),
+      ),
+      const SizedBox(height: 12),
+      TextField(
+        controller: _certPwdCtrl,
+        obscureText: true,
+        decoration: const InputDecoration(
+          labelText: 'Contraseña del certificado',
+        ),
+      ),
+    ];
+  }
+
   List<Widget> _establishmentFields() {
     return [
       TextField(
@@ -383,24 +533,135 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     ];
   }
 
+  List<Widget> _sequentialFields(TextTheme textTheme) {
+    return [
+      Row(
+        children: [
+          Expanded(
+            child: _ChoiceCard(
+              title: 'Es mi primera vez',
+              subtitle: 'Empezamos en 000000001.',
+              selected: _migrated == false,
+              onTap: () => setState(() => _migrated = false),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _ChoiceCard(
+              title: 'Ya facturaba antes',
+              subtitle: 'Vengo de otro sistema.',
+              selected: _migrated == true,
+              onTap: () => setState(() => _migrated = true),
+            ),
+          ),
+        ],
+      ),
+      if (_migrated == true) ...[
+        const SizedBox(height: 12),
+        Text(
+          'Ingresa el último número emitido por tipo (deja vacío si no lo usabas).',
+          style: textTheme.bodyMedium,
+        ),
+        const SizedBox(height: 8),
+        ..._docTypes.map((d) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: Text(d['label']!, style: textTheme.bodyMedium),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(hintText: 'Ej. 1234'),
+                    onChanged: (v) => _seq[d['code']!] = v,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    ];
+  }
+
   List<Widget> _doneContent(TextTheme textTheme) {
     return [
       const Icon(Icons.check_circle_rounded, size: 56, color: AppColors.success),
       const SizedBox(height: 12),
       Text(
-        'Tu empresa quedó configurada.',
+        'Tu cuenta quedó configurada.',
         style: textTheme.titleMedium,
         textAlign: TextAlign.center,
       ),
       const SizedBox(height: 8),
       Text(
-        'Para emitir tus comprobantes, sube tu firma electrónica (.p12) desde '
-        'el portal web en facturacion.amephia.com. Luego podrás facturar '
-        'desde la app.',
+        'Ya puedes emitir tu primera factura electrónica desde la app.',
         style: textTheme.bodyMedium,
         textAlign: TextAlign.center,
       ),
     ];
+  }
+}
+
+class _ChoiceCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ChoiceCard({
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          color: selected
+              ? AppColors.primary.withValues(alpha: 0.12)
+              : Colors.white.withValues(alpha: 0.03),
+          border: Border.all(
+            color: selected
+                ? AppColors.primary.withValues(alpha: 0.6)
+                : Colors.white.withValues(alpha: 0.1),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontFamily: 'Avenir Next',
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                fontFamily: 'Avenir Next',
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -411,12 +672,12 @@ class _StepBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      children: List.generate(3, (i) {
+      children: List.generate(5, (i) {
         final active = i <= step;
         return Expanded(
           child: Container(
             height: 4,
-            margin: EdgeInsets.only(right: i < 2 ? 6 : 0),
+            margin: EdgeInsets.only(right: i < 4 ? 5 : 0),
             decoration: BoxDecoration(
               color: active
                   ? AppColors.primary

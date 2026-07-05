@@ -67,6 +67,7 @@ dependencies:
   # Charts
   fl_chart: ^0.68.0
   local_auth: ^3.0.0
+  file_picker: ^11.0.2
 
 dev_dependencies:
   flutter_test:
