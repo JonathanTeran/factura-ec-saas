@@ -38,30 +38,22 @@ class FluidPageTransitionsBuilder extends PageTransitionsBuilder {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
+    // Ligera y rápida: solo la pantalla entrante hace fade + un desliz corto.
+    // No tocamos la saliente (escalar/atenuar la saliente es caro y se siente
+    // más lento). RepaintBoundary aísla el repintado durante la transición.
     final entering = CurvedAnimation(
       parent: animation,
       curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-    );
-    // La pantalla saliente se atenúa y encoge sutilmente hacia atrás.
-    final leaving = CurvedAnimation(
-      parent: secondaryAnimation,
-      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeIn,
     );
     return FadeTransition(
       opacity: entering,
       child: SlideTransition(
         position: Tween<Offset>(
-          begin: const Offset(0, 0.025),
+          begin: const Offset(0, 0.02),
           end: Offset.zero,
         ).animate(entering),
-        child: FadeTransition(
-          opacity: Tween<double>(begin: 1, end: 0.85).animate(leaving),
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 1, end: 0.98).animate(leaving),
-            child: child,
-          ),
-        ),
+        child: RepaintBoundary(child: child),
       ),
     );
   }

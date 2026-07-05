@@ -55,16 +55,20 @@ class GlowOrb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: color,
-          boxShadow: [
-            BoxShadow(color: color, blurRadius: 90, spreadRadius: 20),
-          ],
+    // RepaintBoundary: el orbe es estático; evita que el scroll del contenido
+    // lo repinte. Blur reducido (era 90px, muy caro para la GPU).
+    return RepaintBoundary(
+      child: IgnorePointer(
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color,
+            boxShadow: [
+              BoxShadow(color: color, blurRadius: 48, spreadRadius: 8),
+            ],
+          ),
         ),
       ),
     );

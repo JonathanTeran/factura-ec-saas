@@ -157,7 +157,7 @@ class _FadeInUpState extends State<FadeInUp>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 440),
+    duration: const Duration(milliseconds: 260),
   );
   late final Animation<double> _a =
       CurvedAnimation(parent: _c, curve: Curves.easeOutCubic);
@@ -165,11 +165,16 @@ class _FadeInUpState extends State<FadeInUp>
   @override
   void initState() {
     super.initState();
-    // Retraso escalonado por índice (tope para no demorar listas largas).
-    final delay = 40 + (widget.index.clamp(0, 12)) * 55;
-    Future.delayed(Duration(milliseconds: delay), () {
-      if (mounted) _c.forward();
-    });
+    // Stagger mínimo y con tope bajo: el contenido aparece rápido, con apenas
+    // una insinuación de secuencia (nada de esperas largas).
+    final delay = widget.index.clamp(0, 6) * 22;
+    if (delay == 0) {
+      _c.forward();
+    } else {
+      Future.delayed(Duration(milliseconds: delay), () {
+        if (mounted) _c.forward();
+      });
+    }
   }
 
   @override
