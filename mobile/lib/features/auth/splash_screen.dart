@@ -25,7 +25,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   Future<void> _bootstrap() async {
-    await Future<void>.delayed(const Duration(milliseconds: 900));
+    // Tiempo mínimo de marca corto para no demorar el arranque (era 900ms).
+    await Future<void>.delayed(const Duration(milliseconds: 300));
     if (!mounted) return;
 
     try {
@@ -38,7 +39,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           return;
         case BackendAvailability.unreachable:
           setState(() => _status = 'No pudimos conectar con el backend');
-          await Future<void>.delayed(const Duration(milliseconds: 700));
+          await Future<void>.delayed(const Duration(milliseconds: 350));
           if (!mounted) return;
           context.go('/login');
           return;
