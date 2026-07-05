@@ -84,6 +84,15 @@ class User extends Authenticatable implements FilamentUser
         });
     }
 
+    /**
+     * Enviar el correo de recuperación de clave de forma ENCOLADA (Horizon),
+     * evitando el envío síncrono que colgaba php-fpm.
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new \App\Notifications\QueuedResetPassword($token));
+    }
+
     // ==================== RELACIONES ====================
 
     public function tenant(): BelongsTo
