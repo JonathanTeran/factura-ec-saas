@@ -25,6 +25,48 @@ class AppColors {
   static const Color info = Color(0xFF3F8CFF);
 }
 
+/// Transición de página fluida (fade + leve deslizamiento) para toda la app.
+/// Da una sensación premium y suave en cada navegación.
+class FluidPageTransitionsBuilder extends PageTransitionsBuilder {
+  const FluidPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final entering = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+    // La pantalla saliente se atenúa y encoge sutilmente hacia atrás.
+    final leaving = CurvedAnimation(
+      parent: secondaryAnimation,
+      curve: Curves.easeOutCubic,
+    );
+    return FadeTransition(
+      opacity: entering,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.025),
+          end: Offset.zero,
+        ).animate(entering),
+        child: FadeTransition(
+          opacity: Tween<double>(begin: 1, end: 0.85).animate(leaving),
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 1, end: 0.98).animate(leaving),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class AppTheme {
   static const _radiusMd = 16.0;
 
@@ -91,7 +133,14 @@ class AppTheme {
     );
 
     return baseTheme.copyWith(
-      splashFactory: NoSplash.splashFactory,
+      splashFactory: InkSparkle.splashFactory,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: FluidPageTransitionsBuilder(),
+          TargetPlatform.iOS: FluidPageTransitionsBuilder(),
+          TargetPlatform.macOS: FluidPageTransitionsBuilder(),
+        },
+      ),
       scaffoldBackgroundColor: AppColors.background,
       textTheme: _textTheme(AppColors.textPrimary, AppColors.textSecondary),
       appBarTheme: const AppBarTheme(
