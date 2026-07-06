@@ -79,8 +79,14 @@ class AppShell extends StatelessWidget {
       );
     }
 
-    // Espacio reservado al fondo: dock (~112) + CTA extra cuando se muestra.
-    final double bottomInset = _showCreateCta ? 172 : 112;
+    // El dock consume el safe-area inferior (home indicator). Reservamos ese
+    // espacio + la altura del dock + (si aplica) el bloque del CTA, calculado
+    // sobre el inset real del dispositivo para que NADA quede detrás del dock.
+    final double safeBottom = MediaQuery.of(context).padding.bottom;
+    const double dockBlock = 85; // padding + fila de íconos del dock
+    const double ctaBlock = 66; // botón (54) + separación
+    final double bottomInset =
+        safeBottom + dockBlock + (_showCreateCta ? ctaBlock : 0) + 8;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -94,18 +100,26 @@ class AppShell extends StatelessWidget {
               child: child,
             ),
           ),
-          if (_showCreateCta)
-            Positioned(
-              left: 20,
-              right: 20,
-              bottom: 94,
-              child: PrimaryFlowCta(onTap: () => context.go('/documents/new')),
-            ),
+          // CTA y dock apilados en una sola columna anclada abajo: el CTA queda
+          // SIEMPRE por encima del dock, sin solaparse (antes el CTA se metía
+          // detrás del menú por un `bottom` fijo menor que la altura del dock).
           Align(
             alignment: Alignment.bottomCenter,
-            child: BottomDock(
-              selectedIndex: _selectedIndexFromLocation(),
-              onTap: (index) => _goToIndex(context, index),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_showCreateCta)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                    child: PrimaryFlowCta(
+                      onTap: () => context.go('/documents/new'),
+                    ),
+                  ),
+                BottomDock(
+                  selectedIndex: _selectedIndexFromLocation(),
+                  onTap: (index) => _goToIndex(context, index),
+                ),
+              ],
             ),
           ),
         ],

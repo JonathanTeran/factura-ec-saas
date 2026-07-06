@@ -272,12 +272,16 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
       );
     }
 
-    if (_companies.isEmpty || _customers.isEmpty || _products.isEmpty) {
+    // Error real de carga (red / servidor). NO es que falten datos.
+    if (_errorText != null &&
+        _companies.isEmpty &&
+        _customers.isEmpty &&
+        _products.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'No se pudo iniciar el flujo',
+            'No pudimos cargar tus datos',
             style: TextStyle(
               fontFamily: 'Avenir Next',
               fontWeight: FontWeight.w700,
@@ -287,7 +291,7 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Necesitas al menos una empresa, un cliente y un producto activos.',
+            'Revisá tu conexión a internet e intentá de nuevo.',
             style: TextStyle(
               fontFamily: 'Avenir Next',
               color: AppColors.textSecondary,
@@ -297,7 +301,65 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
           OutlinedButton.icon(
             onPressed: _loadOptions,
             icon: const Icon(Icons.refresh_rounded),
-            label: const Text('Recargar datos'),
+            label: const Text('Reintentar'),
+          ),
+        ],
+      );
+    }
+
+    // Faltan datos base para poder facturar: estado guiado con accesos directos
+    // para crear justo lo que falta.
+    if (_companies.isEmpty || _customers.isEmpty || _products.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Casi listo para facturar',
+            style: TextStyle(
+              fontFamily: 'Avenir Next',
+              fontWeight: FontWeight.w700,
+              fontSize: 20,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Para emitir tu primer documento necesitás tener esto activo:',
+            style: TextStyle(
+              fontFamily: 'Avenir Next',
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _RequirementRow(
+            done: _companies.isNotEmpty,
+            label: 'Empresa configurada',
+            actionLabel: 'Configurar',
+            onAction: _companies.isEmpty ? () => context.go('/settings') : null,
+          ),
+          const SizedBox(height: 10),
+          _RequirementRow(
+            done: _customers.isNotEmpty,
+            label: 'Al menos un cliente',
+            actionLabel: 'Crear cliente',
+            onAction: _customers.isEmpty
+                ? () => context.push('/customers/new')
+                : null,
+          ),
+          const SizedBox(height: 10),
+          _RequirementRow(
+            done: _products.isNotEmpty,
+            label: 'Al menos un producto',
+            actionLabel: 'Crear producto',
+            onAction: _products.isEmpty
+                ? () => context.push('/products/new')
+                : null,
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: _loadOptions,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Volver a comprobar'),
           ),
         ],
       );
@@ -716,6 +778,48 @@ class _FlowProgress extends StatelessWidget {
           ),
         );
       }),
+    );
+  }
+}
+
+/// Fila de requisito en el estado "Casi listo para facturar": muestra un check
+/// si ya está cumplido, o una acción para crear lo que falta.
+class _RequirementRow extends StatelessWidget {
+  final bool done;
+  final String label;
+  final String actionLabel;
+  final VoidCallback? onAction;
+
+  const _RequirementRow({
+    required this.done,
+    required this.label,
+    required this.actionLabel,
+    required this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          done ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+          color: done ? AppColors.success : AppColors.textMuted,
+          size: 22,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Avenir Next',
+              fontWeight: FontWeight.w600,
+              color: done ? AppColors.textSecondary : AppColors.textPrimary,
+            ),
+          ),
+        ),
+        if (!done && onAction != null)
+          TextButton(onPressed: onAction, child: Text(actionLabel)),
+      ],
     );
   }
 }
