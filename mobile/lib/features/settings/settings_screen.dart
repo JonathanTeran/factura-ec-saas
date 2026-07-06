@@ -514,14 +514,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   const Divider(height: 20),
                   _MenuTile(
-                    icon: Icons.lock_outline_rounded,
-                    title: 'Clave SRI',
-                    subtitle: 'Sincronización automática y segura.',
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Proximamente')),
-                      );
-                    },
+                    icon: Icons.verified_user_outlined,
+                    title: 'Firma electrónica',
+                    subtitle: 'Sube o actualiza tu certificado .p12.',
+                    onTap: () => context.push('/settings/certificate'),
                   ),
                   const Divider(height: 20),
                   _MenuTile(

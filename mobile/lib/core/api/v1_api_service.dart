@@ -331,6 +331,27 @@ class OnboardingCertInfo {
   });
 }
 
+/// Estado de la firma electrónica (certificado .p12) de la empresa.
+class SignatureStatus {
+  final String status; // missing | unknown | expired | expiring_soon | valid
+  final String? message;
+  final int? daysRemaining;
+  final DateTime? expiresAt;
+  final String? subject;
+
+  const SignatureStatus({
+    required this.status,
+    this.message,
+    this.daysRemaining,
+    this.expiresAt,
+    this.subject,
+  });
+
+  bool get hasCertificate => status != 'missing' && status != 'unknown';
+  bool get isValid => status == 'valid' || status == 'expiring_soon';
+  bool get isExpired => status == 'expired';
+}
+
 class V1ApiService {
   static const String _accessTokenKey = 'access_token';
 
@@ -1442,6 +1463,25 @@ class V1ApiService {
       final d = _payloadMapFromResponse(response);
       final ep = mapFrom(d['emission_point']);
       return ep['id'] == null ? null : intFrom(ep['id']);
+    });
+  }
+
+  /// Estado actual de la firma electrónica de la empresa.
+  Future<SignatureStatus> signatureStatus() async {
+    return _guard(() async {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '/signature-status',
+      );
+      final data = _payloadMapFromResponse(response);
+      return SignatureStatus(
+        status: stringFrom(data['status'], fallback: 'unknown'),
+        message: nullableStringFrom(data['message']),
+        daysRemaining: data['days_remaining'] == null
+            ? null
+            : intFrom(data['days_remaining']),
+        expiresAt: dateFrom(data['expires_at']),
+        subject: nullableStringFrom(data['subject']),
+      );
     });
   }
 

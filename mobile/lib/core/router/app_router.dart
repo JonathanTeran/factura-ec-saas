@@ -23,6 +23,7 @@ import '../../features/purchases/supplier_create_screen.dart';
 import '../../features/purchases/suppliers_screen.dart';
 import '../../features/reports/reports_screen.dart';
 import '../../features/settings/billing_screen.dart';
+import '../../features/settings/certificate_screen.dart';
 import '../../features/settings/company_create_screen.dart';
 import '../../features/settings/settings_screen.dart';
 
@@ -132,6 +133,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: 'company/new',
                 name: 'company-new',
                 builder: (context, state) => const CompanyCreateScreen(),
+              ),
+              GoRoute(
+                path: 'certificate',
+                name: 'certificate',
+                builder: (context, state) => const CertificateScreen(),
               ),
             ],
           ),
