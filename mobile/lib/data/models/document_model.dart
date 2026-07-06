@@ -1,5 +1,28 @@
 import 'json_helpers.dart';
 
+/// Convierte un mensaje del SRI (mapa `{identificador, mensaje,
+/// informacionAdicional}` o texto) en una línea legible para mostrar.
+String sriMessageToText(dynamic item) {
+  if (item is Map) {
+    final id = stringFrom(item['identificador']);
+    final msg = stringFrom(
+      item['mensaje'],
+      fallback: stringFrom(item['message']),
+    );
+    final extra = stringFrom(
+      item['informacionAdicional'],
+      fallback: stringFrom(item['info_adicional']),
+    );
+    final head = [
+      if (id.isNotEmpty) '[$id]',
+      if (msg.isNotEmpty) msg,
+    ].join(' ').trim();
+    if (head.isEmpty && extra.isEmpty) return item.toString();
+    return extra.isEmpty ? head : '$head — $extra';
+  }
+  return item.toString();
+}
+
 /// Represents an electronic document (factura, nota de crédito, etc.).
 class ApiDocument {
   final int id;
@@ -169,7 +192,8 @@ class ApiDocumentDetail {
     );
 
     final messages = listFrom(json['sri_messages'])
-        .map((item) => item.toString())
+        .map(sriMessageToText)
+        .where((s) => s.trim().isNotEmpty)
         .toList(growable: false);
 
     final items = listFrom(json['items'])
@@ -231,9 +255,10 @@ class ApiDocumentStatus {
   });
 
   factory ApiDocumentStatus.fromJson(Map<String, dynamic> json) {
-    final messages = listFrom(
-      json['sri_messages'],
-    ).map((item) => item.toString()).toList(growable: false);
+    final messages = listFrom(json['sri_messages'])
+        .map(sriMessageToText)
+        .where((s) => s.trim().isNotEmpty)
+        .toList(growable: false);
 
     return ApiDocumentStatus(
       status: stringFrom(json['status'], fallback: 'processing'),

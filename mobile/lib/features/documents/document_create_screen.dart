@@ -70,6 +70,16 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
   bool get _isRetention => _selectedType == '07';
   bool get _isWaybill => _selectedType == '06';
 
+  String get _resultTitle {
+    final s = _documentStatus;
+    if (s == null) return 'Resultado';
+    if (s.authorizationNumber != null && s.authorizationNumber!.isNotEmpty) {
+      return '¡Documento autorizado!';
+    }
+    if (s.sriMessages.isNotEmpty) return 'El SRI devolvió observaciones';
+    return 'Estado: ${s.statusLabel}';
+  }
+
   String get _docTypeLabel => switch (_selectedType) {
     '03' => 'Liquidación de compra',
     '04' => 'Nota de crédito',
@@ -2319,17 +2329,34 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
           ],
         );
       default:
+        final authorized =
+            _documentStatus?.authorizationNumber != null &&
+            _documentStatus!.authorizationNumber!.isNotEmpty;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '3. Compartir PDF',
-              style: TextStyle(
-                fontFamily: 'Avenir Next',
-                fontWeight: FontWeight.w700,
-                fontSize: 20,
-                color: AppColors.textPrimary,
-              ),
+            Row(
+              children: [
+                Icon(
+                  authorized
+                      ? Icons.check_circle_rounded
+                      : Icons.info_outline_rounded,
+                  color: authorized ? AppColors.success : AppColors.warning,
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _resultTitle,
+                    style: const TextStyle(
+                      fontFamily: 'Avenir Next',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 20,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             Text(
@@ -2350,6 +2377,57 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
                 style: const TextStyle(
                   fontFamily: 'Avenir Next',
                   color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+            if (_documentStatus != null &&
+                _documentStatus!.sriMessages.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppColors.error.withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          color: AppColors.error,
+                          size: 20,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Respuesta del SRI',
+                          style: TextStyle(
+                            fontFamily: 'Avenir Next',
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    for (final m in _documentStatus!.sriMessages) ...[
+                      Text(
+                        '•  $m',
+                        style: const TextStyle(
+                          fontFamily: 'Avenir Next',
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                    ],
+                  ],
                 ),
               ),
             ],
