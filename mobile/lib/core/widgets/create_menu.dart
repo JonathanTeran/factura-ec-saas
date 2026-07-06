@@ -8,6 +8,10 @@ import '../theme/app_theme.dart';
 Future<void> showCreateMenu(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
+    // Scroll-controlled + scrollable: el sheet crece con el contenido y todos
+    // los ítems quedan visibles y tocables (antes el último, "Guía de
+    // Remisión", quedaba cortado y no se podía tocar).
+    isScrollControlled: true,
     backgroundColor: AppColors.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -15,11 +19,15 @@ Future<void> showCreateMenu(BuildContext context) {
     builder: (ctx) {
       return SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(ctx).size.height * 0.88,
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
               Container(
                 width: 40,
                 height: 4,
@@ -86,6 +94,7 @@ Future<void> showCreateMenu(BuildContext context) {
                 onTap: () => _go(ctx, '/products/new'),
               ),
             ],
+          ),
           ),
         ),
       );

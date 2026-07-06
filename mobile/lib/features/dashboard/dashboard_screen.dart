@@ -133,10 +133,33 @@ class DashboardScreen extends ConsumerWidget {
               PageHeader(
                 title: 'Hola, ${_firstName(meAsync.valueOrNull?.name)}',
                 subtitle: DateFormat('dd MMM yyyy').format(DateTime.now()),
-              trailing: IconButton.filledTonal(
-                tooltip: 'Crear',
-                onPressed: () => showCreateMenu(context),
-                icon: const Icon(Icons.add_rounded),
+              trailing: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.35),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: FilledButton.icon(
+                  onPressed: () => showCreateMenu(context),
+                  icon: const Icon(Icons.add_rounded, size: 20),
+                  label: const Text('Crear'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 16),
