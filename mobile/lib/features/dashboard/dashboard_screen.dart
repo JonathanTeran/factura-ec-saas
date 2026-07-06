@@ -136,7 +136,6 @@ class DashboardScreen extends ConsumerWidget {
               monthTotal: data.stats.currentMonthTotal,
               monthCount: data.stats.currentMonthCount,
               trendDelta: trendDelta,
-              spark: spark,
               onTap: () => context.go('/reports'),
             ),
             const SizedBox(height: 20),
@@ -278,14 +277,12 @@ class _BillingHeroCard extends StatelessWidget {
   final double monthTotal;
   final int monthCount;
   final double trendDelta;
-  final List<double> spark;
   final VoidCallback onTap;
 
   const _BillingHeroCard({
     required this.monthTotal,
     required this.monthCount,
     required this.trendDelta,
-    required this.spark,
     required this.onTap,
   });
 
@@ -382,76 +379,12 @@ class _BillingHeroCard extends StatelessWidget {
                   ),
                 ],
               ),
-              if (spark.length >= 2) ...[
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 44,
-                  width: double.infinity,
-                  child: CustomPaint(painter: _SparklinePainter(spark)),
-                ),
-              ],
             ],
           ),
         ),
       ),
     ).animate().fadeIn(duration: 480.ms).slideY(begin: 0.1, duration: 480.ms);
   }
-}
-
-class _SparklinePainter extends CustomPainter {
-  final List<double> values;
-
-  _SparklinePainter(this.values);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (values.length < 2) return;
-    final maxV = values.reduce((a, b) => a > b ? a : b);
-    final minV = values.reduce((a, b) => a < b ? a : b);
-    final range = (maxV - minV).abs() < 1e-9 ? 1.0 : (maxV - minV);
-    final dx = size.width / (values.length - 1);
-
-    final points = <Offset>[
-      for (var i = 0; i < values.length; i++)
-        Offset(
-          dx * i,
-          size.height - ((values[i] - minV) / range) * size.height,
-        ),
-    ];
-
-    final fill = Path()..moveTo(points.first.dx, size.height);
-    for (final p in points) {
-      fill.lineTo(p.dx, p.dy);
-    }
-    fill
-      ..lineTo(points.last.dx, size.height)
-      ..close();
-    canvas.drawPath(
-      fill,
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.16)
-        ..style = PaintingStyle.fill,
-    );
-
-    final line = Path()..moveTo(points.first.dx, points.first.dy);
-    for (final p in points.skip(1)) {
-      line.lineTo(p.dx, p.dy);
-    }
-    canvas.drawPath(
-      line,
-      Paint()
-        ..color = Colors.white
-        ..strokeWidth = 2.4
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round,
-    );
-
-    canvas.drawCircle(points.last, 3.5, Paint()..color = Colors.white);
-  }
-
-  @override
-  bool shouldRepaint(covariant _SparklinePainter old) => old.values != values;
 }
 
 class _MiniDocItem {
