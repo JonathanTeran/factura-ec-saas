@@ -85,6 +85,85 @@ class InvoicePayment {
   const InvoicePayment({required this.code, required this.amount});
 }
 
+/// Códigos de retención del SRI (renta e IVA) con su porcentaje, tal como el
+/// catálogo del backend (config/sri.php).
+const List<({String code, double percentage, String name})> kRentaRetentionCodes = [
+  (code: '303', percentage: 10, name: 'Honorarios profesionales'),
+  (code: '304', percentage: 8, name: 'Servicios predomina intelecto (sin título)'),
+  (code: '307', percentage: 2, name: 'Servicios predomina mano de obra'),
+  (code: '308', percentage: 2, name: 'Servicios entre sociedades'),
+  (code: '309', percentage: 1, name: 'Publicidad y comunicación'),
+  (code: '310', percentage: 1, name: 'Transporte privado / carga'),
+  (code: '312', percentage: 1, name: 'Transferencia de bienes muebles'),
+  (code: '319', percentage: 1, name: 'Arrendamiento mercantil'),
+  (code: '320', percentage: 8, name: 'Arrendamiento bienes inmuebles'),
+  (code: '322', percentage: 1.75, name: 'Seguros y reaseguros'),
+  (code: '323', percentage: 2, name: 'Rendimientos financieros'),
+  (code: '332', percentage: 0, name: 'No sujetas a retención'),
+  (code: '341', percentage: 1, name: 'Otras retenciones 1%'),
+  (code: '342', percentage: 2, name: 'Otras retenciones 2%'),
+  (code: '343', percentage: 8, name: 'Otras retenciones 8%'),
+  (code: '344', percentage: 25, name: 'Otras retenciones 25%'),
+];
+
+const List<({String code, double percentage, String name})> kIvaRetentionCodes = [
+  (code: '721', percentage: 30, name: 'Retención 30% del IVA'),
+  (code: '723', percentage: 70, name: 'Retención 70% del IVA'),
+  (code: '725', percentage: 100, name: 'Retención 100% del IVA'),
+];
+
+/// Tipos de documento de sustento (para el comprobante de retención).
+const List<({String code, String label})> kSupportDocTypes = [
+  (code: '01', label: 'Factura'),
+  (code: '03', label: 'Liquidación de compra'),
+  (code: '02', label: 'Nota de venta'),
+  (code: '12', label: 'Documento instituciones financieras'),
+  (code: '11', label: 'Pasajes transporte'),
+  (code: '41', label: 'Comprobante de reembolso'),
+];
+
+/// Una línea de retención dentro de un comprobante de retención.
+class WithholdingLine {
+  final String taxType; // 'renta' | 'iva'
+  final String code; // código de retención
+  final double base; // base imponible
+  final double rate; // porcentaje
+
+  const WithholdingLine({
+    required this.taxType,
+    required this.code,
+    required this.base,
+    required this.rate,
+  });
+
+  double get retained => base * rate / 100;
+}
+
+/// Entrada para crear un Comprobante de Retención (07).
+class CreateRetentionInput {
+  final int companyId;
+  final int customerId;
+  final int emissionPointId;
+  final String supportDocCode; // tipo de documento sustento
+  final String supportDocNumber; // 001-001-000000001
+  final DateTime supportDocDate;
+  final double supportDocTotal;
+  final List<WithholdingLine> withholdings;
+  final List<({String name, String value})> additionalInfo;
+
+  const CreateRetentionInput({
+    required this.companyId,
+    required this.customerId,
+    required this.emissionPointId,
+    required this.supportDocCode,
+    required this.supportDocNumber,
+    required this.supportDocDate,
+    required this.supportDocTotal,
+    required this.withholdings,
+    this.additionalInfo = const [],
+  });
+}
+
 /// Formas de pago del SRI — el mismo catálogo y orden que usa el panel web.
 const List<({String code, String label})> kSriPaymentMethods = [
   (code: '01', label: 'Sin utilización del sistema financiero'),
@@ -719,6 +798,60 @@ class V1ApiService {
         if (input.modificationReason != null &&
             input.modificationReason!.trim().isNotEmpty)
           'modification_reason': input.modificationReason!.trim(),
+      };
+
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        ApiConstants.documents,
+        data: payload,
+      );
+      final data = _payloadMapFromResponse(response);
+      return ApiDocument.fromJson(mapFrom(data['document']));
+    });
+  }
+
+  /// Crea un Comprobante de Retención (07). No lleva ítems; lleva
+  /// withholding_details[] con el documento sustento y cada retención.
+  Future<ApiDocument> createRetention(CreateRetentionInput input) async {
+    return _guard(() async {
+      final total = input.withholdings.fold<double>(
+        0,
+        (s, w) => s + w.retained,
+      );
+      final supportDate = dateOnly(input.supportDocDate);
+
+      final details = input.withholdings
+          .map(
+            (w) => {
+              'support_doc_code': input.supportDocCode,
+              'support_doc_number': input.supportDocNumber,
+              'support_doc_date': supportDate,
+              'support_doc_total': input.supportDocTotal,
+              'tax_type': w.taxType,
+              'retention_code': w.code,
+              'tax_base': w.base,
+              'retention_rate': w.rate,
+              'retained_value': w.retained,
+            },
+          )
+          .toList();
+
+      final payload = <String, dynamic>{
+        'company_id': input.companyId,
+        'customer_id': input.customerId,
+        'emission_point_id': input.emissionPointId,
+        'document_type': '07',
+        'issue_date': dateOnly(DateTime.now()),
+        'subtotal_no_tax': 0,
+        'subtotal_0': 0,
+        'total_tax': 0,
+        'total_discount': 0,
+        'discount': 0,
+        'tip': 0,
+        'total': total,
+        'additional_info': input.additionalInfo
+            .map((e) => {'name': e.name, 'value': e.value})
+            .toList(),
+        'withholding_details': details,
       };
 
       final response = await _apiClient.post<Map<String, dynamic>>(

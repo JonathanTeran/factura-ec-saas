@@ -64,6 +64,11 @@ Future<void> showCreateMenu(BuildContext context) {
                 label: 'Liquidación de Compra',
                 onTap: () => _go(ctx, '/documents/new?type=03'),
               ),
+              _CreateItem(
+                icon: Icons.account_balance_rounded,
+                label: 'Retención',
+                onTap: () => _go(ctx, '/documents/new?type=07'),
+              ),
               const Divider(height: 20),
               _CreateItem(
                 icon: Icons.person_add_alt_1_rounded,

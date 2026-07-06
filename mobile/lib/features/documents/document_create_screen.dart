@@ -44,7 +44,17 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
   int? _referenceDocumentId;
   List<ApiDocument> _referenceDocs = const [];
 
+  // Solo para Comprobante de Retención (07).
+  final List<WithholdingLine> _withholdings = [];
+  final TextEditingController _supportNumberCtrl = TextEditingController();
+  final TextEditingController _supportTotalCtrl = TextEditingController(
+    text: '0',
+  );
+  String _supportDocCode = '01';
+  DateTime _supportDocDate = DateTime.now();
+
   bool get _needsReference => _selectedType == '04' || _selectedType == '05';
+  bool get _isRetention => _selectedType == '07';
 
   String get _docTypeLabel => switch (_selectedType) {
     '03' => 'Liquidación de compra',
@@ -77,6 +87,8 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
     _tipCtrl.dispose();
     _termCtrl.dispose();
     _reasonCtrl.dispose();
+    _supportNumberCtrl.dispose();
+    _supportTotalCtrl.dispose();
     super.dispose();
   }
 
@@ -192,6 +204,9 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
       _additional.clear();
       _tipCtrl.text = '0';
       _termCtrl.text = '0';
+      _withholdings.clear();
+      _supportNumberCtrl.clear();
+      _supportTotalCtrl.text = '0';
     });
   }
 
@@ -277,9 +292,10 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
     }
   }
 
-  /// Valida y crea la factura (borrador) en el backend. Devuelve el documento
+  /// Valida y crea el documento (borrador) en el backend. Devuelve el documento
   /// o null si falta algo o hubo error. Base de "Guardar" y "Enviar".
   Future<ApiDocument?> _submitInvoice() async {
+    if (_isRetention) return _submitRetention();
     if (_companyId == null ||
         _customerId == null ||
         _emissionPointId == null) {
@@ -324,6 +340,59 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
               modificationReason: _needsReference
                   ? _reasonCtrl.text.trim()
                   : null,
+            ),
+          );
+      _invalidateData();
+      return doc;
+    } catch (error) {
+      setState(() => _errorText = error.toString());
+      return null;
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  /// Valida y crea un Comprobante de Retención (07).
+  Future<ApiDocument?> _submitRetention() async {
+    if (_companyId == null ||
+        _customerId == null ||
+        _emissionPointId == null) {
+      setState(() => _errorText = 'Elegí cliente, empresa y punto de emisión.');
+      return null;
+    }
+    if (_supportNumberCtrl.text.trim().isEmpty) {
+      setState(
+        () => _errorText = 'Ingresá el número del documento sustento.',
+      );
+      return null;
+    }
+    if (_withholdings.isEmpty) {
+      setState(() => _errorText = 'Agregá al menos una retención.');
+      return null;
+    }
+
+    setState(() {
+      _submitting = true;
+      _errorText = null;
+    });
+    try {
+      final doc = await ref
+          .read(v1ApiServiceProvider)
+          .createRetention(
+            CreateRetentionInput(
+              companyId: _companyId!,
+              customerId: _customerId!,
+              emissionPointId: _emissionPointId!,
+              supportDocCode: _supportDocCode,
+              supportDocNumber: _supportNumberCtrl.text.trim(),
+              supportDocDate: _supportDocDate,
+              supportDocTotal:
+                  double.tryParse(
+                    _supportTotalCtrl.text.replaceAll(',', '.'),
+                  ) ??
+                  0,
+              withholdings: _withholdings,
+              additionalInfo: _additional,
             ),
           );
       _invalidateData();
@@ -973,6 +1042,292 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
     if (selected != null) setState(() => _referenceDocumentId = selected);
   }
 
+  // ─────────────────────────── Retención (07) ──────────────────────────────
+
+  double get _totalRetained =>
+      _withholdings.fold(0.0, (s, w) => s + w.retained);
+
+  String _fmtDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  Future<void> _pickSupportDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _supportDocDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) setState(() => _supportDocDate = picked);
+  }
+
+  Widget _supportDocSection() {
+    return Column(
+      children: [
+        DropdownButtonFormField<String>(
+          initialValue: _supportDocCode,
+          isExpanded: true,
+          decoration: const InputDecoration(labelText: 'Tipo de documento'),
+          items: kSupportDocTypes
+              .map((t) => DropdownMenuItem(value: t.code, child: Text(t.label)))
+              .toList(),
+          onChanged: (v) => setState(() => _supportDocCode = v ?? '01'),
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: _supportNumberCtrl,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Número (001-001-000000001)',
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                onTap: _pickSupportDate,
+                borderRadius: BorderRadius.circular(14),
+                child: InputDecorator(
+                  decoration: const InputDecoration(labelText: 'Fecha'),
+                  child: Text(
+                    _fmtDate(_supportDocDate),
+                    style: const TextStyle(
+                      fontFamily: 'Avenir Next',
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _supportTotalCtrl,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'Total sustento',
+                  prefixText: '\$ ',
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _buildWithholdings() {
+    if (_withholdings.isEmpty) {
+      return const [
+        Text(
+          'Agregá al menos una retención.',
+          style: TextStyle(fontFamily: 'Avenir Next', color: AppColors.textMuted),
+        ),
+        SizedBox(height: 8),
+      ];
+    }
+    return [
+      for (var i = 0; i < _withholdings.length; i++)
+        _itemCard(
+          onRemove: () => setState(() => _withholdings.removeAt(i)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${_withholdings[i].taxType == 'iva' ? 'IVA' : 'Renta'} · Cód. ${_withholdings[i].code}',
+                style: const TextStyle(
+                  fontFamily: 'Avenir Next',
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Base ${currency(_withholdings[i].base)} × ${_withholdings[i].rate}%  =  ${currency(_withholdings[i].retained)}',
+                style: const TextStyle(
+                  fontFamily: 'Avenir Next',
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+    ];
+  }
+
+  Widget _retentionTotalPanel() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceDark,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: _totalsRow(
+        'Total retenido',
+        currency(_totalRetained),
+        strong: true,
+      ),
+    );
+  }
+
+  Future<void> _openAddWithholdingSheet() async {
+    var taxType = 'renta';
+    var code = kRentaRetentionCodes.first.code;
+    final baseCtrl = TextEditingController(text: '0');
+    final rateCtrl = TextEditingController(
+      text: kRentaRetentionCodes.first.percentage.toString(),
+    );
+
+    final result = await showModalBottomSheet<WithholdingLine>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          14,
+          20,
+          16 + MediaQuery.of(ctx).viewInsets.bottom,
+        ),
+        child: StatefulBuilder(
+          builder: (ctx, setSheet) {
+            final catalog = taxType == 'iva'
+                ? kIvaRetentionCodes
+                : kRentaRetentionCodes;
+            final base =
+                double.tryParse(baseCtrl.text.replaceAll(',', '.')) ?? 0;
+            final r = double.tryParse(rateCtrl.text.replaceAll(',', '.')) ?? 0;
+            final retained = base * r / 100;
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _sheetHandle(),
+                  const SizedBox(height: 10),
+                  _sectionTitle('Agregar retención'),
+                  const SizedBox(height: 14),
+                  DropdownButtonFormField<String>(
+                    initialValue: taxType,
+                    decoration: const InputDecoration(
+                      labelText: 'Tipo de impuesto',
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'renta', child: Text('Renta')),
+                      DropdownMenuItem(value: 'iva', child: Text('IVA')),
+                    ],
+                    onChanged: (v) => setSheet(() {
+                      taxType = v ?? 'renta';
+                      final cat = taxType == 'iva'
+                          ? kIvaRetentionCodes
+                          : kRentaRetentionCodes;
+                      code = cat.first.code;
+                      rateCtrl.text = cat.first.percentage.toString();
+                    }),
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    initialValue: code,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Código de retención',
+                    ),
+                    items: catalog
+                        .map(
+                          (c) => DropdownMenuItem(
+                            value: c.code,
+                            child: Text(
+                              '${c.code} · ${c.name} (${c.percentage}%)',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setSheet(() {
+                      code = v ?? code;
+                      final sel = catalog.firstWhere((c) => c.code == code);
+                      rateCtrl.text = sel.percentage.toString();
+                    }),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: baseCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          onChanged: (_) => setSheet(() {}),
+                          decoration: const InputDecoration(
+                            labelText: 'Base imponible',
+                            prefixText: '\$ ',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: rateCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          onChanged: (_) => setSheet(() {}),
+                          decoration: const InputDecoration(
+                            labelText: '% Retención',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      'Valor retenido: ${currency(retained)}',
+                      style: const TextStyle(
+                        fontFamily: 'Avenir Next',
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(
+                      ctx,
+                      WithholdingLine(
+                        taxType: taxType,
+                        code: code,
+                        base: base,
+                        rate: r,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(50),
+                    ),
+                    child: const Text('Agregar retención'),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    baseCtrl.dispose();
+    rateCtrl.dispose();
+    if (result != null) setState(() => _withholdings.add(result));
+  }
+
   Future<void> _openAddProductSheet() async {
     if (_products.isEmpty) return;
     var selected = _products.first;
@@ -1297,7 +1652,9 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
 
     // Faltan datos base para poder facturar: estado guiado con accesos directos
     // para crear justo lo que falta.
-    if (_companies.isEmpty || _customers.isEmpty || _products.isEmpty) {
+    if (_companies.isEmpty ||
+        _customers.isEmpty ||
+        (!_isRetention && _products.isEmpty)) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1334,15 +1691,17 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
                 ? () => context.push('/customers/new')
                 : null,
           ),
-          const SizedBox(height: 10),
-          _RequirementRow(
-            done: _products.isNotEmpty,
-            label: 'Al menos un producto',
-            actionLabel: 'Crear producto',
-            onAction: _products.isEmpty
-                ? () => context.push('/products/new')
-                : null,
-          ),
+          if (!_isRetention) ...[
+            const SizedBox(height: 10),
+            _RequirementRow(
+              done: _products.isNotEmpty,
+              label: 'Al menos un producto',
+              actionLabel: 'Crear producto',
+              onAction: _products.isEmpty
+                  ? () => context.push('/products/new')
+                  : null,
+            ),
+          ],
           const SizedBox(height: 16),
           OutlinedButton.icon(
             onPressed: _loadOptions,
@@ -1387,6 +1746,7 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
                   value: '03',
                   child: Text('Liquidación de compra'),
                 ),
+                DropdownMenuItem(value: '07', child: Text('Retención')),
               ],
               onChanged: (value) => setState(() {
                 _selectedType = value ?? '01';
@@ -1451,33 +1811,46 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
             const SizedBox(height: 8),
             _customerCard(),
             const SizedBox(height: 18),
-            _sectionTitle('Productos'),
-            const SizedBox(height: 8),
-            ..._buildLineItems(),
-            _addTile(
-              'Agregar producto',
-              _products.isEmpty ? null : _openAddProductSheet,
-            ),
-            const SizedBox(height: 18),
-            _sectionTitle('Forma de pago'),
-            const SizedBox(height: 8),
-            ..._buildPayments(),
-            _addTile('Agregar forma de pago', _openAddPaymentSheet),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _termCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Plazo del pago (días)',
+            if (_isRetention) ...[
+              _sectionTitle('Documento sustento'),
+              const SizedBox(height: 8),
+              _supportDocSection(),
+              const SizedBox(height: 18),
+              _sectionTitle('Retenciones'),
+              const SizedBox(height: 8),
+              ..._buildWithholdings(),
+              _addTile('Agregar retención', _openAddWithholdingSheet),
+              const SizedBox(height: 18),
+              _retentionTotalPanel(),
+            ] else ...[
+              _sectionTitle('Productos'),
+              const SizedBox(height: 8),
+              ..._buildLineItems(),
+              _addTile(
+                'Agregar producto',
+                _products.isEmpty ? null : _openAddProductSheet,
               ),
-            ),
-            const SizedBox(height: 18),
-            _sectionTitle('Información adicional'),
-            const SizedBox(height: 8),
-            ..._buildAdditional(),
-            _addTile('Agregar información', _openAddInfoSheet),
-            const SizedBox(height: 18),
-            _totalsPanel(),
+              const SizedBox(height: 18),
+              _sectionTitle('Forma de pago'),
+              const SizedBox(height: 8),
+              ..._buildPayments(),
+              _addTile('Agregar forma de pago', _openAddPaymentSheet),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _termCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Plazo del pago (días)',
+                ),
+              ),
+              const SizedBox(height: 18),
+              _sectionTitle('Información adicional'),
+              const SizedBox(height: 8),
+              ..._buildAdditional(),
+              _addTile('Agregar información', _openAddInfoSheet),
+              const SizedBox(height: 18),
+              _totalsPanel(),
+            ],
           ],
         );
       case 1:
