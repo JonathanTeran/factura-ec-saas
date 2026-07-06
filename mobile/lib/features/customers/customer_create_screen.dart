@@ -29,6 +29,7 @@ class _CustomerCreateScreenState extends ConsumerState<CustomerCreateScreen> {
   String _identificationType = '05';
   bool _submitting = false;
   bool _lookingUp = false;
+  bool _showOptional = false;
   String? _errorText;
 
   /// La consulta al catastro del SRI aplica solo para RUC (04) y Cédula (05).
@@ -99,6 +100,7 @@ class _CustomerCreateScreenState extends ConsumerState<CustomerCreateScreen> {
         }
         if (_addressCtrl.text.trim().isEmpty && result.address != null) {
           _addressCtrl.text = result.address!;
+          _showOptional = true; // mostrar la dirección que trajo el SRI
         }
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -240,36 +242,52 @@ class _CustomerCreateScreenState extends ConsumerState<CustomerCreateScreen> {
                               ? 'Requerido'
                               : null,
                         ),
-                        const SizedBox(height: 10),
-                        TextFormField(
-                          controller: _emailCtrl,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(
-                            labelText: 'Correo (opcional)',
+                        const SizedBox(height: 4),
+                        // Datos de contacto opcionales, ocultos por defecto para
+                        // que el formulario se vea simple: solo tipo, número y
+                        // nombre a la vista.
+                        if (!_showOptional)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                              onPressed: () =>
+                                  setState(() => _showOptional = true),
+                              icon: const Icon(Icons.add_rounded, size: 18),
+                              label: const Text(
+                                'Agregar correo, teléfono y dirección',
+                              ),
+                            ),
                           ),
-                          validator: (value) {
-                            final v = value?.trim() ?? '';
-                            if (v.isEmpty) return null;
-                            return v.contains('@')
-                                ? null
-                                : 'Correo no válido';
-                          },
-                        ),
-                        const SizedBox(height: 10),
-                        TextFormField(
-                          controller: _phoneCtrl,
-                          keyboardType: TextInputType.phone,
-                          decoration: const InputDecoration(
-                            labelText: 'Teléfono (opcional)',
+                        if (_showOptional) ...[
+                          const SizedBox(height: 6),
+                          TextFormField(
+                            controller: _emailCtrl,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: const InputDecoration(
+                              labelText: 'Correo (opcional)',
+                            ),
+                            validator: (value) {
+                              final v = value?.trim() ?? '';
+                              if (v.isEmpty) return null;
+                              return v.contains('@') ? null : 'Correo no válido';
+                            },
                           ),
-                        ),
-                        const SizedBox(height: 10),
-                        TextFormField(
-                          controller: _addressCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'Dirección (opcional)',
+                          const SizedBox(height: 10),
+                          TextFormField(
+                            controller: _phoneCtrl,
+                            keyboardType: TextInputType.phone,
+                            decoration: const InputDecoration(
+                              labelText: 'Teléfono (opcional)',
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 10),
+                          TextFormField(
+                            controller: _addressCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Dirección (opcional)',
+                            ),
+                          ),
+                        ],
                         if (_errorText != null) ...[
                           const SizedBox(height: 12),
                           Text(

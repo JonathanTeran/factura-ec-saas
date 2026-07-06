@@ -402,38 +402,46 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
               }),
             ),
             const SizedBox(height: 10),
-            DropdownButtonFormField<int>(
-              initialValue: _companyId,
-              decoration: const InputDecoration(labelText: 'Empresa'),
-              items: _companies
-                  .map(
-                    (company) => DropdownMenuItem(
-                      value: company.id,
-                      child: Text('${company.businessName} · ${company.ruc}'),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                if (value == null) return;
-                setState(() => _companyId = value);
-                unawaited(_loadEmissionPoints(value));
-              },
-            ),
-            const SizedBox(height: 10),
-            DropdownButtonFormField<int>(
-              initialValue: _emissionPointId,
-              decoration: const InputDecoration(labelText: 'Punto de emisión'),
-              items: _emissionPoints
-                  .map(
-                    (point) => DropdownMenuItem(
-                      value: point.id,
-                      child: Text('${point.code} · ${point.description}'),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) => setState(() => _emissionPointId = value),
-            ),
-            const SizedBox(height: 10),
+            // Empresa y punto de emisión solo se muestran si hay más de una
+            // opción; con una sola quedan preseleccionados y no estorban.
+            if (_companies.length > 1) ...[
+              DropdownButtonFormField<int>(
+                initialValue: _companyId,
+                decoration: const InputDecoration(labelText: 'Empresa'),
+                items: _companies
+                    .map(
+                      (company) => DropdownMenuItem(
+                        value: company.id,
+                        child: Text('${company.businessName} · ${company.ruc}'),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _companyId = value);
+                  unawaited(_loadEmissionPoints(value));
+                },
+              ),
+              const SizedBox(height: 10),
+            ],
+            if (_emissionPoints.length > 1) ...[
+              DropdownButtonFormField<int>(
+                initialValue: _emissionPointId,
+                decoration: const InputDecoration(
+                  labelText: 'Punto de emisión',
+                ),
+                items: _emissionPoints
+                    .map(
+                      (point) => DropdownMenuItem(
+                        value: point.id,
+                        child: Text('${point.code} · ${point.description}'),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(() => _emissionPointId = value),
+              ),
+              const SizedBox(height: 10),
+            ],
             DropdownButtonFormField<int>(
               initialValue: _customerId,
               decoration: const InputDecoration(labelText: 'Cliente'),

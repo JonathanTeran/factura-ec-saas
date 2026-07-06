@@ -1,11 +1,9 @@
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../../core/api/v1_api_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../core/widgets/loading_widget.dart';
@@ -42,15 +40,6 @@ String _signedPercent(double value) {
 String _shortDate(DateTime? date) {
   if (date == null) return '-';
   return DateFormat('dd/MM/yyyy').format(date);
-}
-
-Color _colorForDocumentType(String type) {
-  return switch (type) {
-    '01' => AppColors.primary,
-    '04' => AppColors.warning,
-    '07' => AppColors.info,
-    _ => AppColors.secondary,
-  };
 }
 
 String _initialsFromName(String name) {
@@ -98,10 +87,6 @@ class DashboardScreen extends ConsumerWidget {
 
     final data = dataAsync.value!;
     final meAsync = ref.watch(meProvider);
-    final totalByType = data.typeSummary.fold<double>(
-      0,
-      (sum, item) => sum + item.total,
-    );
     final trendDelta = _percentChange(
       previous: data.stats.lastMonthCount.toDouble(),
       current: data.stats.currentMonthCount.toDouble(),
@@ -150,18 +135,6 @@ class DashboardScreen extends ConsumerWidget {
         )
         .toList(growable: false);
 
-    final budget = data.typeSummary
-        .map(
-          (item) => _BudgetItem(
-            item.label,
-            totalByType > 0 ? item.total / totalByType : 0,
-            currency(item.total),
-            currency(totalByType),
-            _colorForDocumentType(item.type),
-          ),
-        )
-        .toList(growable: false);
-
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
@@ -181,6 +154,35 @@ class DashboardScreen extends ConsumerWidget {
             _AccountHeroCard(
               name: meAsync.valueOrNull?.name ?? 'Cuenta activa',
               identifier: meAsync.valueOrNull?.email ?? 'Sin perfil cargado',
+            ),
+            const SizedBox(height: 20),
+            // Accesos rápidos a lo que antes estaba escondido en el "Menú".
+            Row(
+              children: [
+                Expanded(
+                  child: _QuickAction(
+                    icon: Icons.people_outline_rounded,
+                    label: 'Clientes',
+                    onTap: () => context.go('/customers'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _QuickAction(
+                    icon: Icons.storefront_outlined,
+                    label: 'Productos',
+                    onTap: () => context.go('/products'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _QuickAction(
+                    icon: Icons.pie_chart_outline_rounded,
+                    label: 'Reportes',
+                    onTap: () => context.go('/reports'),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 20),
             SectionHeader(
@@ -205,18 +207,6 @@ class DashboardScreen extends ConsumerWidget {
                 .animate()
                 .fadeIn(duration: 420.ms)
                 .slideY(begin: 0.12, duration: 420.ms),
-            const SizedBox(height: 20),
-            SectionHeader(
-              title: 'Evolución de gastos',
-              actionText: '30 días',
-              onAction: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Próximamente disponible')),
-                );
-              },
-            ),
-            const SizedBox(height: 10),
-            _TrendPanel(points: data.chartPoints),
             const SizedBox(height: 20),
             SectionHeader(
               title: 'Documentos recientes',
@@ -258,37 +248,6 @@ class DashboardScreen extends ConsumerWidget {
                 .animate()
                 .fadeIn(duration: 460.ms)
                 .slideX(begin: 0.06, duration: 460.ms),
-            const SizedBox(height: 20),
-            const SectionHeader(
-              title: 'Distribución por tipo',
-              actionText: '',
-            ),
-            const SizedBox(height: 10),
-            if (budget.isEmpty)
-              const GlassPanel(
-                child: Text(
-                  'Aún no hay distribución para mostrar.',
-                  style: TextStyle(
-                    fontFamily: 'Avenir Next',
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ),
-            if (budget.isNotEmpty)
-              GlassPanel(
-                child: Column(
-                  children: [
-                    for (var i = 0; i < budget.length; i++) ...[
-                      _BudgetRow(item: budget[i]),
-                      if (i < budget.length - 1) ...[
-                        const SizedBox(height: 14),
-                        const Divider(height: 1),
-                        const SizedBox(height: 14),
-                      ],
-                    ],
-                  ],
-                ),
-              ),
           ],
         ),
       ),
@@ -380,141 +339,6 @@ class _AccountHeroCard extends StatelessWidget {
         ],
       ),
     ).animate().fadeIn(duration: 480.ms).slideY(begin: 0.1, duration: 480.ms);
-  }
-}
-
-class _TrendPanel extends StatelessWidget {
-  final List<ApiChartPoint> points;
-
-  const _TrendPanel({required this.points});
-
-  @override
-  Widget build(BuildContext context) {
-    if (points.isEmpty) {
-      return const GlassPanel(
-        child: SizedBox(
-          height: 210,
-          child: Center(
-            child: Text(
-              'No hay suficientes datos para graficar.',
-              style: TextStyle(
-                fontFamily: 'Avenir Next',
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    final values = points.map((point) => point.total).toList(growable: false);
-    final maxY = values.reduce((a, b) => a > b ? a : b) * 1.2;
-    final spots = points
-        .asMap()
-        .entries
-        .map((entry) => FlSpot(entry.key.toDouble(), entry.value.total))
-        .toList(growable: false);
-
-    final maxX = (points.length - 1).toDouble();
-    final intervalX = points.length > 6
-        ? (points.length / 5).floorToDouble()
-        : 1.0;
-    final intervalY = maxY <= 0 ? 10.0 : maxY / 4;
-
-    return GlassPanel(
-      child: SizedBox(
-        height: 210,
-        child: LineChart(
-          LineChartData(
-            minX: 0,
-            maxX: maxX <= 0 ? 1.0 : maxX,
-            minY: 0,
-            maxY: maxY <= 0 ? 10.0 : maxY,
-            backgroundColor: Colors.transparent,
-            gridData: FlGridData(
-              show: true,
-              horizontalInterval: intervalY,
-              verticalInterval: intervalX,
-              drawVerticalLine: false,
-              getDrawingHorizontalLine: (_) => FlLine(
-                color: AppColors.border.withValues(alpha: 0.6),
-                strokeWidth: 1,
-              ),
-            ),
-            borderData: FlBorderData(show: false),
-            titlesData: FlTitlesData(
-              topTitles: const AxisTitles(
-                sideTitles: SideTitles(showTitles: false),
-              ),
-              rightTitles: const AxisTitles(
-                sideTitles: SideTitles(showTitles: false),
-              ),
-              leftTitles: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  interval: intervalY,
-                  reservedSize: 32,
-                  getTitlesWidget: (value, meta) => Text(
-                    value.toInt().toString(),
-                    style: const TextStyle(
-                      fontFamily: 'Avenir Next',
-                      color: AppColors.textMuted,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-              bottomTitles: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  interval: intervalX,
-                  getTitlesWidget: (value, meta) {
-                    final index = value.toInt();
-                    final isValid = index >= 0 && index < points.length;
-                    final label = isValid
-                        ? DateFormat(
-                            'dd MMM',
-                          ).format(points[index].date ?? DateTime.now())
-                        : '';
-                    return Text(
-                      label,
-                      style: const TextStyle(
-                        fontFamily: 'Avenir Next',
-                        color: AppColors.textMuted,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            lineBarsData: [
-              LineChartBarData(
-                spots: spots,
-                isCurved: true,
-                color: AppColors.primary,
-                barWidth: 4,
-                isStrokeCapRound: true,
-                dotData: const FlDotData(show: false),
-                belowBarData: BarAreaData(
-                  show: true,
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      AppColors.primary.withValues(alpha: 0.35),
-                      AppColors.primary.withValues(alpha: 0.02),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
 
@@ -635,78 +459,44 @@ class _MiniDocumentCard extends StatelessWidget {
   }
 }
 
-class _BudgetItem {
+/// Botón de acceso rápido en el inicio: ícono grande + etiqueta, para llegar en
+/// un toque a secciones que antes estaban dentro del "Menú".
+class _QuickAction extends StatelessWidget {
+  final IconData icon;
   final String label;
-  final double progress;
-  final String spent;
-  final String total;
-  final Color color;
+  final VoidCallback onTap;
 
-  _BudgetItem(this.label, this.progress, this.spent, this.total, this.color);
-}
-
-class _BudgetRow extends StatelessWidget {
-  final _BudgetItem item;
-
-  const _BudgetRow({required this.item});
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final capped = item.progress.clamp(0.0, 1.0).toDouble();
-    final isOver = item.progress > 1;
-    final remaining = (1 - item.progress).clamp(0.0, 1.0).toDouble();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                item.label,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: GlassPanel(
+          child: Column(
+            children: [
+              Icon(icon, color: AppColors.primaryLight, size: 26),
+              const SizedBox(height: 8),
+              Text(
+                label,
                 style: const TextStyle(
                   fontFamily: 'Avenir Next',
                   fontWeight: FontWeight.w700,
-                  fontSize: 17,
+                  fontSize: 13,
                   color: AppColors.textPrimary,
                 ),
               ),
-            ),
-            Text(
-              '${item.spent} de ${item.total}',
-              style: const TextStyle(
-                fontFamily: 'Avenir Next',
-                fontWeight: FontWeight.w700,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: LinearProgressIndicator(
-            minHeight: 10,
-            value: capped,
-            backgroundColor: AppColors.border.withValues(alpha: 0.9),
-            valueColor: AlwaysStoppedAnimation<Color>(
-              isOver ? AppColors.error : item.color,
-            ),
+            ],
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          isOver
-              ? 'Sobregasto ${(item.progress - 1) * 100 ~/ 1}%'
-              : 'Disponible ${remaining * 100 ~/ 1}%',
-          style: TextStyle(
-            fontFamily: 'Avenir Next',
-            color: isOver ? AppColors.error : AppColors.secondary,
-            fontWeight: FontWeight.w700,
-            fontSize: 12,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
