@@ -1,28 +1,30 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const Color primary = Color(0xFF44D8FF);
-  static const Color primaryLight = Color(0xFF7AE6FF);
-  static const Color primaryDark = Color(0xFF0EA5CF);
-  static const Color secondary = Color(0xFF2DE1AE);
-  static const Color secondaryLight = Color(0xFF7AF0CD);
-  static const Color secondaryDark = Color(0xFF11B48A);
+  // Acento azul (alineado con la marca y la preferencia de la web).
+  static const Color primary = Color(0xFF2563EB);
+  static const Color primaryLight = Color(0xFF60A5FA);
+  static const Color primaryDark = Color(0xFF1D4ED8);
+  static const Color secondary = Color(0xFF4F46E5);
+  static const Color secondaryLight = Color(0xFF818CF8);
+  static const Color secondaryDark = Color(0xFF4338CA);
 
-  static const Color background = Color(0xFF070B14);
-  static const Color backgroundDark = Color(0xFF050812);
-  static const Color surface = Color(0xFF111A2B);
-  static const Color surfaceDark = Color(0xFF0D1524);
-  static const Color surfaceRaised = Color(0xFF182335);
+  // Tema claro y aireado: fondo casi blanco, tarjetas blancas.
+  static const Color background = Color(0xFFF4F7FB);
+  static const Color backgroundDark = Color(0xFFFFFFFF); // texto sobre acento
+  static const Color surface = Color(0xFFFFFFFF);
+  static const Color surfaceDark = Color(0xFFEDF1F8); // relleno de inputs/chips
+  static const Color surfaceRaised = Color(0xFFE3E9F2); // base del shimmer
 
-  static const Color textPrimary = Color(0xFFEAF1FF);
-  static const Color textSecondary = Color(0xFFA3B3CE);
-  static const Color textMuted = Color(0xFF71829F);
-  static const Color border = Color(0xFF263651);
+  static const Color textPrimary = Color(0xFF0F1B2D);
+  static const Color textSecondary = Color(0xFF56637C);
+  static const Color textMuted = Color(0xFF8A98B0);
+  static const Color border = Color(0xFFE2E8F2);
 
-  static const Color success = Color(0xFF47D36F);
-  static const Color warning = Color(0xFFFFC857);
-  static const Color error = Color(0xFFFF6C72);
-  static const Color info = Color(0xFF3F8CFF);
+  static const Color success = Color(0xFF16A34A);
+  static const Color warning = Color(0xFFD97706);
+  static const Color error = Color(0xFFDC2626);
+  static const Color info = Color(0xFF2563EB);
 }
 
 /// Transición de página fluida (fade + leve deslizamiento) para toda la app.
@@ -110,17 +112,20 @@ class AppTheme {
   }
 
   static ThemeData get lightTheme {
-    final colorScheme = const ColorScheme.dark(
-      brightness: Brightness.dark,
+    final colorScheme = const ColorScheme.light(
+      brightness: Brightness.light,
       primary: AppColors.primary,
+      onPrimary: Colors.white,
       secondary: AppColors.secondary,
+      onSecondary: Colors.white,
       surface: AppColors.surface,
+      onSurface: AppColors.textPrimary,
       error: AppColors.error,
     );
 
     final baseTheme = ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
+      brightness: Brightness.light,
       colorScheme: colorScheme,
     );
 
@@ -174,7 +179,7 @@ class AppTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
-          foregroundColor: AppColors.backgroundDark,
+          foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(

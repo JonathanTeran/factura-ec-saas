@@ -150,14 +150,14 @@ class BottomDock extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           decoration: BoxDecoration(
-            color: AppColors.surfaceDark.withValues(alpha: 0.94),
+            color: Colors.white.withValues(alpha: 0.96),
             borderRadius: BorderRadius.circular(28),
             border: Border.all(color: AppColors.border),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
+                color: AppColors.primary.withValues(alpha: 0.10),
                 blurRadius: 24,
-                offset: const Offset(0, 10),
+                offset: const Offset(0, 8),
               ),
             ],
           ),
@@ -176,12 +176,8 @@ class BottomDock extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(20),
-                      gradient: isSelected
-                          ? const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [Color(0xFF31415F), Color(0xFF253449)],
-                            )
+                      color: isSelected
+                          ? AppColors.primary.withValues(alpha: 0.12)
                           : null,
                     ),
                     child: Column(
@@ -190,7 +186,7 @@ class BottomDock extends StatelessWidget {
                         Icon(
                           icon,
                           color: isSelected
-                              ? AppColors.primaryLight
+                              ? AppColors.primary
                               : AppColors.textSecondary,
                           size: 23,
                         ),

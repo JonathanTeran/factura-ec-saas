@@ -12,7 +12,7 @@ class AuroraBackground extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFF040814), Color(0xFF060E1A), Color(0xFF0A1322)],
+          colors: [Color(0xFFFFFFFF), Color(0xFFF4F7FB), Color(0xFFEAF0FA)],
         ),
       ),
       child: Stack(

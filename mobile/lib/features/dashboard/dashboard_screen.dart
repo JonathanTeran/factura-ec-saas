@@ -278,7 +278,7 @@ class _AccountHeroCard extends StatelessWidget {
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF1DDBFF), Color(0xFF2C86FF)],
+                colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
               ),
             ),
             child: Center(

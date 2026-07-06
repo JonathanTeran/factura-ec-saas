@@ -43,8 +43,8 @@ class FacturaEcApp extends ConsumerWidget {
       title: 'Facturón EC',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.dark,
+      darkTheme: AppTheme.lightTheme,
+      themeMode: ThemeMode.light,
       routerConfig: router,
       builder: (context, child) {
         return child ?? const SizedBox.shrink();
