@@ -15,7 +15,10 @@ import '../../data/providers/document_provider.dart';
 import '../../data/providers/report_provider.dart';
 
 class NewDocumentScreen extends ConsumerStatefulWidget {
-  const NewDocumentScreen({super.key});
+  /// Tipo de comprobante inicial (viene del menú "+" del inicio).
+  final String? initialType;
+
+  const NewDocumentScreen({super.key, this.initialType});
 
   @override
   ConsumerState<NewDocumentScreen> createState() => _NewDocumentScreenState();
@@ -23,13 +26,18 @@ class NewDocumentScreen extends ConsumerStatefulWidget {
 
 class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
   int _step = 0;
-  String _selectedType = '01';
+  late String _selectedType = widget.initialType ?? '01';
   bool _notifyCustomer = true;
   bool _loading = true;
   bool _submitting = false;
   String? _errorText;
 
-  final TextEditingController _quantityCtrl = TextEditingController(text: '1');
+  // Builder de la factura: ítems, formas de pago e información adicional.
+  final List<InvoiceLine> _lines = [];
+  final List<InvoicePayment> _payments = [];
+  final List<({String name, String value})> _additional = [];
+  final TextEditingController _tipCtrl = TextEditingController(text: '0');
+  final TextEditingController _termCtrl = TextEditingController(text: '0');
 
   List<ApiCompany> _companies = const [];
   List<ApiEmissionPoint> _emissionPoints = const [];
@@ -39,7 +47,6 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
   int? _companyId;
   int? _emissionPointId;
   int? _customerId;
-  int? _productId;
 
   ApiDocument? _createdDocument;
   ApiDocumentStatus? _documentStatus;
@@ -52,9 +59,22 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
 
   @override
   void dispose() {
-    _quantityCtrl.dispose();
+    _tipCtrl.dispose();
+    _termCtrl.dispose();
     super.dispose();
   }
+
+  // ── Totales calculados en vivo sobre las líneas ──
+  double get _tip => double.tryParse(_tipCtrl.text.replaceAll(',', '.')) ?? 0;
+  double get _subtotal0 =>
+      _lines.where((l) => l.taxRate <= 0).fold(0.0, (s, l) => s + l.base);
+  double get _subtotalIva =>
+      _lines.where((l) => l.taxRate > 0).fold(0.0, (s, l) => s + l.base);
+  double get _totalDiscount => _lines.fold(0.0, (s, l) => s + l.lineDiscount);
+  double get _totalIva => _lines.fold(0.0, (s, l) => s + l.taxValue);
+  double get _grandTotal =>
+      _lines.fold(0.0, (s, l) => s + l.total) + (_tip < 0 ? 0 : _tip);
+  double get _paid => _payments.fold(0.0, (s, p) => s + p.amount);
 
   Future<void> _loadOptions() async {
     setState(() {
@@ -86,9 +106,6 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
             : null;
         _customerId = customersPage.items.isNotEmpty
             ? customersPage.items.first.id
-            : null;
-        _productId = productsPage.items.isNotEmpty
-            ? productsPage.items.first.id
             : null;
       });
     } catch (error) {
@@ -124,26 +141,6 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
     }
   }
 
-  ApiProduct? get _selectedProduct {
-    final selectedId = _productId;
-    if (selectedId == null) return null;
-    for (final product in _products) {
-      if (product.id == selectedId) return product;
-    }
-    return null;
-  }
-
-  double get _quantity {
-    final raw = _quantityCtrl.text.replaceAll(',', '.').trim();
-    final parsed = double.tryParse(raw);
-    if (parsed == null || parsed <= 0) return 1;
-    return parsed;
-  }
-
-  double get _subtotal => (_selectedProduct?.unitPrice ?? 0) * _quantity;
-  double get _taxValue => _subtotal * (_selectedProduct?.taxRate ?? 0) / 100;
-  double get _total => _subtotal + _taxValue;
-
   void _invalidateData() {
     ref.invalidate(dashboardViewDataProvider);
     ref.invalidate(sentDocumentsProvider);
@@ -168,22 +165,23 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
       _errorText = null;
       _createdDocument = null;
       _documentStatus = null;
-      _quantityCtrl.text = '1';
+      _lines.clear();
+      _payments.clear();
+      _additional.clear();
+      _tipCtrl.text = '0';
+      _termCtrl.text = '0';
     });
   }
 
   Future<void> _createDocument() async {
     if (_companyId == null ||
         _customerId == null ||
-        _productId == null ||
         _emissionPointId == null) {
       setState(() => _errorText = 'Faltan datos para crear el documento.');
       return;
     }
-
-    final product = _selectedProduct;
-    if (product == null) {
-      setState(() => _errorText = 'Selecciona un producto válido.');
+    if (_lines.isEmpty) {
+      setState(() => _errorText = 'Agregá al menos un producto.');
       return;
     }
 
@@ -192,16 +190,20 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
       _errorText = null;
     });
     try {
+      final term = int.tryParse(_termCtrl.text.trim()) ?? 0;
       final document = await ref
           .read(v1ApiServiceProvider)
-          .createDocument(
-            CreateDocumentInput(
+          .createInvoice(
+            CreateInvoiceInput(
               companyId: _companyId!,
               customerId: _customerId!,
               emissionPointId: _emissionPointId!,
               documentType: _selectedType,
-              product: product,
-              quantity: _quantity,
+              lines: _lines,
+              payments: _payments,
+              paymentTerm: term,
+              tip: _tip < 0 ? 0 : _tip,
+              additionalInfo: _additional,
             ),
           );
 
@@ -262,6 +264,491 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
       default:
         return 'Crear otro documento';
     }
+  }
+
+  // ─────────────────────────── Builder de la factura ───────────────────────
+
+  Widget _sectionTitle(String text) => Text(
+    text,
+    style: const TextStyle(
+      fontFamily: 'Avenir Next',
+      fontWeight: FontWeight.w700,
+      fontSize: 16,
+      color: AppColors.textPrimary,
+    ),
+  );
+
+  Widget _addTile(String label, VoidCallback? onTap) => Align(
+    alignment: Alignment.centerLeft,
+    child: OutlinedButton.icon(
+      onPressed: onTap,
+      icon: const Icon(Icons.add_rounded, size: 18),
+      label: Text(label),
+    ),
+  );
+
+  Widget _itemCard({required Widget child, VoidCallback? onRemove}) => Container(
+    margin: const EdgeInsets.only(bottom: 8),
+    padding: const EdgeInsets.fromLTRB(14, 12, 4, 12),
+    decoration: BoxDecoration(
+      color: AppColors.surfaceDark,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: AppColors.border),
+    ),
+    child: Row(
+      children: [
+        Expanded(child: child),
+        if (onRemove != null)
+          IconButton(
+            tooltip: 'Quitar',
+            onPressed: onRemove,
+            icon: const Icon(
+              Icons.close_rounded,
+              size: 20,
+              color: AppColors.textMuted,
+            ),
+          ),
+      ],
+    ),
+  );
+
+  String _qtyLabel(double q) =>
+      q == q.roundToDouble() ? q.toInt().toString() : q.toString();
+
+  String _paymentLabel(String code) => kSriPaymentMethods
+      .firstWhere((m) => m.code == code, orElse: () => (code: code, label: code))
+      .label;
+
+  List<Widget> _buildLineItems() {
+    if (_lines.isEmpty) {
+      return const [
+        Text(
+          'Aún no agregaste productos.',
+          style: TextStyle(fontFamily: 'Avenir Next', color: AppColors.textMuted),
+        ),
+        SizedBox(height: 8),
+      ];
+    }
+    return [
+      for (var i = 0; i < _lines.length; i++)
+        _itemCard(
+          onRemove: () => setState(() => _lines.removeAt(i)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _lines[i].product.name,
+                style: const TextStyle(
+                  fontFamily: 'Avenir Next',
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${_qtyLabel(_lines[i].quantity)} × ${currency(_lines[i].product.unitPrice)}'
+                '${_lines[i].lineDiscount > 0 ? '  ·  -${currency(_lines[i].lineDiscount)}' : ''}'
+                '   =   ${currency(_lines[i].total)}',
+                style: const TextStyle(
+                  fontFamily: 'Avenir Next',
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+    ];
+  }
+
+  List<Widget> _buildPayments() {
+    if (_payments.isEmpty) {
+      return const [
+        Text(
+          'Si no agregás una, se registra Efectivo por el total.',
+          style: TextStyle(fontFamily: 'Avenir Next', color: AppColors.textMuted),
+        ),
+        SizedBox(height: 8),
+      ];
+    }
+    return [
+      for (var i = 0; i < _payments.length; i++)
+        _itemCard(
+          onRemove: () => setState(() => _payments.removeAt(i)),
+          child: Text(
+            '${_paymentLabel(_payments[i].code)}   ·   ${currency(_payments[i].amount)}',
+            style: const TextStyle(
+              fontFamily: 'Avenir Next',
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+    ];
+  }
+
+  List<Widget> _buildAdditional() {
+    return [
+      for (var i = 0; i < _additional.length; i++)
+        _itemCard(
+          onRemove: () => setState(() => _additional.removeAt(i)),
+          child: Text(
+            '${_additional[i].name}: ${_additional[i].value}',
+            style: const TextStyle(
+              fontFamily: 'Avenir Next',
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+    ];
+  }
+
+  Widget _totalsRow(String label, String value, {bool strong = false}) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 5),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Avenir Next',
+            color: strong ? AppColors.textPrimary : AppColors.textSecondary,
+            fontWeight: strong ? FontWeight.w800 : FontWeight.w500,
+            fontSize: strong ? 18 : 14,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontFamily: 'Avenir Next',
+            color: strong ? AppColors.primary : AppColors.textPrimary,
+            fontWeight: strong ? FontWeight.w800 : FontWeight.w600,
+            fontSize: strong ? 18 : 14,
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _totalsPanel() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceDark,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          _totalsRow('Subtotal 0%', currency(_subtotal0)),
+          _totalsRow('Subtotal IVA', currency(_subtotalIva)),
+          if (_totalDiscount > 0)
+            _totalsRow('Descuento', '-${currency(_totalDiscount)}'),
+          _totalsRow('IVA', currency(_totalIva)),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Propina',
+                    style: TextStyle(
+                      fontFamily: 'Avenir Next',
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 120,
+                  child: TextField(
+                    controller: _tipCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    textAlign: TextAlign.right,
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(
+                      prefixText: '\$ ',
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 18),
+          _totalsRow('Total', currency(_grandTotal), strong: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _sheetHandle() => Center(
+    child: Container(
+      width: 40,
+      height: 4,
+      decoration: BoxDecoration(
+        color: AppColors.border,
+        borderRadius: BorderRadius.circular(999),
+      ),
+    ),
+  );
+
+  Future<void> _openAddProductSheet() async {
+    if (_products.isEmpty) return;
+    var selected = _products.first;
+    final qtyCtrl = TextEditingController(text: '1');
+    final discCtrl = TextEditingController(text: '0');
+
+    final result = await showModalBottomSheet<InvoiceLine>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          14,
+          20,
+          16 + MediaQuery.of(ctx).viewInsets.bottom,
+        ),
+        child: StatefulBuilder(
+          builder: (ctx, setSheet) {
+            final q = double.tryParse(qtyCtrl.text.replaceAll(',', '.')) ?? 1;
+            final d = double.tryParse(discCtrl.text.replaceAll(',', '.')) ?? 0;
+            final line = InvoiceLine(product: selected, quantity: q, discount: d);
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _sheetHandle(),
+                const SizedBox(height: 10),
+                _sectionTitle('Agregar producto'),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<int>(
+                  initialValue: selected.id,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Producto'),
+                  items: _products
+                      .map(
+                        (p) => DropdownMenuItem(
+                          value: p.id,
+                          child: Text(
+                            '${p.name} · ${currency(p.unitPrice)}',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (v) => setSheet(
+                    () => selected = _products.firstWhere((p) => p.id == v),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: qtyCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        onChanged: (_) => setSheet(() {}),
+                        decoration: const InputDecoration(labelText: 'Cantidad'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: discCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        onChanged: (_) => setSheet(() {}),
+                        decoration: const InputDecoration(
+                          labelText: 'Descuento \$',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    'Total línea: ${currency(line.total)}',
+                    style: const TextStyle(
+                      fontFamily: 'Avenir Next',
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, line),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(50),
+                  ),
+                  child: const Text('Agregar producto'),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+
+    qtyCtrl.dispose();
+    discCtrl.dispose();
+    if (result != null) setState(() => _lines.add(result));
+  }
+
+  Future<void> _openAddPaymentSheet() async {
+    var code = kSriPaymentMethods.first.code;
+    final remaining = (_grandTotal - _paid).clamp(0.0, double.infinity);
+    final amountCtrl = TextEditingController(
+      text: remaining.toStringAsFixed(2),
+    );
+
+    final result = await showModalBottomSheet<InvoicePayment>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          14,
+          20,
+          16 + MediaQuery.of(ctx).viewInsets.bottom,
+        ),
+        child: StatefulBuilder(
+          builder: (ctx, setSheet) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _sheetHandle(),
+              const SizedBox(height: 10),
+              _sectionTitle('Agregar forma de pago'),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                initialValue: code,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Tipo de pago'),
+                items: kSriPaymentMethods
+                    .map(
+                      (m) => DropdownMenuItem(
+                        value: m.code,
+                        child: Text(m.label),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (v) => setSheet(() => code = v ?? code),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: amountCtrl,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'Valor',
+                  prefixText: '\$ ',
+                ),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () {
+                  final amount =
+                      double.tryParse(amountCtrl.text.replaceAll(',', '.')) ??
+                      0;
+                  Navigator.pop(ctx, InvoicePayment(code: code, amount: amount));
+                },
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(50),
+                ),
+                child: const Text('Agregar forma de pago'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    amountCtrl.dispose();
+    if (result != null) setState(() => _payments.add(result));
+  }
+
+  Future<void> _openAddInfoSheet() async {
+    final nameCtrl = TextEditingController();
+    final valueCtrl = TextEditingController();
+
+    final result = await showModalBottomSheet<({String name, String value})>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          14,
+          20,
+          16 + MediaQuery.of(ctx).viewInsets.bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _sheetHandle(),
+            const SizedBox(height: 10),
+            _sectionTitle('Información adicional'),
+            const SizedBox(height: 14),
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Campo (ej. Dirección, Teléfono)',
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: valueCtrl,
+              decoration: const InputDecoration(labelText: 'Valor'),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () {
+                final name = nameCtrl.text.trim();
+                final value = valueCtrl.text.trim();
+                if (name.isEmpty || value.isEmpty) {
+                  Navigator.pop(ctx);
+                  return;
+                }
+                Navigator.pop(ctx, (name: name, value: value));
+              },
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size.fromHeight(50),
+              ),
+              child: const Text('Agregar'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    nameCtrl.dispose();
+    valueCtrl.dispose();
+    if (result != null) setState(() => _additional.add(result));
   }
 
   Widget _stepContent(BuildContext context) {
@@ -458,74 +945,34 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
                   .toList(),
               onChanged: (value) => setState(() => _customerId = value),
             ),
-            const SizedBox(height: 10),
-            DropdownButtonFormField<int>(
-              initialValue: _productId,
-              decoration: const InputDecoration(labelText: 'Producto'),
-              items: _products
-                  .map(
-                    (product) => DropdownMenuItem(
-                      value: product.id,
-                      child: Text(
-                        '${product.name} · ${currency(product.unitPrice)}',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) => setState(() => _productId = value),
+            const SizedBox(height: 18),
+            _sectionTitle('Productos'),
+            const SizedBox(height: 8),
+            ..._buildLineItems(),
+            _addTile(
+              'Agregar producto',
+              _products.isEmpty ? null : _openAddProductSheet,
             ),
+            const SizedBox(height: 18),
+            _sectionTitle('Forma de pago'),
+            const SizedBox(height: 8),
+            ..._buildPayments(),
+            _addTile('Agregar forma de pago', _openAddPaymentSheet),
             const SizedBox(height: 10),
             TextField(
-              controller: _quantityCtrl,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                labelText: 'Cantidad',
-                hintText: _selectedProduct == null ? '1' : '1.00',
+              controller: _termCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Plazo del pago (días)',
               ),
             ),
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceDark.withValues(alpha: 0.8),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Subtotal: ${currency(_subtotal)}',
-                    style: const TextStyle(
-                      fontFamily: 'Avenir Next',
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Impuesto: ${currency(_taxValue)}',
-                    style: const TextStyle(
-                      fontFamily: 'Avenir Next',
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Total estimado: ${currency(_total)}',
-                    style: const TextStyle(
-                      fontFamily: 'Avenir Next',
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            const SizedBox(height: 18),
+            _sectionTitle('Información adicional'),
+            const SizedBox(height: 8),
+            ..._buildAdditional(),
+            _addTile('Agregar información', _openAddInfoSheet),
+            const SizedBox(height: 18),
+            _totalsPanel(),
           ],
         );
       case 1:

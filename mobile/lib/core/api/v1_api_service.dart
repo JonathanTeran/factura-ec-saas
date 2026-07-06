@@ -50,6 +50,78 @@ class CreateDocumentInput {
   });
 }
 
+/// Una línea (ítem) de una factura: producto + cantidad + descuento por línea.
+class InvoiceLine {
+  final ApiProduct product;
+  final double quantity;
+  final double discount;
+
+  const InvoiceLine({
+    required this.product,
+    required this.quantity,
+    this.discount = 0,
+  });
+
+  double get _qty => quantity <= 0 ? 1 : quantity;
+  double get gross => product.unitPrice * _qty;
+  double get lineDiscount => discount.clamp(0, gross).toDouble();
+  double get base => gross - lineDiscount;
+  double get taxRate => product.taxRate;
+  double get taxValue => base * taxRate / 100;
+  double get total => base + taxValue;
+
+  InvoiceLine copyWith({double? quantity, double? discount}) => InvoiceLine(
+    product: product,
+    quantity: quantity ?? this.quantity,
+    discount: discount ?? this.discount,
+  );
+}
+
+/// Una forma de pago SRI (código + monto).
+class InvoicePayment {
+  final String code;
+  final double amount;
+
+  const InvoicePayment({required this.code, required this.amount});
+}
+
+/// Formas de pago del SRI más usadas (código → etiqueta).
+const List<({String code, String label})> kSriPaymentMethods = [
+  (code: '01', label: 'Efectivo'),
+  (code: '19', label: 'Tarjeta de crédito'),
+  (code: '16', label: 'Tarjeta de débito'),
+  (code: '20', label: 'Transferencia / otros SF'),
+  (code: '17', label: 'Dinero electrónico'),
+  (code: '18', label: 'Tarjeta prepago'),
+  (code: '15', label: 'Compensación de deudas'),
+];
+
+/// Entrada para crear una factura con varios ítems, formas de pago,
+/// información adicional y propina — el "builder" completo.
+class CreateInvoiceInput {
+  final int companyId;
+  final int customerId;
+  final int emissionPointId;
+  final String documentType;
+  final List<InvoiceLine> lines;
+  final List<InvoicePayment> payments;
+  final int paymentTerm;
+  final double tip;
+  final List<({String name, String value})> additionalInfo;
+
+  const CreateInvoiceInput({
+    required this.companyId,
+    required this.customerId,
+    required this.emissionPointId,
+    required this.documentType,
+    required this.lines,
+    this.payments = const [],
+    this.paymentTerm = 0,
+    this.tip = 0,
+    this.additionalInfo = const [],
+  });
+}
+
 class OnboardingStatus {
   final bool completed;
   final bool hasCompany;
@@ -542,6 +614,98 @@ class V1ApiService {
             'tax_value': taxValue,
           },
         ],
+      };
+
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        ApiConstants.documents,
+        data: payload,
+      );
+      final data = _payloadMapFromResponse(response);
+      return ApiDocument.fromJson(mapFrom(data['document']));
+    });
+  }
+
+  /// Crea una factura con varios ítems. Calcula los subtotales por tarifa de
+  /// IVA, el IVA total, el descuento y el total, y arma el payload que el
+  /// backend ya soporta (items[], payment_methods[], additional_info[]).
+  Future<ApiDocument> createInvoice(CreateInvoiceInput input) async {
+    return _guard(() async {
+      double subtotal0 = 0, subtotal12 = 0, subtotal15 = 0;
+      double tax12 = 0, tax15 = 0, totalDiscount = 0;
+      final items = <Map<String, dynamic>>[];
+
+      for (final line in input.lines) {
+        final rate = line.taxRate;
+        final base = line.base;
+        final taxValue = line.taxValue;
+        final isNoTax = rate <= 0;
+        final is12 = rate > 0 && rate <= 12.5;
+        final is15 = rate > 12.5;
+
+        if (isNoTax) subtotal0 += base;
+        if (is12) {
+          subtotal12 += base;
+          tax12 += taxValue;
+        }
+        if (is15) {
+          subtotal15 += base;
+          tax15 += taxValue;
+        }
+        totalDiscount += line.lineDiscount;
+
+        items.add({
+          'product_id': line.product.id,
+          'main_code': line.product.code,
+          'aux_code': null,
+          'description': line.product.name,
+          'quantity': line._qty,
+          'unit_price': line.product.unitPrice,
+          'discount': line.lineDiscount,
+          'subtotal': base,
+          'tax_code': line.product.taxCode,
+          'tax_percentage_code': line.product.taxPercentageCode,
+          'tax_rate': rate,
+          'tax_base': base,
+          'tax_value': taxValue,
+        });
+      }
+
+      final totalTax = tax12 + tax15;
+      final tip = input.tip < 0 ? 0.0 : input.tip;
+      final total = subtotal0 + subtotal12 + subtotal15 + totalTax + tip;
+
+      final payments = input.payments.isEmpty
+          ? [
+              {'code': '01', 'amount': total},
+            ]
+          : input.payments
+                .map((p) => {'code': p.code, 'amount': p.amount})
+                .toList();
+
+      final payload = <String, dynamic>{
+        'company_id': input.companyId,
+        'customer_id': input.customerId,
+        'emission_point_id': input.emissionPointId,
+        'document_type': input.documentType,
+        'issue_date': dateOnly(DateTime.now()),
+        'subtotal_no_tax': 0,
+        'subtotal_0': subtotal0,
+        'subtotal_12': subtotal12,
+        'subtotal_15': subtotal15,
+        'total_tax': totalTax,
+        'total_discount': totalDiscount,
+        'tax_12': tax12,
+        'tax_15': tax15,
+        'discount': totalDiscount,
+        'tip': tip,
+        'total': total,
+        'payment_method': payments.first['code'],
+        'payment_methods': payments,
+        'payment_term': input.paymentTerm,
+        'additional_info': input.additionalInfo
+            .map((e) => {'name': e.name, 'value': e.value})
+            .toList(),
+        'items': items,
       };
 
       final response = await _apiClient.post<Map<String, dynamic>>(

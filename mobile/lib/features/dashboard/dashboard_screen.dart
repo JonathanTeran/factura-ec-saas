@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/create_menu.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../core/widgets/loading_widget.dart';
 import '../../core/widgets/metric_card.dart';
@@ -145,8 +146,8 @@ class DashboardScreen extends ConsumerWidget {
               title: 'Panel inteligente',
               subtitle: DateFormat('dd MMM yyyy').format(DateTime.now()),
               trailing: IconButton.filledTonal(
-                tooltip: 'Nuevo documento',
-                onPressed: () => context.go('/documents/new'),
+                tooltip: 'Crear',
+                onPressed: () => showCreateMenu(context),
                 icon: const Icon(Icons.add_rounded),
               ),
             ),

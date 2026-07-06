@@ -75,7 +75,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: 'new',
                 name: 'new-document',
-                builder: (context, state) => const NewDocumentScreen(),
+                builder: (context, state) => NewDocumentScreen(
+                  initialType: state.uri.queryParameters['type'],
+                ),
               ),
               GoRoute(
                 path: ':id',
