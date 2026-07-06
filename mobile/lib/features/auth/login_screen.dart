@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/aurora_background.dart';
+import '../../core/widgets/brand_mark.dart';
 import '../../data/providers/auth_provider.dart';
 import '../../data/providers/company_provider.dart';
 
@@ -150,7 +151,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Center(child: _BrandMark()),
+                    const Center(child: BrandMark()),
                     const SizedBox(height: 26),
                     Text(
                       'Bienvenido',
@@ -260,55 +261,3 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 }
 
-/// Marca minimalista de Facturón: cuadrado con borde tricolor (bandera) y F.
-class _BrandMark extends StatelessWidget {
-  const _BrandMark();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFFFFCE00), Color(0xFF0653C6), Color(0xFFEF3340)],
-            ),
-          ),
-          child: Container(
-            width: 66,
-            height: 66,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: const Color(0xFF0B1424),
-              borderRadius: BorderRadius.circular(19),
-            ),
-            child: const Text(
-              'F',
-              style: TextStyle(
-                fontFamily: 'Avenir Next',
-                fontWeight: FontWeight.w800,
-                fontSize: 38,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          'Facturón EC',
-          style: TextStyle(
-            fontFamily: 'Avenir Next',
-            fontWeight: FontWeight.w800,
-            fontSize: 22,
-            letterSpacing: -0.5,
-            color: AppColors.textPrimary,
-          ),
-        ),
-      ],
-    );
-  }
-}

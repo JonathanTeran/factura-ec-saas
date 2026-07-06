@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/theme/app_theme.dart';
 import '../../core/widgets/aurora_background.dart';
+import '../../core/widgets/brand_mark.dart';
 import '../../data/providers/auth_provider.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -56,7 +56,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
             final unlocked = await biometricService.authenticate(
               reason:
-                  'Desbloquea Factura EC para ingresar con tu sesión segura.',
+                  'Desbloquea Facturón EC para ingresar con tu sesión segura.',
             );
             if (!mounted) return;
             if (!unlocked) {
@@ -86,35 +86,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 84,
-                  height: 84,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(28),
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [AppColors.primary, AppColors.secondary],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.35),
-                        blurRadius: 30,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.receipt_long_rounded,
-                    size: 42,
-                    color: AppColors.backgroundDark,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Text('Factura EC', style: textTheme.headlineMedium),
-                const SizedBox(height: 8),
+                const BrandMark(size: 84),
+                const SizedBox(height: 10),
                 Text(_status, style: textTheme.bodyMedium),
-                const SizedBox(height: 20),
+                const SizedBox(height: 22),
                 const SizedBox(
                   width: 26,
                   height: 26,
