@@ -440,7 +440,7 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
               ),
               const SizedBox(height: 2),
               Text(
-                '${_qtyLabel(_lines[i].quantity)} × ${currency(_lines[i].product.unitPrice)}'
+                '${_qtyLabel(_lines[i].quantity)} × ${currency(_lines[i].unitPrice)}'
                 '${_lines[i].lineDiscount > 0 ? '  ·  -${currency(_lines[i].lineDiscount)}' : ''}'
                 '   =   ${currency(_lines[i].total)}',
                 style: const TextStyle(
@@ -761,6 +761,9 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
     var selected = _products.first;
     final qtyCtrl = TextEditingController(text: '1');
     final discCtrl = TextEditingController(text: '0');
+    final priceCtrl = TextEditingController(
+      text: selected.unitPrice.toStringAsFixed(2),
+    );
 
     final result = await showModalBottomSheet<InvoiceLine>(
       context: context,
@@ -780,7 +783,15 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
           builder: (ctx, setSheet) {
             final q = double.tryParse(qtyCtrl.text.replaceAll(',', '.')) ?? 1;
             final d = double.tryParse(discCtrl.text.replaceAll(',', '.')) ?? 0;
-            final line = InvoiceLine(product: selected, quantity: q, discount: d);
+            final price =
+                double.tryParse(priceCtrl.text.replaceAll(',', '.')) ??
+                selected.unitPrice;
+            final line = InvoiceLine(
+              product: selected,
+              quantity: q,
+              discount: d,
+              unitPrice: price,
+            );
             return Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -804,8 +815,22 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
                         ),
                       )
                       .toList(),
-                  onChanged: (v) => setSheet(
-                    () => selected = _products.firstWhere((p) => p.id == v),
+                  // Al cambiar de producto, se precarga su precio (editable).
+                  onChanged: (v) => setSheet(() {
+                    selected = _products.firstWhere((p) => p.id == v);
+                    priceCtrl.text = selected.unitPrice.toStringAsFixed(2);
+                  }),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: priceCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  onChanged: (_) => setSheet(() {}),
+                  decoration: const InputDecoration(
+                    labelText: 'Precio unitario',
+                    prefixText: '\$ ',
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -865,6 +890,7 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
 
     qtyCtrl.dispose();
     discCtrl.dispose();
+    priceCtrl.dispose();
     if (result != null) setState(() => _lines.add(result));
   }
 

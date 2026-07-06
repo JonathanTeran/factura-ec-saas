@@ -50,31 +50,31 @@ class CreateDocumentInput {
   });
 }
 
-/// Una línea (ítem) de una factura: producto + cantidad + descuento por línea.
+/// Una línea (ítem) de una factura: producto + precio (editable) + cantidad +
+/// descuento por línea.
 class InvoiceLine {
   final ApiProduct product;
   final double quantity;
   final double discount;
 
+  /// Precio unitario de esta línea. Por defecto el del producto, pero se puede
+  /// modificar al agregarlo.
+  final double unitPrice;
+
   const InvoiceLine({
     required this.product,
     required this.quantity,
+    required this.unitPrice,
     this.discount = 0,
   });
 
   double get _qty => quantity <= 0 ? 1 : quantity;
-  double get gross => product.unitPrice * _qty;
+  double get gross => unitPrice * _qty;
   double get lineDiscount => discount.clamp(0, gross).toDouble();
   double get base => gross - lineDiscount;
   double get taxRate => product.taxRate;
   double get taxValue => base * taxRate / 100;
   double get total => base + taxValue;
-
-  InvoiceLine copyWith({double? quantity, double? discount}) => InvoiceLine(
-    product: product,
-    quantity: quantity ?? this.quantity,
-    discount: discount ?? this.discount,
-  );
 }
 
 /// Una forma de pago SRI (código + monto).
@@ -85,15 +85,16 @@ class InvoicePayment {
   const InvoicePayment({required this.code, required this.amount});
 }
 
-/// Formas de pago del SRI más usadas (código → etiqueta).
+/// Formas de pago del SRI — el mismo catálogo y orden que usa el panel web.
 const List<({String code, String label})> kSriPaymentMethods = [
-  (code: '01', label: 'Efectivo'),
-  (code: '19', label: 'Tarjeta de crédito'),
+  (code: '01', label: 'Sin utilización del sistema financiero'),
+  (code: '15', label: 'Compensación de deudas'),
   (code: '16', label: 'Tarjeta de débito'),
-  (code: '20', label: 'Transferencia / otros SF'),
   (code: '17', label: 'Dinero electrónico'),
   (code: '18', label: 'Tarjeta prepago'),
-  (code: '15', label: 'Compensación de deudas'),
+  (code: '19', label: 'Tarjeta de crédito'),
+  (code: '20', label: 'Otros con utilización del sistema financiero'),
+  (code: '21', label: 'Endoso de títulos'),
 ];
 
 /// Entrada para crear una factura con varios ítems, formas de pago,
@@ -659,7 +660,7 @@ class V1ApiService {
           'aux_code': null,
           'description': line.product.name,
           'quantity': line._qty,
-          'unit_price': line.product.unitPrice,
+          'unit_price': line.unitPrice,
           'discount': line.lineDiscount,
           'subtotal': base,
           'tax_code': line.product.taxCode,
