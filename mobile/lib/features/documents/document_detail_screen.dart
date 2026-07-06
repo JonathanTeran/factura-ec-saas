@@ -99,6 +99,10 @@ class _DocumentDetailBody extends StatelessWidget {
           _SriCard(document: document),
           const SizedBox(height: 14),
           _InfoCard(document: document),
+          if (document.status == 'authorized' || document.emailSent) ...[
+            const SizedBox(height: 14),
+            _EmailCard(document: document),
+          ],
           const SizedBox(height: 14),
           _ItemsCard(items: document.items),
           const SizedBox(height: 14),
@@ -311,6 +315,92 @@ class _InfoCard extends StatelessWidget {
               value: DateFormat('dd/MM/yyyy').format(document.issueDate!),
             ),
           _InfoRow(label: 'Moneda', value: document.currency),
+        ],
+      ),
+    );
+  }
+}
+
+/// Historial de envío por correo: a quién se envió el comprobante y cuándo.
+class _EmailCard extends StatelessWidget {
+  final ApiDocumentDetail document;
+
+  const _EmailCard({required this.document});
+
+  @override
+  Widget build(BuildContext context) {
+    final sent = document.emailSent && document.emailSentAt != null;
+    final to = document.emailSentTo ?? document.customerEmail;
+
+    return GlassPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionTitle('Envío por correo'),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                sent
+                    ? Icons.mark_email_read_rounded
+                    : Icons.mark_email_unread_outlined,
+                color: sent ? AppColors.success : AppColors.textMuted,
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: sent
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Enviado a',
+                            style: TextStyle(
+                              fontFamily: 'Avenir Next',
+                              color: AppColors.textMuted,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          SelectableText(
+                            to ?? '—',
+                            style: const TextStyle(
+                              fontFamily: 'Avenir Next',
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _dateFormat.format(document.emailSentAt!),
+                            style: const TextStyle(
+                              fontFamily: 'Avenir Next',
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.only(top: 1),
+                        child: Text(
+                          to != null
+                              ? 'Aún no se ha enviado. Se enviará a $to.'
+                              : 'Aún no se ha enviado por correo.',
+                          style: const TextStyle(
+                            fontFamily: 'Avenir Next',
+                            color: AppColors.textSecondary,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -723,7 +813,9 @@ class _DocumentActionsState extends ConsumerState<_DocumentActions> {
   }
 
   Future<void> _resendEmail() async {
-    final controller = TextEditingController();
+    final controller = TextEditingController(
+      text: _doc.emailSentTo ?? _doc.customerEmail ?? '',
+    );
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -770,6 +862,8 @@ class _DocumentActionsState extends ConsumerState<_DocumentActions> {
         _doc.id,
         email: email.isEmpty ? null : email,
       );
+      // El envío es en cola: al refrescar se verá "Enviado a … el …".
+      ref.invalidate(documentDetailProvider(_doc.id));
       _snack(message);
     } on ApiException catch (error) {
       _snack(error.message);
@@ -851,7 +945,7 @@ class _DocumentActionsState extends ConsumerState<_DocumentActions> {
             primary: true,
             onTap: () => _openFile('pdf', () => _api.documentRide(_doc.id)),
           ),
-          if (!_isDraft) ...[
+          if (_doc.hasXml) ...[
             const SizedBox(height: 10),
             _ActionButton(
               icon: Icons.code_rounded,

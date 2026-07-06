@@ -148,6 +148,10 @@ class ApiDocumentDetail {
   final String? contingencyMessage;
   final bool hasRide;
   final bool hasXml;
+  final bool emailSent;
+  final DateTime? emailSentAt;
+  final String? emailSentTo;
+  final String? customerEmail;
   final List<ApiDocumentItem> items;
 
   const ApiDocumentDetail({
@@ -177,6 +181,10 @@ class ApiDocumentDetail {
     required this.contingencyMessage,
     required this.hasRide,
     required this.hasXml,
+    required this.emailSent,
+    required this.emailSentAt,
+    required this.emailSentTo,
+    required this.customerEmail,
     required this.items,
   });
 
@@ -233,6 +241,10 @@ class ApiDocumentDetail {
       contingencyMessage: nullableStringFrom(json['contingency_message']),
       hasRide: json['has_ride'] == true,
       hasXml: json['has_xml'] == true,
+      emailSent: json['email_sent'] == true,
+      emailSentAt: dateFrom(json['email_sent_at']),
+      emailSentTo: nullableStringFrom(json['email_sent_to']),
+      customerEmail: nullableStringFrom(customer?['email']),
       items: items,
     );
   }
