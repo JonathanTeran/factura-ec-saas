@@ -100,6 +100,9 @@ class DashboardScreen extends ConsumerWidget {
     final spark = data.chartPoints
         .map((p) => p.total.toDouble())
         .toList(growable: false);
+    final chartDates = data.chartPoints
+        .map((p) => p.date)
+        .toList(growable: false);
 
     final recentDocs = data.recentDocuments
         .map(
@@ -188,6 +191,12 @@ class DashboardScreen extends ConsumerWidget {
                 .animate()
                 .fadeIn(duration: 420.ms)
                 .slideY(begin: 0.12, duration: 420.ms),
+            if (spark.length >= 2) ...[
+              const SizedBox(height: 20),
+              const SectionHeader(title: 'Evolución', actionText: ''),
+              const SizedBox(height: 10),
+              _EvolutionChart(values: spark, dates: chartDates),
+            ],
             const SizedBox(height: 20),
             SectionHeader(
               title: 'Documentos recientes',
@@ -602,4 +611,166 @@ class _QuickAction extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Gráfico "Evolución": área azul suave dibujada a mano (CustomPaint), con la
+/// facturación diaria y etiquetas de fecha. Combina con el hero.
+class _EvolutionChart extends StatelessWidget {
+  final List<double> values;
+  final List<DateTime?> dates;
+
+  const _EvolutionChart({required this.values, required this.dates});
+
+  String _fmt(DateTime? d) => d == null ? '' : DateFormat('dd MMM').format(d);
+
+  @override
+  Widget build(BuildContext context) {
+    final maxV = values.reduce((a, b) => a > b ? a : b);
+    final first = dates.isNotEmpty ? _fmt(dates.first) : '';
+    final mid = dates.length > 2 ? _fmt(dates[dates.length ~/ 2]) : '';
+    final last = dates.isNotEmpty ? _fmt(dates.last) : '';
+
+    return GlassPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Facturación diaria',
+                style: TextStyle(
+                  fontFamily: 'Avenir Next',
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+              Text(
+                'Máx ${currency(maxV)}',
+                style: const TextStyle(
+                  fontFamily: 'Avenir Next',
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 150,
+            width: double.infinity,
+            child: CustomPaint(painter: _AreaChartPainter(values)),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _axisLabel(first),
+              _axisLabel(mid),
+              _axisLabel(last),
+            ],
+          ),
+        ],
+      ),
+    ).animate().fadeIn(duration: 460.ms).slideY(begin: 0.1, duration: 460.ms);
+  }
+
+  Widget _axisLabel(String text) => Text(
+    text,
+    style: const TextStyle(
+      fontFamily: 'Avenir Next',
+      color: AppColors.textMuted,
+      fontWeight: FontWeight.w600,
+      fontSize: 11,
+    ),
+  );
+}
+
+class _AreaChartPainter extends CustomPainter {
+  final List<double> values;
+
+  _AreaChartPainter(this.values);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.length < 2) return;
+    final maxV = values.reduce((a, b) => a > b ? a : b);
+    final minV = values.reduce((a, b) => a < b ? a : b);
+    final range = (maxV - minV).abs() < 1e-9 ? 1.0 : (maxV - minV);
+    const topPad = 8.0;
+    const bottomPad = 4.0;
+    final h = size.height - topPad - bottomPad;
+    final dx = size.width / (values.length - 1);
+
+    final pts = <Offset>[
+      for (var i = 0; i < values.length; i++)
+        Offset(dx * i, topPad + h - ((values[i] - minV) / range) * h),
+    ];
+
+    // Líneas guía horizontales.
+    final grid = Paint()
+      ..color = AppColors.border
+      ..strokeWidth = 1;
+    for (var g = 0; g <= 3; g++) {
+      final y = topPad + h * g / 3;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
+    }
+
+    Path buildPath({required bool close}) {
+      final p = Path()..moveTo(pts.first.dx, pts.first.dy);
+      for (var i = 1; i < pts.length; i++) {
+        final prev = pts[i - 1];
+        final cur = pts[i];
+        final midPoint = Offset((prev.dx + cur.dx) / 2, (prev.dy + cur.dy) / 2);
+        p.quadraticBezierTo(prev.dx, prev.dy, midPoint.dx, midPoint.dy);
+      }
+      p.lineTo(pts.last.dx, pts.last.dy);
+      if (close) {
+        p
+          ..lineTo(pts.last.dx, size.height)
+          ..lineTo(pts.first.dx, size.height)
+          ..close();
+      }
+      return p;
+    }
+
+    canvas.drawPath(
+      buildPath(close: true),
+      Paint()
+        ..style = PaintingStyle.fill
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppColors.primary.withValues(alpha: 0.28),
+            AppColors.primary.withValues(alpha: 0.02),
+          ],
+        ).createShader(Offset.zero & size),
+    );
+
+    canvas.drawPath(
+      buildPath(close: false),
+      Paint()
+        ..color = AppColors.primary
+        ..strokeWidth = 2.6
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+
+    canvas.drawCircle(pts.last, 4, Paint()..color = AppColors.primary);
+    canvas.drawCircle(
+      pts.last,
+      4,
+      Paint()
+        ..color = AppColors.primary.withValues(alpha: 0.2)
+        ..strokeWidth = 6
+        ..style = PaintingStyle.stroke,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _AreaChartPainter old) => old.values != values;
 }
