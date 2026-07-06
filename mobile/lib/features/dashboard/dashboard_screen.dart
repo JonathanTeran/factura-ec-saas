@@ -43,21 +43,6 @@ String _shortDate(DateTime? date) {
   return DateFormat('dd/MM/yyyy').format(date);
 }
 
-String _initialsFromName(String name) {
-  final parts = name
-      .trim()
-      .split(RegExp(r'\s+'))
-      .where((part) => part.isNotEmpty)
-      .toList(growable: false);
-  if (parts.isEmpty) return 'EC';
-  if (parts.length == 1) {
-    final first = parts.first;
-    return first.substring(0, first.length > 1 ? 2 : 1).toUpperCase();
-  }
-  final first = parts[0];
-  final second = parts[1];
-  return '${first[0]}${second[0]}'.toUpperCase();
-}
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -93,21 +78,9 @@ class DashboardScreen extends ConsumerWidget {
       current: data.stats.currentMonthCount.toDouble(),
     );
 
+    // El monto y los emitidos del mes van en el hero; acá quedan los estados
+    // operativos que requieren atención.
     final metrics = <MetricItem>[
-      MetricItem(
-        title: 'Emitidos',
-        value: data.stats.currentMonthCount.toString(),
-        delta: _signedPercent(trendDelta),
-        color: AppColors.primary,
-        icon: Icons.north_east_rounded,
-      ),
-      MetricItem(
-        title: 'Monto mes',
-        value: currency(data.stats.currentMonthTotal),
-        delta: 'Mes actual',
-        color: AppColors.secondary,
-        icon: Icons.attach_money_rounded,
-      ),
       MetricItem(
         title: 'Pendientes',
         value: data.stats.pendingCount.toString(),
@@ -118,11 +91,15 @@ class DashboardScreen extends ConsumerWidget {
       MetricItem(
         title: 'Rechazados',
         value: data.stats.rejectedCount.toString(),
-        delta: 'Control de calidad',
+        delta: 'Revisar',
         color: AppColors.error,
         icon: Icons.report_problem_rounded,
       ),
     ];
+
+    final spark = data.chartPoints
+        .map((p) => p.total.toDouble())
+        .toList(growable: false);
 
     final recentDocs = data.recentDocuments
         .map(
@@ -143,7 +120,7 @@ class DashboardScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             PageHeader(
-              title: 'Panel inteligente',
+              title: 'Hola, ${_firstName(meAsync.valueOrNull?.name)}',
               subtitle: DateFormat('dd MMM yyyy').format(DateTime.now()),
               trailing: IconButton.filledTonal(
                 tooltip: 'Crear',
@@ -152,9 +129,12 @@ class DashboardScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
-            _AccountHeroCard(
-              name: meAsync.valueOrNull?.name ?? 'Cuenta activa',
-              identifier: meAsync.valueOrNull?.email ?? 'Sin perfil cargado',
+            _BillingHeroCard(
+              monthTotal: data.stats.currentMonthTotal,
+              monthCount: data.stats.currentMonthCount,
+              trendDelta: trendDelta,
+              spark: spark,
+              onTap: () => context.go('/reports'),
             ),
             const SizedBox(height: 20),
             // Accesos rápidos a lo que antes estaba escondido en el "Menú".
@@ -258,89 +238,211 @@ class DashboardScreen extends ConsumerWidget {
 
 // ── Private widgets used only by DashboardScreen ──
 
-class _AccountHeroCard extends StatelessWidget {
-  final String name;
-  final String identifier;
+String _firstName(String? full) {
+  final name = (full ?? '').trim();
+  if (name.isEmpty) return 'Bienvenido';
+  final first = name.split(RegExp(r'\s+')).first;
+  return first[0].toUpperCase() + first.substring(1).toLowerCase();
+}
 
-  const _AccountHeroCard({required this.name, required this.identifier});
+String _monthNameEs(int month) {
+  const months = [
+    'enero',
+    'febrero',
+    'marzo',
+    'abril',
+    'mayo',
+    'junio',
+    'julio',
+    'agosto',
+    'septiembre',
+    'octubre',
+    'noviembre',
+    'diciembre',
+  ];
+  return months[(month - 1).clamp(0, 11)];
+}
+
+/// Tarjeta principal del inicio: lo facturado en el mes, tendencia vs el mes
+/// anterior y una mini-curva. El elemento "wow" de la pantalla.
+class _BillingHeroCard extends StatelessWidget {
+  final double monthTotal;
+  final int monthCount;
+  final double trendDelta;
+  final List<double> spark;
+  final VoidCallback onTap;
+
+  const _BillingHeroCard({
+    required this.monthTotal,
+    required this.monthCount,
+    required this.trendDelta,
+    required this.spark,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final initials = _initialsFromName(name);
-
-    return GlassPanel(
-      child: Row(
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
-              ),
+    final up = trendDelta >= 0;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
             ),
-            child: Center(
-              child: Text(
-                initials,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.30),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Facturado en ${_monthNameEs(DateTime.now().month)}',
+                      style: TextStyle(
+                        fontFamily: 'Avenir Next',
+                        color: Colors.white.withValues(alpha: 0.85),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '$monthCount emitidos',
+                      style: const TextStyle(
+                        fontFamily: 'Avenir Next',
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                currency(monthTotal),
                 style: const TextStyle(
                   fontFamily: 'Avenir Next',
-                  fontWeight: FontWeight.w800,
                   color: Colors.white,
-                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 36,
+                  letterSpacing: -1,
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Cuenta activa',
-                  style: TextStyle(
-                    fontFamily: 'Avenir Next',
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textMuted,
-                    fontSize: 13,
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Icon(
+                    up ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                    color: Colors.white,
+                    size: 18,
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontFamily: 'Avenir Next',
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                    fontSize: 20,
+                  const SizedBox(width: 6),
+                  Text(
+                    '${_signedPercent(trendDelta)} vs mes anterior',
+                    style: TextStyle(
+                      fontFamily: 'Avenir Next',
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  identifier,
-                  style: const TextStyle(
-                    fontFamily: 'Avenir Next',
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
-                  ),
+                ],
+              ),
+              if (spark.length >= 2) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 44,
+                  width: double.infinity,
+                  child: CustomPaint(painter: _SparklinePainter(spark)),
                 ),
               ],
-            ),
+            ],
           ),
-          IconButton(
-            onPressed: () => context.push('/settings'),
-            icon: const Icon(Icons.chevron_right_rounded),
-          ),
-        ],
+        ),
       ),
     ).animate().fadeIn(duration: 480.ms).slideY(begin: 0.1, duration: 480.ms);
   }
+}
+
+class _SparklinePainter extends CustomPainter {
+  final List<double> values;
+
+  _SparklinePainter(this.values);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.length < 2) return;
+    final maxV = values.reduce((a, b) => a > b ? a : b);
+    final minV = values.reduce((a, b) => a < b ? a : b);
+    final range = (maxV - minV).abs() < 1e-9 ? 1.0 : (maxV - minV);
+    final dx = size.width / (values.length - 1);
+
+    final points = <Offset>[
+      for (var i = 0; i < values.length; i++)
+        Offset(
+          dx * i,
+          size.height - ((values[i] - minV) / range) * size.height,
+        ),
+    ];
+
+    final fill = Path()..moveTo(points.first.dx, size.height);
+    for (final p in points) {
+      fill.lineTo(p.dx, p.dy);
+    }
+    fill
+      ..lineTo(points.last.dx, size.height)
+      ..close();
+    canvas.drawPath(
+      fill,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.16)
+        ..style = PaintingStyle.fill,
+    );
+
+    final line = Path()..moveTo(points.first.dx, points.first.dy);
+    for (final p in points.skip(1)) {
+      line.lineTo(p.dx, p.dy);
+    }
+    canvas.drawPath(
+      line,
+      Paint()
+        ..color = Colors.white
+        ..strokeWidth = 2.4
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+
+    canvas.drawCircle(points.last, 3.5, Paint()..color = Colors.white);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SparklinePainter old) => old.values != values;
 }
 
 class _MiniDocItem {
