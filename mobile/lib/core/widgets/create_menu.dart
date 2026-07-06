@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../theme/app_theme.dart';
@@ -6,6 +7,7 @@ import '../theme/app_theme.dart';
 /// Menú "+" de creación (como Ecuafact): elegir el tipo de comprobante a emitir
 /// o crear un cliente/producto, desde un solo botón.
 Future<void> showCreateMenu(BuildContext context) {
+  HapticFeedback.lightImpact();
   return showModalBottomSheet<void>(
     context: context,
     // Scroll-controlled + scrollable: el sheet crece con el contenido y todos
@@ -103,6 +105,7 @@ Future<void> showCreateMenu(BuildContext context) {
 }
 
 void _go(BuildContext ctx, String location) {
+  HapticFeedback.selectionClick();
   // Resolvemos el router ANTES de cerrar la hoja: tras el pop el `ctx` queda
   // desactivado y `ctx.go` fallaría.
   final router = GoRouter.of(ctx);

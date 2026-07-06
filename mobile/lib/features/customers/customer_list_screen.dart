@@ -36,9 +36,16 @@ class CustomersScreen extends ConsumerWidget {
 
     final items = customersAsync.value!.items;
 
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: () async {
+        ref.invalidate(customersProvider);
+        await ref.read(customersProvider.future);
+      },
+      child: SafeArea(
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -79,6 +86,7 @@ class CustomersScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

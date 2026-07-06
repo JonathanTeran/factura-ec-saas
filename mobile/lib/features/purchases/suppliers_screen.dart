@@ -36,12 +36,19 @@ class SuppliersScreen extends ConsumerWidget {
 
     final items = suppliersAsync.value!.items;
 
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: () async {
+        ref.invalidate(suppliersProvider);
+        await ref.read(suppliersProvider.future);
+      },
+      child: SafeArea(
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             PageHeader(
               title: 'Proveedores',
               subtitle: '${items.length} proveedores activos',
@@ -78,6 +85,7 @@ class SuppliersScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }
