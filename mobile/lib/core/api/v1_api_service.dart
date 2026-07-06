@@ -139,6 +139,54 @@ class WithholdingLine {
   double get retained => base * rate / 100;
 }
 
+/// Destinatario de una Guía de Remisión.
+class WaybillRecipient {
+  final String identification;
+  final String name;
+  final String address;
+  final String reason; // motivo de traslado
+  final String? route; // ruta (opcional)
+
+  const WaybillRecipient({
+    required this.identification,
+    required this.name,
+    required this.address,
+    required this.reason,
+    this.route,
+  });
+}
+
+/// Entrada para crear una Guía de Remisión (06).
+class CreateWaybillInput {
+  final int companyId;
+  final int customerId;
+  final int emissionPointId;
+  final List<InvoiceLine> lines; // bienes trasladados
+  final String startAddress; // dirección de partida
+  final String carrierName; // razón social transportista
+  final String carrierId; // RUC/cédula transportista
+  final String carrierIdType; // '04' RUC, '05' cédula, '06' pasaporte
+  final String plate;
+  final DateTime startDate;
+  final DateTime endDate;
+  final WaybillRecipient recipient;
+
+  const CreateWaybillInput({
+    required this.companyId,
+    required this.customerId,
+    required this.emissionPointId,
+    required this.lines,
+    required this.startAddress,
+    required this.carrierName,
+    required this.carrierId,
+    required this.carrierIdType,
+    required this.plate,
+    required this.startDate,
+    required this.endDate,
+    required this.recipient,
+  });
+}
+
 /// Entrada para crear un Comprobante de Retención (07).
 class CreateRetentionInput {
   final int companyId;
@@ -852,6 +900,88 @@ class V1ApiService {
             .map((e) => {'name': e.name, 'value': e.value})
             .toList(),
         'withholding_details': details,
+      };
+
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        ApiConstants.documents,
+        data: payload,
+      );
+      final data = _payloadMapFromResponse(response);
+      return ApiDocument.fromJson(mapFrom(data['document']));
+    });
+  }
+
+  /// Crea una Guía de Remisión (06). Lleva ítems (los bienes) y los datos de
+  /// transporte + destinatarios en additional_info (mapa), tal como espera
+  /// DocumentBuilder::waybill y la librería amephia/sri-ec.
+  Future<ApiDocument> createWaybill(CreateWaybillInput input) async {
+    return _guard(() async {
+      String ddmmyyyy(DateTime d) =>
+          '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+      final items = <Map<String, dynamic>>[];
+      final detalles = <Map<String, dynamic>>[];
+      for (final line in input.lines) {
+        // Los bienes de una guía no llevan valor monetario en el XML.
+        items.add({
+          'product_id': line.product.id,
+          'main_code': line.product.code,
+          'aux_code': null,
+          'description': line.product.name,
+          'quantity': line._qty,
+          'unit_price': 0,
+          'discount': 0,
+          'subtotal': 0,
+          'tax_code': line.product.taxCode,
+          'tax_percentage_code': line.product.taxPercentageCode,
+          'tax_rate': 0,
+          'tax_base': 0,
+          'tax_value': 0,
+        });
+        detalles.add({
+          'codigoInterno': line.product.code,
+          'descripcion': line.product.name,
+          'cantidad': line._qty,
+        });
+      }
+
+      final additionalInfo = <String, dynamic>{
+        'dirPartida': input.startAddress,
+        'razonSocialTransportista': input.carrierName,
+        'tipoIdTransportista': input.carrierIdType,
+        'rucTransportista': input.carrierId,
+        'fechaIniTransporte': ddmmyyyy(input.startDate),
+        'fechaFinTransporte': ddmmyyyy(input.endDate),
+        'placa': input.plate,
+        'destinatarios': [
+          {
+            'identificacionDestinatario': input.recipient.identification,
+            'razonSocialDestinatario': input.recipient.name,
+            'dirDestinatario': input.recipient.address,
+            'motivoTraslado': input.recipient.reason,
+            if (input.recipient.route != null &&
+                input.recipient.route!.trim().isNotEmpty)
+              'ruta': input.recipient.route!.trim(),
+            'detalles': detalles,
+          },
+        ],
+      };
+
+      final payload = <String, dynamic>{
+        'company_id': input.companyId,
+        'customer_id': input.customerId,
+        'emission_point_id': input.emissionPointId,
+        'document_type': '06',
+        'issue_date': dateOnly(DateTime.now()),
+        'subtotal_no_tax': 0,
+        'subtotal_0': 0,
+        'total_tax': 0,
+        'total_discount': 0,
+        'discount': 0,
+        'tip': 0,
+        'total': 0,
+        'additional_info': additionalInfo,
+        'items': items,
       };
 
       final response = await _apiClient.post<Map<String, dynamic>>(

@@ -69,6 +69,11 @@ Future<void> showCreateMenu(BuildContext context) {
                 label: 'Retención',
                 onTap: () => _go(ctx, '/documents/new?type=07'),
               ),
+              _CreateItem(
+                icon: Icons.local_shipping_outlined,
+                label: 'Guía de Remisión',
+                onTap: () => _go(ctx, '/documents/new?type=06'),
+              ),
               const Divider(height: 20),
               _CreateItem(
                 icon: Icons.person_add_alt_1_rounded,

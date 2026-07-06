@@ -54,13 +54,27 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
   DateTime _supportDocDate = DateTime.now();
   List<ApiPurchase> _purchases = const [];
 
+  // Solo para Guía de Remisión (06).
+  final TextEditingController _carrierNameCtrl = TextEditingController();
+  final TextEditingController _carrierIdCtrl = TextEditingController();
+  final TextEditingController _plateCtrl = TextEditingController();
+  final TextEditingController _startAddressCtrl = TextEditingController();
+  final TextEditingController _destAddressCtrl = TextEditingController();
+  final TextEditingController _motiveCtrl = TextEditingController();
+  final TextEditingController _routeCtrl = TextEditingController();
+  String _carrierIdType = '04';
+  DateTime _transportStart = DateTime.now();
+  DateTime _transportEnd = DateTime.now();
+
   bool get _needsReference => _selectedType == '04' || _selectedType == '05';
   bool get _isRetention => _selectedType == '07';
+  bool get _isWaybill => _selectedType == '06';
 
   String get _docTypeLabel => switch (_selectedType) {
     '03' => 'Liquidación de compra',
     '04' => 'Nota de crédito',
     '05' => 'Nota de débito',
+    '06' => 'Guía de remisión',
     '07' => 'Retención',
     _ => 'Nueva factura',
   };
@@ -90,6 +104,13 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
     _reasonCtrl.dispose();
     _supportNumberCtrl.dispose();
     _supportTotalCtrl.dispose();
+    _carrierNameCtrl.dispose();
+    _carrierIdCtrl.dispose();
+    _plateCtrl.dispose();
+    _startAddressCtrl.dispose();
+    _destAddressCtrl.dispose();
+    _motiveCtrl.dispose();
+    _routeCtrl.dispose();
     super.dispose();
   }
 
@@ -208,6 +229,13 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
       _withholdings.clear();
       _supportNumberCtrl.clear();
       _supportTotalCtrl.text = '0';
+      _carrierNameCtrl.clear();
+      _carrierIdCtrl.clear();
+      _plateCtrl.clear();
+      _startAddressCtrl.clear();
+      _destAddressCtrl.clear();
+      _motiveCtrl.clear();
+      _routeCtrl.clear();
     });
   }
 
@@ -297,6 +325,7 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
   /// o null si falta algo o hubo error. Base de "Guardar" y "Enviar".
   Future<ApiDocument?> _submitInvoice() async {
     if (_isRetention) return _submitRetention();
+    if (_isWaybill) return _submitWaybill();
     if (_companyId == null ||
         _customerId == null ||
         _emissionPointId == null) {
@@ -394,6 +423,83 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
                   0,
               withholdings: _withholdings,
               additionalInfo: _additional,
+            ),
+          );
+      _invalidateData();
+      return doc;
+    } catch (error) {
+      setState(() => _errorText = error.toString());
+      return null;
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  /// Valida y crea una Guía de Remisión (06).
+  Future<ApiDocument?> _submitWaybill() async {
+    if (_companyId == null ||
+        _customerId == null ||
+        _emissionPointId == null) {
+      setState(() => _errorText = 'Elegí cliente, empresa y punto de emisión.');
+      return null;
+    }
+    final customer = _selectedCustomer;
+    if (customer == null) {
+      setState(() => _errorText = 'Elegí el destinatario (cliente).');
+      return null;
+    }
+    if (_lines.isEmpty) {
+      setState(() => _errorText = 'Agregá al menos un bien a trasladar.');
+      return null;
+    }
+    if (_carrierNameCtrl.text.trim().isEmpty ||
+        _carrierIdCtrl.text.trim().isEmpty ||
+        _plateCtrl.text.trim().isEmpty) {
+      setState(
+        () => _errorText =
+            'Completá transportista (nombre, identificación) y placa.',
+      );
+      return null;
+    }
+    if (_startAddressCtrl.text.trim().isEmpty ||
+        _destAddressCtrl.text.trim().isEmpty ||
+        _motiveCtrl.text.trim().isEmpty) {
+      setState(
+        () => _errorText =
+            'Completá partida, destino y motivo del traslado.',
+      );
+      return null;
+    }
+
+    setState(() {
+      _submitting = true;
+      _errorText = null;
+    });
+    try {
+      final doc = await ref
+          .read(v1ApiServiceProvider)
+          .createWaybill(
+            CreateWaybillInput(
+              companyId: _companyId!,
+              customerId: _customerId!,
+              emissionPointId: _emissionPointId!,
+              lines: _lines,
+              startAddress: _startAddressCtrl.text.trim(),
+              carrierName: _carrierNameCtrl.text.trim(),
+              carrierId: _carrierIdCtrl.text.trim(),
+              carrierIdType: _carrierIdType,
+              plate: _plateCtrl.text.trim(),
+              startDate: _transportStart,
+              endDate: _transportEnd,
+              recipient: WaybillRecipient(
+                identification: customer.identificationNumber,
+                name: customer.name,
+                address: _destAddressCtrl.text.trim(),
+                reason: _motiveCtrl.text.trim(),
+                route: _routeCtrl.text.trim().isEmpty
+                    ? null
+                    : _routeCtrl.text.trim(),
+              ),
             ),
           );
       _invalidateData();
@@ -1311,6 +1417,136 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
     );
   }
 
+  // ───────────────────────── Guía de Remisión (06) ─────────────────────────
+
+  Widget _dateField(String label, DateTime value, VoidCallback onTap) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(14),
+    child: InputDecorator(
+      decoration: InputDecoration(labelText: label),
+      child: Text(
+        _fmtDate(value),
+        style: const TextStyle(
+          fontFamily: 'Avenir Next',
+          color: AppColors.textPrimary,
+        ),
+      ),
+    ),
+  );
+
+  Future<void> _pickTransportDate(bool isStart) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: isStart ? _transportStart : _transportEnd,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+    );
+    if (picked == null) return;
+    setState(() {
+      if (isStart) {
+        _transportStart = picked;
+      } else {
+        _transportEnd = picked;
+      }
+    });
+  }
+
+  Widget _transportSection() {
+    return Column(
+      children: [
+        TextField(
+          controller: _carrierNameCtrl,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            labelText: 'Razón social del transportista',
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: DropdownButtonFormField<String>(
+                initialValue: _carrierIdType,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Tipo ID'),
+                items: const [
+                  DropdownMenuItem(value: '04', child: Text('RUC')),
+                  DropdownMenuItem(value: '05', child: Text('Cédula')),
+                  DropdownMenuItem(value: '06', child: Text('Pasaporte')),
+                ],
+                onChanged: (v) => setState(() => _carrierIdType = v ?? '04'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 3,
+              child: TextField(
+                controller: _carrierIdCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Identificación',
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: _plateCtrl,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(labelText: 'Placa'),
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: _startAddressCtrl,
+          decoration: const InputDecoration(labelText: 'Dirección de partida'),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _dateField(
+                'Inicio transporte',
+                _transportStart,
+                () => _pickTransportDate(true),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _dateField(
+                'Fin transporte',
+                _transportEnd,
+                () => _pickTransportDate(false),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _destinationSection() {
+    return Column(
+      children: [
+        TextField(
+          controller: _destAddressCtrl,
+          decoration: const InputDecoration(labelText: 'Dirección de destino'),
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: _motiveCtrl,
+          decoration: const InputDecoration(labelText: 'Motivo del traslado'),
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: _routeCtrl,
+          decoration: const InputDecoration(labelText: 'Ruta (opcional)'),
+        ),
+      ],
+    );
+  }
+
   Future<void> _openAddWithholdingSheet() async {
     var taxType = 'renta';
     var code = kRentaRetentionCodes.first.code;
@@ -1884,6 +2120,10 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
                   child: Text('Liquidación de compra'),
                 ),
                 DropdownMenuItem(value: '07', child: Text('Retención')),
+                DropdownMenuItem(
+                  value: '06',
+                  child: Text('Guía de remisión'),
+                ),
               ],
               onChanged: (value) => setState(() {
                 _selectedType = value ?? '01';
@@ -1959,6 +2199,22 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
               _addTile('Agregar retención', _openAddWithholdingSheet),
               const SizedBox(height: 18),
               _retentionTotalPanel(),
+            ] else if (_isWaybill) ...[
+              _sectionTitle('Bienes a trasladar'),
+              const SizedBox(height: 8),
+              ..._buildLineItems(),
+              _addTile(
+                'Agregar producto',
+                _products.isEmpty ? null : _openAddProductSheet,
+              ),
+              const SizedBox(height: 18),
+              _sectionTitle('Transporte'),
+              const SizedBox(height: 8),
+              _transportSection(),
+              const SizedBox(height: 18),
+              _sectionTitle('Destino'),
+              const SizedBox(height: 8),
+              _destinationSection(),
             ] else ...[
               _sectionTitle('Productos'),
               const SizedBox(height: 8),
