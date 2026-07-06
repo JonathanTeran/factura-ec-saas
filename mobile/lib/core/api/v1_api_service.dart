@@ -684,6 +684,25 @@ class V1ApiService {
     });
   }
 
+  Future<ApiCustomer> updateCustomer(int id, Map<String, dynamic> data) async {
+    return _guard(() async {
+      final response = await _apiClient.put<Map<String, dynamic>>(
+        '${ApiConstants.customers}/$id',
+        data: data,
+      );
+      final payload = _payloadMapFromResponse(response);
+      return ApiCustomer.fromJson(mapFrom(payload['customer']));
+    });
+  }
+
+  Future<void> deleteCustomer(int id) async {
+    return _guard(() async {
+      await _apiClient.delete<Map<String, dynamic>>(
+        '${ApiConstants.customers}/$id',
+      );
+    });
+  }
+
   Future<ApiProduct> createProduct(Map<String, dynamic> data) async {
     return _guard(() async {
       final response = await _apiClient.post<Map<String, dynamic>>(

@@ -67,13 +67,23 @@ class CustomersScreen extends ConsumerWidget {
               child: Column(
                 children: [
                   for (var i = 0; i < items.length; i++) ...[
-                    EntityRow(
-                      icon: Icons.apartment_rounded,
-                      title: items[i].name,
-                      subtitle:
-                          '${items[i].identificationType} ${items[i].identificationNumber}',
-                      trailing: items[i].email ?? items[i].phone ?? '-',
-                      color: i.isEven ? AppColors.primary : AppColors.secondary,
+                    InkWell(
+                      onTap: () =>
+                          context.push('/customers/edit', extra: items[i]),
+                      borderRadius: BorderRadius.circular(12),
+                      child: EntityRow(
+                        icon: Icons.apartment_rounded,
+                        title: items[i].name,
+                        subtitle:
+                            '${items[i].identificationType} ${items[i].identificationNumber}'
+                            '${items[i].isActive ? '' : ' · Inactivo'}',
+                        trailing: items[i].email ?? items[i].phone ?? '-',
+                        color: items[i].isActive
+                            ? (i.isEven
+                                  ? AppColors.primary
+                                  : AppColors.secondary)
+                            : AppColors.textMuted,
+                      ),
                     ),
                     if (i < items.length - 1) ...[
                       const SizedBox(height: 12),

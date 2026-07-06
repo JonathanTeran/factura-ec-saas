@@ -5,12 +5,16 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../core/widgets/page_header.dart';
+import '../../data/models/customer_model.dart';
 import '../../data/providers/auth_provider.dart';
 import '../../data/providers/customer_provider.dart';
 
-/// Form to create a new customer (cliente) against the real backend.
+/// Form to create or edit a customer (cliente) against the real backend.
 class CustomerCreateScreen extends ConsumerStatefulWidget {
-  const CustomerCreateScreen({super.key});
+  /// Cuando viene un cliente, la pantalla entra en modo edición.
+  final ApiCustomer? customer;
+
+  const CustomerCreateScreen({super.key, this.customer});
 
   @override
   ConsumerState<CustomerCreateScreen> createState() =>
@@ -27,10 +31,32 @@ class _CustomerCreateScreenState extends ConsumerState<CustomerCreateScreen> {
 
   // Maps to App\Enums\IdentificationType values.
   String _identificationType = '05';
+  bool _isActive = true;
   bool _submitting = false;
   bool _lookingUp = false;
   bool _showOptional = false;
   String? _errorText;
+
+  bool get _isEdit => widget.customer != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final c = widget.customer;
+    if (c != null) {
+      _identificationType = c.identificationTypeCode;
+      _identificationCtrl.text = c.identificationNumber;
+      _nameCtrl.text = c.name;
+      _emailCtrl.text = c.email ?? '';
+      _phoneCtrl.text = c.phone ?? '';
+      _addressCtrl.text = c.address ?? '';
+      _isActive = c.isActive;
+      _showOptional =
+          (c.email?.isNotEmpty ?? false) ||
+          (c.phone?.isNotEmpty ?? false) ||
+          (c.address?.isNotEmpty ?? false);
+    }
+  }
 
   /// La consulta al catastro del SRI aplica solo para RUC (04) y Cédula (05).
   bool get _canLookupSri =>
@@ -127,22 +153,34 @@ class _CustomerCreateScreenState extends ConsumerState<CustomerCreateScreen> {
     });
 
     try {
-      await ref.read(v1ApiServiceProvider).createCustomer({
+      final data = <String, dynamic>{
         'identification_type': _identificationType,
         'identification_number': _identificationCtrl.text.trim(),
         'name': _nameCtrl.text.trim(),
-        if (_emailCtrl.text.trim().isNotEmpty) 'email': _emailCtrl.text.trim(),
-        if (_phoneCtrl.text.trim().isNotEmpty) 'phone': _phoneCtrl.text.trim(),
-        if (_addressCtrl.text.trim().isNotEmpty)
-          'address': _addressCtrl.text.trim(),
-        'is_active': true,
-      });
+        'email': _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
+        'phone': _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
+        'address': _addressCtrl.text.trim().isEmpty
+            ? null
+            : _addressCtrl.text.trim(),
+        'is_active': _isActive,
+      };
+
+      final api = ref.read(v1ApiServiceProvider);
+      if (_isEdit) {
+        await api.updateCustomer(widget.customer!.id, data);
+      } else {
+        await api.createCustomer(data);
+      }
 
       ref.invalidate(customersProvider);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cliente creado correctamente.')),
+        SnackBar(
+          content: Text(
+            _isEdit ? 'Cliente actualizado.' : 'Cliente creado correctamente.',
+          ),
+        ),
       );
       context.pop();
     } catch (error) {
@@ -151,6 +189,53 @@ class _CustomerCreateScreenState extends ConsumerState<CustomerCreateScreen> {
       if (mounted) {
         setState(() => _submitting = false);
       }
+    }
+  }
+
+  Future<void> _delete() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Eliminar cliente?'),
+        content: Text(
+          'Se eliminará "${widget.customer!.name}". Esta acción no se puede '
+          'deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    setState(() {
+      _submitting = true;
+      _errorText = null;
+    });
+    try {
+      await ref.read(v1ApiServiceProvider).deleteCustomer(widget.customer!.id);
+      ref.invalidate(customersProvider);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cliente eliminado.')),
+      );
+      context.pop();
+    } catch (error) {
+      setState(
+        () => _errorText =
+            'No se pudo eliminar. Si el cliente ya se usó en documentos, '
+            'desactivalo en vez de eliminarlo.',
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
@@ -163,8 +248,10 @@ class _CustomerCreateScreenState extends ConsumerState<CustomerCreateScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             PageHeader(
-              title: 'Nuevo cliente',
-              subtitle: 'Registra los datos del cliente',
+              title: _isEdit ? 'Editar cliente' : 'Nuevo cliente',
+              subtitle: _isEdit
+                  ? 'Modificá, desactivá o eliminá'
+                  : 'Registra los datos del cliente',
               trailing: IconButton.filledTonal(
                 tooltip: 'Cancelar',
                 onPressed: () => context.pop(),
@@ -288,6 +375,29 @@ class _CustomerCreateScreenState extends ConsumerState<CustomerCreateScreen> {
                             ),
                           ),
                         ],
+                        if (_isEdit) ...[
+                          SwitchListTile.adaptive(
+                            value: _isActive,
+                            contentPadding: EdgeInsets.zero,
+                            activeThumbColor: AppColors.primary,
+                            title: const Text(
+                              'Activo',
+                              style: TextStyle(
+                                fontFamily: 'Avenir Next',
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            subtitle: const Text(
+                              'Si lo desactivás, no aparece al crear documentos.',
+                              style: TextStyle(
+                                fontFamily: 'Avenir Next',
+                                color: AppColors.textMuted,
+                                fontSize: 12,
+                              ),
+                            ),
+                            onChanged: (v) => setState(() => _isActive = v),
+                          ),
+                        ],
                         if (_errorText != null) ...[
                           const SizedBox(height: 12),
                           Text(
@@ -317,12 +427,32 @@ class _CustomerCreateScreenState extends ConsumerState<CustomerCreateScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.save_rounded),
-                label: Text(_submitting ? 'Guardando...' : 'Guardar cliente'),
+                label: Text(
+                  _submitting
+                      ? 'Guardando...'
+                      : (_isEdit ? 'Guardar cambios' : 'Guardar cliente'),
+                ),
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size.fromHeight(52),
                 ),
               ),
             ),
+            if (_isEdit) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _submitting ? null : _delete,
+                  icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                  label: const Text('Eliminar cliente'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.error,
+                    side: const BorderSide(color: AppColors.error),
+                    minimumSize: const Size.fromHeight(50),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
