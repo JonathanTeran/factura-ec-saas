@@ -115,15 +115,24 @@ class DashboardScreen extends ConsumerWidget {
         )
         .toList(growable: false);
 
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            PageHeader(
-              title: 'Hola, ${_firstName(meAsync.valueOrNull?.name)}',
-              subtitle: DateFormat('dd MMM yyyy').format(DateTime.now()),
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: () async {
+        // Recarga estilo Twitter: al soltar, refresca los datos del inicio.
+        ref.invalidate(dashboardViewDataProvider);
+        ref.invalidate(meProvider);
+        await ref.read(dashboardViewDataProvider.future);
+      },
+      child: SafeArea(
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              PageHeader(
+                title: 'Hola, ${_firstName(meAsync.valueOrNull?.name)}',
+                subtitle: DateFormat('dd MMM yyyy').format(DateTime.now()),
               trailing: IconButton.filledTonal(
                 tooltip: 'Crear',
                 onPressed: () => showCreateMenu(context),
@@ -252,7 +261,8 @@ class DashboardScreen extends ConsumerWidget {
                 .animate()
                 .fadeIn(duration: 460.ms)
                 .slideX(begin: 0.06, duration: 460.ms),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -378,18 +388,28 @@ class _BillingHeroCard extends StatelessWidget {
               Row(
                 children: [
                   Icon(
-                    up ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                    monthCount == 0
+                        ? Icons.bolt_rounded
+                        : (up
+                              ? Icons.trending_up_rounded
+                              : Icons.trending_down_rounded),
                     color: Colors.white,
                     size: 18,
                   ),
                   const SizedBox(width: 6),
-                  Text(
-                    '${_signedPercent(trendDelta)} vs mes anterior',
-                    style: TextStyle(
-                      fontFamily: 'Avenir Next',
-                      color: Colors.white.withValues(alpha: 0.9),
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
+                  Expanded(
+                    child: Text(
+                      monthCount == 0
+                          ? 'Emití tu primera factura del mes'
+                          : '${_signedPercent(trendDelta)} vs mes anterior',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'Avenir Next',
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ],
