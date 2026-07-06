@@ -10,7 +10,7 @@
     <meta name="keywords"
         content="facturacion electronica ecuador, SRI, facturas electronicas, notas de credito, retenciones, guias de remision, firma electronica">
 
-    <title>{{ config('app.name', 'Facturón') }} — Facturacion Electronica del Ecuador</title>
+    <title>{{ config('app.name', 'Facturón EC') }} — Facturacion Electronica del Ecuador</title>
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
 
@@ -100,8 +100,8 @@
                         <img src="{{ asset('images/app_icon_transparent.png') }}" alt=""
                             class="h-8 w-8 object-contain">
                         <span
-                            class="font-display font-bold text-lg tracking-tight text-slate-900 dark:text-white">Facturón<span
-                                class="text-teal-600 dark:text-teal-400">.</span></span>
+                            class="font-display font-bold text-lg tracking-tight text-slate-900 dark:text-white">Facturón <span
+                                class="text-teal-600 dark:text-teal-400">EC</span></span>
                     </a>
 
                     <div class="hidden lg:flex lg:items-center lg:gap-1">
@@ -836,7 +836,7 @@
         <div class="mx-auto max-w-6xl px-5 sm:px-8">
             <div class="max-w-2xl">
                 <p class="text-xs font-semibold uppercase tracking-widest text-teal-600 dark:text-teal-400">Por qué
-                    Facturón</p>
+                    Facturón EC</p>
                 <h2
                     class="mt-3 font-display text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
                     No es un sistema genérico adaptado a Ecuador
@@ -1028,8 +1028,8 @@
                         <img src="{{ asset('images/app_icon_transparent.png') }}" alt=""
                             class="h-7 w-7 object-contain hidden dark:block">
                         <span
-                            class="font-display font-bold text-lg tracking-tight text-slate-900 dark:text-white">Facturón<span
-                                class="text-teal-600 dark:text-teal-400">.</span></span>
+                            class="font-display font-bold text-lg tracking-tight text-slate-900 dark:text-white">Facturón <span
+                                class="text-teal-600 dark:text-teal-400">EC</span></span>
                     </a>
                     <p class="mt-3 text-sm text-slate-400 dark:text-slate-500 leading-relaxed max-w-xs">
                         Facturacion electronica autorizada por el SRI. Un producto de

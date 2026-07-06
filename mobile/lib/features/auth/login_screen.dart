@@ -299,7 +299,7 @@ class _BrandMark extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         const Text(
-          'Facturón',
+          'Facturón EC',
           style: TextStyle(
             fontFamily: 'Avenir Next',
             fontWeight: FontWeight.w800,
