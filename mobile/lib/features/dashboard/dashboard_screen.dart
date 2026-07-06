@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/create_menu.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../core/widgets/loading_widget.dart';
+import '../../core/widgets/ui_kit.dart';
 import '../../core/widgets/metric_card.dart';
 import '../../core/widgets/money_text.dart';
 import '../../core/widgets/page_header.dart';
@@ -54,6 +55,12 @@ class DashboardScreen extends ConsumerWidget {
     // cero): así el usuario nuevo ve el home con sus accesos, no un cartel de
     // "todavía no hay nada aquí". Solo cargando/error/sin conexión interrumpen.
     final state = _stateFromAsyncValue(dataAsync, isEmpty: (_) => false);
+
+    // Skeleton a medida del inicio: la silueta se parece al contenido real
+    // (hero, accesos, métricas, gráfico), no filas genéricas.
+    if (state == AppDataState.loading) {
+      return const _DashboardSkeleton();
+    }
 
     if (state != AppDataState.ready) {
       return ModuleStateView(
@@ -764,4 +771,82 @@ class _AreaChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _AreaChartPainter old) => old.values != values;
+}
+
+/// Skeleton del inicio: imita la silueta real (encabezado + hero + accesos +
+/// métricas + gráfico + recientes) para una transición fluida y premium.
+class _DashboardSkeleton extends StatelessWidget {
+  const _DashboardSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            // Encabezado: saludo + botón Crear.
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Skeleton(width: 210, height: 28, radius: 8),
+                      SizedBox(height: 10),
+                      Skeleton(width: 120, height: 12),
+                    ],
+                  ),
+                ),
+                Skeleton(width: 104, height: 46, radius: 14),
+              ],
+            ),
+            SizedBox(height: 20),
+            // Hero.
+            Skeleton(height: 150, radius: 24),
+            SizedBox(height: 20),
+            // Accesos rápidos.
+            Row(
+              children: [
+                Expanded(child: Skeleton(height: 84, radius: 20)),
+                SizedBox(width: 10),
+                Expanded(child: Skeleton(height: 84, radius: 20)),
+                SizedBox(width: 10),
+                Expanded(child: Skeleton(height: 84, radius: 20)),
+              ],
+            ),
+            SizedBox(height: 22),
+            // Métricas.
+            Skeleton(width: 140, height: 16),
+            SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: Skeleton(height: 96, radius: 18)),
+                SizedBox(width: 10),
+                Expanded(child: Skeleton(height: 96, radius: 18)),
+              ],
+            ),
+            SizedBox(height: 22),
+            // Gráfico.
+            Skeleton(width: 120, height: 16),
+            SizedBox(height: 12),
+            Skeleton(height: 200, radius: 20),
+            SizedBox(height: 22),
+            // Recientes.
+            Skeleton(width: 170, height: 16),
+            SizedBox(height: 12),
+            Row(
+              children: [
+                Skeleton(width: 244, height: 214, radius: 18),
+                SizedBox(width: 10),
+                Skeleton(width: 120, height: 214, radius: 18),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
