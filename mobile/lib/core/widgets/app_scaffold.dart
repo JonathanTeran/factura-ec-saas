@@ -11,10 +11,27 @@ class AppShell extends StatelessWidget {
 
   const AppShell({super.key, required this.location, required this.child});
 
-  bool get _isFlowStepRoute {
-    if (location.startsWith('/documents/new')) return true;
-    return RegExp(r'^/documents/[^/]+$').hasMatch(location);
-  }
+  /// Rutas raíz (con pestaña) que muestran el dock inferior.
+  static const _tabRoots = <String>{
+    '/',
+    '/documents',
+    '/customers',
+    '/products',
+    '/reports',
+    '/settings',
+    '/pos',
+    '/purchases',
+    '/suppliers',
+  };
+
+  /// Una pantalla es "raíz" cuando es una de las pestañas/listas principales.
+  /// Todo lo demás (formularios `/new`, detalle `/:id`, ajustes internos) es
+  /// una sub-página a pantalla completa: sin dock, sin CTA y con teclado que
+  /// empuja el contenido.
+  bool get _isTabRoot => _tabRoots.contains(location);
+
+  /// El CTA global "Crear Documento" solo tiene sentido en Inicio y Docs.
+  bool get _showCreateCta => location == '/' || location == '/documents';
 
   int _selectedIndexFromLocation() {
     if (location.startsWith('/documents')) return 1;
@@ -46,6 +63,25 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Sub-página (formulario, detalle, ajuste interno): pantalla completa, sin
+    // barra inferior ni CTA global. `resizeToAvoidBottomInset: true` hace que el
+    // teclado empuje el contenido en lugar de tapar los campos y botones.
+    if (!_isTabRoot) {
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        resizeToAvoidBottomInset: true,
+        body: Stack(
+          children: [
+            const Positioned.fill(child: AuroraBackground()),
+            Positioned.fill(child: child),
+          ],
+        ),
+      );
+    }
+
+    // Espacio reservado al fondo: dock (~112) + CTA extra cuando se muestra.
+    final double bottomInset = _showCreateCta ? 172 : 112;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       resizeToAvoidBottomInset: false,
@@ -54,11 +90,11 @@ class AppShell extends StatelessWidget {
           const Positioned.fill(child: AuroraBackground()),
           Positioned.fill(
             child: Padding(
-              padding: EdgeInsets.only(bottom: _isFlowStepRoute ? 102 : 176),
+              padding: EdgeInsets.only(bottom: bottomInset),
               child: child,
             ),
           ),
-          if (!_isFlowStepRoute)
+          if (_showCreateCta)
             Positioned(
               left: 20,
               right: 20,
