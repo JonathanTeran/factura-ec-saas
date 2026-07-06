@@ -1,9 +1,11 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass_panel.dart';
+import '../../data/models/api_exception.dart';
 import '../../core/widgets/loading_widget.dart';
 import '../../core/widgets/metric_card.dart';
 import '../../core/widgets/money_text.dart';
@@ -18,6 +20,15 @@ class ReportsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final reportAsync = ref.watch(reportsViewDataProvider);
+
+    // Los reportes avanzados son una función del plan Negocio: si el backend
+    // responde 403, mostramos un aviso claro con opción de actualizar en vez
+    // del error genérico "no se pudo cargar".
+    final error = reportAsync.error;
+    if (error is ApiException && error.statusCode == 403) {
+      return _ReportsLockedView(message: error.message);
+    }
+
     final state = reportAsync.when(
       data: (data) =>
           data.byStatus.isEmpty ? AppDataState.empty : AppDataState.ready,
@@ -356,6 +367,83 @@ class _ReportLine extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Aviso cuando los reportes avanzados no están en el plan del usuario (403).
+class _ReportsLockedView extends StatelessWidget {
+  final String message;
+
+  const _ReportsLockedView({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const PageHeader(
+              title: 'Reportes',
+              subtitle: 'Ventas, estados y operación',
+            ),
+            const Spacer(),
+            GlassPanel(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.workspace_premium_rounded,
+                      color: AppColors.primary,
+                      size: 30,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Reportes avanzados',
+                    style: TextStyle(
+                      fontFamily: 'Avenir Next',
+                      fontWeight: FontWeight.w800,
+                      fontSize: 20,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontFamily: 'Avenir Next',
+                      color: AppColors.textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () => context.push('/settings/billing'),
+                      icon: const Icon(Icons.arrow_upward_rounded, size: 18),
+                      label: const Text('Actualizar plan'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Spacer(flex: 2),
+          ],
+        ),
+      ),
     );
   }
 }
