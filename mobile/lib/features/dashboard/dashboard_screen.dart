@@ -333,20 +333,27 @@ class _BillingHeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final up = trendDelta >= 0;
-    final Color trendColor = monthCount == 0
-        ? AppColors.textMuted
-        : (up ? AppColors.success : AppColors.error);
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(22),
         child: Container(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
+            borderRadius: BorderRadius.circular(22),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppColors.heroGradientStart, AppColors.heroGradientEnd],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.28),
+                blurRadius: 22,
+                offset: const Offset(0, 12),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -355,42 +362,49 @@ class _BillingHeroCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      'FACTURADO EN ${_monthNameEs(DateTime.now().month).toUpperCase()}',
-                      style: const TextStyle(
+                      'Facturado en ${_monthNameEs(DateTime.now().month)}',
+                      style: TextStyle(
                         fontFamily: 'Avenir Next',
-                        color: AppColors.textMuted,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11,
-                        letterSpacing: 1.2,
+                        color: Colors.white.withValues(alpha: 0.88),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
                       ),
                     ),
                   ),
-                  Text(
-                    '$monthCount emitidos',
-                    style: const TextStyle(
-                      fontFamily: 'Avenir Next',
-                      color: AppColors.textSecondary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 11,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.20),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '$monthCount emitidos',
+                      style: const TextStyle(
+                        fontFamily: 'Avenir Next',
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               Text(
                 currency(monthTotal),
                 style: const TextStyle(
                   fontFamily: 'Avenir Next',
-                  color: AppColors.textPrimary,
+                  color: Colors.white,
                   fontWeight: FontWeight.w800,
                   fontSize: 40,
                   letterSpacing: -1.2,
                   fontFeatures: [FontFeature.tabularFigures()],
                 ),
               ),
-              const SizedBox(height: 14),
-              const Divider(height: 1, thickness: 1),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               Row(
                 children: [
                   Icon(
@@ -399,7 +413,7 @@ class _BillingHeroCard extends StatelessWidget {
                         : (up
                               ? Icons.trending_up_rounded
                               : Icons.trending_down_rounded),
-                    color: trendColor,
+                    color: Colors.white,
                     size: 18,
                   ),
                   const SizedBox(width: 6),
@@ -412,18 +426,11 @@ class _BillingHeroCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontFamily: 'Avenir Next',
-                        color: monthCount == 0
-                            ? AppColors.textSecondary
-                            : trendColor,
+                        color: Colors.white.withValues(alpha: 0.92),
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
                       ),
                     ),
-                  ),
-                  const Icon(
-                    Icons.chevron_right_rounded,
-                    color: AppColors.textMuted,
-                    size: 20,
                   ),
                 ],
               ),

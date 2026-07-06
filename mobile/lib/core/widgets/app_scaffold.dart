@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 
 import '../theme/app_theme.dart';
 import 'aurora_background.dart';
+import 'create_menu.dart';
 
 class AppShell extends StatelessWidget {
   final String location;
@@ -29,9 +29,6 @@ class AppShell extends StatelessWidget {
   /// una sub-página a pantalla completa: sin dock, sin CTA y con teclado que
   /// empuja el contenido.
   bool get _isTabRoot => _tabRoots.contains(location);
-
-  /// El CTA global "Crear Documento" solo tiene sentido en Inicio y Docs.
-  bool get _showCreateCta => location == '/' || location == '/documents';
 
   int _selectedIndexFromLocation() {
     if (location.startsWith('/documents')) return 1;
@@ -79,14 +76,10 @@ class AppShell extends StatelessWidget {
       );
     }
 
-    // El dock consume el safe-area inferior (home indicator). Reservamos ese
-    // espacio + la altura del dock + (si aplica) el bloque del CTA, calculado
-    // sobre el inset real del dispositivo para que NADA quede detrás del dock.
+    // Reservamos el espacio de la barra inferior (con el FAB central) + el
+    // safe-area del home indicator, para que nada del contenido quede tapado.
     final double safeBottom = MediaQuery.of(context).padding.bottom;
-    const double dockBlock = 85; // padding + fila de íconos del dock
-    const double ctaBlock = 66; // botón (54) + separación
-    final double bottomInset =
-        safeBottom + dockBlock + (_showCreateCta ? ctaBlock : 0) + 8;
+    final double bottomInset = safeBottom + 96;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -100,26 +93,12 @@ class AppShell extends StatelessWidget {
               child: child,
             ),
           ),
-          // CTA y dock apilados en una sola columna anclada abajo: el CTA queda
-          // SIEMPRE por encima del dock, sin solaparse (antes el CTA se metía
-          // detrás del menú por un `bottom` fijo menor que la altura del dock).
           Align(
             alignment: Alignment.bottomCenter,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_showCreateCta)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-                    child: PrimaryFlowCta(
-                      onTap: () => context.go('/documents/new'),
-                    ),
-                  ),
-                BottomDock(
-                  selectedIndex: _selectedIndexFromLocation(),
-                  onTap: (index) => _goToIndex(context, index),
-                ),
-              ],
+            child: WalletNavBar(
+              selectedIndex: _selectedIndexFromLocation(),
+              onTap: (index) => _goToIndex(context, index),
+              onCreate: () => showCreateMenu(context),
             ),
           ),
         ],
@@ -128,90 +107,87 @@ class AppShell extends StatelessWidget {
   }
 }
 
-class BottomDock extends StatelessWidget {
+/// Barra inferior estilo "wallet": 4 pestañas con un botón "+" central elevado
+/// (FAB circular con degradado azul) que abre el menú de creación.
+class WalletNavBar extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTap;
+  final VoidCallback onCreate;
 
-  const BottomDock({super.key, required this.selectedIndex, required this.onTap});
+  const WalletNavBar({
+    super.key,
+    required this.selectedIndex,
+    required this.onTap,
+    required this.onCreate,
+  });
 
   @override
   Widget build(BuildContext context) {
-    const items = [
-      (Icons.home_rounded, 'Inicio'),
-      (Icons.description_rounded, 'Docs'),
-      (Icons.pie_chart_rounded, 'Reportes'),
-      (Icons.tune_rounded, 'Menú'),
-    ];
-
     return SafeArea(
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.96),
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: AppColors.border),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.10),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
+        // El FAB sobresale por arriba del borde de la barra, por eso el Stack
+        // NO recorta (clipBehavior: none) y la barra deja un hueco central.
+        child: SizedBox(
+          height: 76,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.bottomCenter,
+            children: [
+              // Barra con las 4 pestañas y un hueco central para el FAB.
+              Container(
+                height: 66,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(26),
+                  border: Border.all(color: AppColors.border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF141726).withValues(alpha: 0.08),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    _NavTab(
+                      icon: Icons.home_rounded,
+                      label: 'Inicio',
+                      selected: selectedIndex == 0,
+                      onTap: () => onTap(0),
+                    ),
+                    _NavTab(
+                      icon: Icons.description_rounded,
+                      label: 'Docs',
+                      selected: selectedIndex == 1,
+                      onTap: () => onTap(1),
+                    ),
+                    // Hueco central donde se posa el FAB "+".
+                    const SizedBox(width: 64),
+                    _NavTab(
+                      icon: Icons.pie_chart_rounded,
+                      label: 'Reportes',
+                      selected: selectedIndex == 2,
+                      onTap: () => onTap(2),
+                    ),
+                    _NavTab(
+                      icon: Icons.tune_rounded,
+                      label: 'Menú',
+                      selected: selectedIndex == 3,
+                      onTap: () => onTap(3),
+                    ),
+                  ],
+                ),
+              ),
+              // FAB central elevado.
+              Positioned(
+                top: 0,
+                child: _CreateFab(onTap: onCreate),
               ),
             ],
-          ),
-          child: Row(
-            children: List.generate(items.length, (index) {
-              final icon = items[index].$1;
-              final label = items[index].$2;
-              final isSelected = selectedIndex == index;
-
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => onTap(index),
-                  child: AnimatedContainer(
-                    duration: 260.ms,
-                    curve: Curves.easeOutCubic,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      color: isSelected
-                          ? AppColors.primary.withValues(alpha: 0.12)
-                          : null,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          icon,
-                          color: isSelected
-                              ? AppColors.primary
-                              : AppColors.textSecondary,
-                          size: 23,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.fade,
-                          style: TextStyle(
-                            fontFamily: 'Avenir Next',
-                            fontSize: 11,
-                            fontWeight: isSelected
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                            color: isSelected
-                                ? AppColors.textPrimary
-                                : AppColors.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            }),
           ),
         ),
       ),
@@ -219,25 +195,82 @@ class BottomDock extends StatelessWidget {
   }
 }
 
-class PrimaryFlowCta extends StatelessWidget {
+class _NavTab extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
   final VoidCallback onTap;
 
-  const PrimaryFlowCta({super.key, required this.onTap});
+  const _NavTab({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? AppColors.primary : AppColors.textMuted;
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 23),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.fade,
+              softWrap: false,
+              style: TextStyle(
+                fontFamily: 'Avenir Next',
+                fontSize: 11,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: selected ? AppColors.textPrimary : AppColors.textMuted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CreateFab extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _CreateFab({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Crear documento en un minuto',
-      child: ElevatedButton.icon(
-        onPressed: onTap,
-        icon: const Icon(Icons.bolt_rounded),
-        label: const Text('Crear Documento en 1 Minuto'),
-        style: ElevatedButton.styleFrom(
-          minimumSize: const Size.fromHeight(54),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+      label: 'Crear comprobante',
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppColors.heroGradientStart, AppColors.heroGradientEnd],
+            ),
+            border: Border.all(color: Colors.white, width: 4),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.40),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
+          child: const Icon(Icons.add_rounded, color: Colors.white, size: 30),
         ),
       ),
     );

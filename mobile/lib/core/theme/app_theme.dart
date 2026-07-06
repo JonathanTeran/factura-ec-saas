@@ -1,32 +1,34 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Dirección "Editorial / Documento": papel + tinta, con UN azul profundo de
-  // la bandera como acento usado con moderación (nada de degradados).
-  static const Color primary = Color(0xFF0653C6); // azul bandera
-  static const Color primaryLight = Color(0xFF4C86E0);
-  static const Color primaryDark = Color(0xFF06429C);
-  static const Color secondary = Color(0xFF33415C); // pizarra tinta
-  static const Color secondaryLight = Color(0xFF5A6A85);
-  static const Color secondaryDark = Color(0xFF232E44);
+  // Dirección "Wallet": fondo blanco/limpio, azul de marca vivo, tarjetas
+  // redondeadas con degradados suaves y sombras sutiles.
+  static const Color primary = Color(0xFF2B54E4); // azul vivo (marca)
+  static const Color primaryLight = Color(0xFF6E8CFF);
+  static const Color primaryDark = Color(0xFF1E3AA8);
+  static const Color secondary = Color(0xFF6366F1); // índigo complementario
+  static const Color secondaryLight = Color(0xFF9CA3F5);
+  static const Color secondaryDark = Color(0xFF4338CA);
 
-  // Papel cálido + tarjetas blancas nítidas (documentos sobre un escritorio).
-  static const Color background = Color(0xFFF6F4EE);
+  // Degradado del "balance card" (hero).
+  static const Color heroGradientStart = Color(0xFF5C7BFF);
+  static const Color heroGradientEnd = Color(0xFF2743C9);
+
+  static const Color background = Color(0xFFF5F6FA); // gris azulado muy claro
   static const Color backgroundDark = Color(0xFFFFFFFF); // texto sobre acento
   static const Color surface = Color(0xFFFFFFFF);
-  static const Color surfaceDark = Color(0xFFEFECE3); // relleno de inputs/chips
-  static const Color surfaceRaised = Color(0xFFE6E2D6); // base del shimmer
+  static const Color surfaceDark = Color(0xFFEEF1F8); // relleno de inputs/chips
+  static const Color surfaceRaised = Color(0xFFE4E8F2); // base del shimmer
 
-  // Tinta cálida en vez de negro puro; grises con leve calidez.
-  static const Color textPrimary = Color(0xFF1B1A17);
-  static const Color textSecondary = Color(0xFF5C564C);
-  static const Color textMuted = Color(0xFF948C7E);
-  static const Color border = Color(0xFFE4DFD3); // hairline cálido
+  static const Color textPrimary = Color(0xFF141726);
+  static const Color textSecondary = Color(0xFF6B7280);
+  static const Color textMuted = Color(0xFF9AA1B0);
+  static const Color border = Color(0xFFECEEF4);
 
-  static const Color success = Color(0xFF2F7D45);
-  static const Color warning = Color(0xFFB07515);
-  static const Color error = Color(0xFFBC3B2E);
-  static const Color info = Color(0xFF0653C6);
+  static const Color success = Color(0xFF16A34A);
+  static const Color warning = Color(0xFFF59E0B);
+  static const Color error = Color(0xFFEF4444);
+  static const Color info = Color(0xFF2B54E4);
 }
 
 /// Transición de página fluida (fade + leve deslizamiento) para toda la app.
@@ -64,7 +66,7 @@ class FluidPageTransitionsBuilder extends PageTransitionsBuilder {
 }
 
 class AppTheme {
-  static const _radiusMd = 12.0;
+  static const _radiusMd = 16.0;
 
   static TextTheme _textTheme(Color body, Color muted) {
     return TextTheme(
