@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass_panel.dart';
+import '../../core/widgets/ui_kit.dart';
 import '../../data/models/api_exception.dart';
 import '../../core/widgets/loading_widget.dart';
 import '../../core/widgets/metric_card.dart';
@@ -36,6 +37,10 @@ class ReportsScreen extends ConsumerWidget {
       error: (error, _) =>
           isOfflineError(error) ? AppDataState.offline : AppDataState.error,
     );
+
+    if (state == AppDataState.loading) {
+      return const _ReportsSkeleton();
+    }
 
     if (state != AppDataState.ready) {
       return ModuleStateView(
@@ -441,6 +446,59 @@ class _ReportsLockedView extends StatelessWidget {
               ),
             ),
             const Spacer(flex: 2),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Skeleton de Reportes: encabezado + filtros + métricas + panel de gráfico.
+class _ReportsSkeleton extends StatelessWidget {
+  const _ReportsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Skeleton(width: 160, height: 26, radius: 8),
+                      SizedBox(height: 10),
+                      Skeleton(width: 210, height: 12),
+                    ],
+                  ),
+                ),
+                Skeleton.circle(size: 44),
+              ],
+            ),
+            SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(child: Skeleton(height: 44, radius: 14)),
+                SizedBox(width: 8),
+                Expanded(child: Skeleton(height: 44, radius: 14)),
+              ],
+            ),
+            SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: Skeleton(height: 110, radius: 18)),
+                SizedBox(width: 10),
+                Expanded(child: Skeleton(height: 110, radius: 18)),
+              ],
+            ),
+            SizedBox(height: 12),
+            Skeleton(height: 340, radius: 20),
           ],
         ),
       ),

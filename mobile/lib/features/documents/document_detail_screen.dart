@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../core/api/v1_api_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass_panel.dart';
+import '../../core/widgets/ui_kit.dart';
 import '../../data/providers/auth_provider.dart';
 import '../../data/providers/document_provider.dart';
 
@@ -54,7 +55,7 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
 
     return SafeArea(
       child: asyncDocument.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const _DocumentDetailSkeleton(),
         error: (error, _) => _ErrorState(
           message: error is ApiException ? error.message : error.toString(),
           onRetry: () => ref.invalidate(documentDetailProvider(_id)),
@@ -639,6 +640,48 @@ class _ErrorState extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Skeleton del detalle de documento: encabezado + total + datos + ítems.
+class _DocumentDetailSkeleton extends StatelessWidget {
+  const _DocumentDetailSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+      children: const [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Skeleton(width: 120, height: 12),
+                  SizedBox(height: 8),
+                  Skeleton(width: 200, height: 24, radius: 8),
+                ],
+              ),
+            ),
+            Skeleton(width: 90, height: 28, radius: 14),
+          ],
+        ),
+        SizedBox(height: 18),
+        Skeleton(height: 110, radius: 20),
+        SizedBox(height: 14),
+        Skeleton(height: 130, radius: 20),
+        SizedBox(height: 18),
+        Skeleton(width: 140, height: 16),
+        SizedBox(height: 10),
+        Skeleton(height: 64, radius: 16),
+        SizedBox(height: 10),
+        Skeleton(height: 64, radius: 16),
+        SizedBox(height: 18),
+        Skeleton(height: 52, radius: 16),
+      ],
     );
   }
 }
