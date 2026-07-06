@@ -1082,6 +1082,57 @@ class V1ApiService {
     });
   }
 
+  /// URL temporal (30 min) del RIDE (PDF) del documento. Para borradores/en
+  /// proceso devuelve una vista previa con marca de agua; para finales, el
+  /// definitivo. Se abre en el navegador para ver/compartir/guardar.
+  Future<DocumentFileLink> documentRide(int documentId) async {
+    return _guard(() async {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '${ApiConstants.documents}/$documentId/ride',
+      );
+      final data = _payloadMapFromResponse(response);
+      return DocumentFileLink.fromJson(data, fallbackName: 'documento.pdf');
+    });
+  }
+
+  /// URL temporal del XML firmado. Solo existe cuando el documento ya fue
+  /// firmado/enviado (el backend responde 400 si no está disponible).
+  Future<DocumentFileLink> documentXml(int documentId) async {
+    return _guard(() async {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '${ApiConstants.documents}/$documentId/xml',
+      );
+      final data = _payloadMapFromResponse(response);
+      return DocumentFileLink.fromJson(data, fallbackName: 'documento.xml');
+    });
+  }
+
+  /// Reenvía el comprobante autorizado por correo. Si [email] es null usa el
+  /// del cliente registrado en el documento.
+  Future<String> resendDocumentEmail(int documentId, {String? email}) async {
+    return _guard(() async {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '${ApiConstants.documents}/$documentId/resend-email',
+        data: {if (email != null && email.isNotEmpty) 'email': email},
+      );
+      final body = _bodyFromResponse(response);
+      return stringFrom(body['message'], fallback: 'Documento enviado.');
+    });
+  }
+
+  /// Marca un documento autorizado como anulado (control interno; en Ecuador la
+  /// anulación real se hace con una Nota de Crédito).
+  Future<ApiDocument> voidDocument(int documentId, String reason) async {
+    return _guard(() async {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '${ApiConstants.documents}/$documentId/void',
+        data: {'reason': reason},
+      );
+      final data = _payloadMapFromResponse(response);
+      return ApiDocument.fromJson(mapFrom(data['document']));
+    });
+  }
+
   // ───────── SUPPLIERS ─────────
 
   Future<PaginatedResult<ApiSupplier>> suppliers({

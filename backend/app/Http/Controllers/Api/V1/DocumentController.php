@@ -73,7 +73,8 @@ class DocumentController extends ApiController
                 $q->where('access_key', 'like', "%{$search}%")
                     ->orWhere('document_number', 'like', "%{$search}%")
                     ->orWhereHas('customer', function ($q) use ($search) {
-                        $q->where('name', 'like', "%{$search}%");
+                        $q->where('name', 'like', "%{$search}%")
+                            ->orWhere('identification', 'like', "%{$search}%");
                     });
             });
         }

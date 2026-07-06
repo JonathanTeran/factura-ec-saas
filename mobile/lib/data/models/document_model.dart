@@ -269,3 +269,21 @@ class ApiDocumentStatus {
     );
   }
 }
+
+/// Enlace temporal a un archivo del documento (RIDE/PDF o XML firmado).
+class DocumentFileLink {
+  final String url;
+  final String filename;
+
+  const DocumentFileLink({required this.url, required this.filename});
+
+  factory DocumentFileLink.fromJson(
+    Map<String, dynamic> json, {
+    required String fallbackName,
+  }) {
+    return DocumentFileLink(
+      url: stringFrom(json['url']),
+      filename: stringFrom(json['filename'], fallback: fallbackName),
+    );
+  }
+}

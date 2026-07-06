@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/v1_api_service.dart';
 import '../../core/theme/app_theme.dart';
@@ -102,6 +103,8 @@ class _DocumentDetailBody extends StatelessWidget {
           _ItemsCard(items: document.items),
           const SizedBox(height: 14),
           _TotalsCard(document: document),
+          const SizedBox(height: 14),
+          _DocumentActions(document: document),
           const SizedBox(height: 20),
           if (_canSend)
             SizedBox(
@@ -638,6 +641,309 @@ class _ErrorState extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Acciones sobre el documento (como en la web): ver/descargar el PDF (RIDE),
+/// XML firmado, reenviar por correo, consultar estado en el SRI y anular.
+class _DocumentActions extends ConsumerStatefulWidget {
+  final ApiDocumentDetail document;
+
+  const _DocumentActions({required this.document});
+
+  @override
+  ConsumerState<_DocumentActions> createState() => _DocumentActionsState();
+}
+
+class _DocumentActionsState extends ConsumerState<_DocumentActions> {
+  // Identificador de la acción en curso, para mostrar el spinner en su botón.
+  String? _busy;
+
+  ApiDocumentDetail get _doc => widget.document;
+  bool get _isDraft => _doc.status == 'draft';
+  bool get _isAuthorized => _doc.status == 'authorized';
+  bool get _isRejected => _doc.status == 'rejected';
+  bool get _isVoided => _doc.status == 'voided';
+  bool get _isFailed => _doc.status == 'failed';
+  // "En proceso": enviado pero aún sin resolución del SRI.
+  bool get _isProcessing =>
+      !_isDraft && !_isAuthorized && !_isRejected && !_isVoided && !_isFailed;
+
+  V1ApiService get _api => ref.read(v1ApiServiceProvider);
+
+  void _snack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _openFile(
+    String kind,
+    Future<DocumentFileLink> Function() fetch,
+  ) async {
+    if (_busy != null) return;
+    setState(() => _busy = kind);
+    _snack('Preparando archivo…');
+    try {
+      final link = await fetch();
+      if (link.url.isEmpty) {
+        throw ApiException('No se recibió el enlace del archivo.');
+      }
+      final ok = await launchUrl(
+        Uri.parse(link.url),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!ok) _snack('No se pudo abrir ${link.filename}.');
+    } on ApiException catch (error) {
+      _snack(error.message);
+    } catch (error) {
+      _snack(error.toString());
+    } finally {
+      if (mounted) setState(() => _busy = null);
+    }
+  }
+
+  Future<void> _checkStatus() async {
+    if (_busy != null) return;
+    setState(() => _busy = 'status');
+    try {
+      final status = await _api.checkDocumentStatus(_doc.id);
+      ref.invalidate(documentDetailProvider(_doc.id));
+      ref.invalidate(sentDocumentsProvider);
+      _snack('Estado en el SRI: ${status.statusLabel}');
+    } on ApiException catch (error) {
+      _snack(error.message);
+    } catch (error) {
+      _snack(error.toString());
+    } finally {
+      if (mounted) setState(() => _busy = null);
+    }
+  }
+
+  Future<void> _resendEmail() async {
+    final controller = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reenviar por correo'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Se enviará el comprobante autorizado (PDF y XML). '
+              'Dejá el campo vacío para usar el correo del cliente.',
+              style: TextStyle(fontFamily: 'Avenir Next', fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: 'Correo (opcional)',
+                hintText: 'cliente@correo.com',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Enviar'),
+          ),
+        ],
+      ),
+    );
+    final email = controller.text.trim();
+    controller.dispose();
+    if (confirmed != true) return;
+
+    setState(() => _busy = 'email');
+    try {
+      final message = await _api.resendDocumentEmail(
+        _doc.id,
+        email: email.isEmpty ? null : email,
+      );
+      _snack(message);
+    } on ApiException catch (error) {
+      _snack(error.message);
+    } catch (error) {
+      _snack(error.toString());
+    } finally {
+      if (mounted) setState(() => _busy = null);
+    }
+  }
+
+  Future<void> _void() async {
+    final controller = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Anular documento'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'En Ecuador la anulación real se hace emitiendo una Nota de '
+              'Crédito. Esto marca el documento como anulado en tu registro.',
+              style: TextStyle(fontFamily: 'Avenir Next', fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              maxLength: 300,
+              decoration: const InputDecoration(labelText: 'Motivo'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Anular'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (reason == null || reason.isEmpty) return;
+
+    setState(() => _busy = 'void');
+    try {
+      await _api.voidDocument(_doc.id, reason);
+      ref.invalidate(documentDetailProvider(_doc.id));
+      ref.invalidate(sentDocumentsProvider);
+      _snack('Documento marcado como anulado.');
+    } on ApiException catch (error) {
+      _snack(error.message);
+    } catch (error) {
+      _snack(error.toString());
+    } finally {
+      if (mounted) setState(() => _busy = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionTitle('Acciones'),
+          const SizedBox(height: 12),
+          // El RIDE (PDF) está siempre disponible: definitivo si ya está
+          // autorizado/rechazado, o una vista previa con marca de agua si no.
+          _ActionButton(
+            icon: Icons.picture_as_pdf_rounded,
+            label: _isDraft ? 'Ver PDF (borrador)' : 'Ver / descargar PDF',
+            loading: _busy == 'pdf',
+            primary: true,
+            onTap: () => _openFile('pdf', () => _api.documentRide(_doc.id)),
+          ),
+          if (!_isDraft) ...[
+            const SizedBox(height: 10),
+            _ActionButton(
+              icon: Icons.code_rounded,
+              label: 'Descargar XML firmado',
+              loading: _busy == 'xml',
+              onTap: () => _openFile('xml', () => _api.documentXml(_doc.id)),
+            ),
+          ],
+          if (_isProcessing) ...[
+            const SizedBox(height: 10),
+            _ActionButton(
+              icon: Icons.sync_rounded,
+              label: 'Consultar estado en el SRI',
+              loading: _busy == 'status',
+              onTap: _checkStatus,
+            ),
+          ],
+          if (_isAuthorized) ...[
+            const SizedBox(height: 10),
+            _ActionButton(
+              icon: Icons.mail_outline_rounded,
+              label: 'Reenviar por correo',
+              loading: _busy == 'email',
+              onTap: _resendEmail,
+            ),
+            const SizedBox(height: 10),
+            _ActionButton(
+              icon: Icons.block_rounded,
+              label: 'Anular documento',
+              loading: _busy == 'void',
+              danger: true,
+              onTap: _void,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Botón de acción del detalle: full-width, con estado de carga por acción.
+class _ActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool loading;
+  final bool primary;
+  final bool danger;
+  final VoidCallback onTap;
+
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.loading,
+    required this.onTap,
+    this.primary = false,
+    this.danger = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = danger ? AppColors.error : AppColors.primary;
+    final spinner = SizedBox(
+      width: 18,
+      height: 18,
+      child: CircularProgressIndicator(
+        strokeWidth: 2,
+        color: primary ? Colors.white : color,
+      ),
+    );
+
+    if (primary) {
+      return SizedBox(
+        height: 50,
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: loading ? null : onTap,
+          icon: loading ? spinner : Icon(icon),
+          label: Text(label),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 48,
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: loading ? null : onTap,
+        icon: loading ? spinner : Icon(icon, color: color),
+        label: Text(label),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: color,
+          side: BorderSide(color: color.withValues(alpha: 0.5)),
         ),
       ),
     );
