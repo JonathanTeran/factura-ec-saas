@@ -39,6 +39,21 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
   final TextEditingController _tipCtrl = TextEditingController(text: '0');
   final TextEditingController _termCtrl = TextEditingController(text: '0');
 
+  // Solo para Nota de Crédito (04) / Nota de Débito (05).
+  final TextEditingController _reasonCtrl = TextEditingController();
+  int? _referenceDocumentId;
+  List<ApiDocument> _referenceDocs = const [];
+
+  bool get _needsReference => _selectedType == '04' || _selectedType == '05';
+
+  String get _docTypeLabel => switch (_selectedType) {
+    '03' => 'Liquidación de compra',
+    '04' => 'Nota de crédito',
+    '05' => 'Nota de débito',
+    '07' => 'Retención',
+    _ => 'Nueva factura',
+  };
+
   List<ApiCompany> _companies = const [];
   List<ApiEmissionPoint> _emissionPoints = const [];
   List<ApiCustomer> _customers = const [];
@@ -61,6 +76,7 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
   void dispose() {
     _tipCtrl.dispose();
     _termCtrl.dispose();
+    _reasonCtrl.dispose();
     super.dispose();
   }
 
@@ -274,6 +290,14 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
       setState(() => _errorText = 'Agregá al menos un producto.');
       return null;
     }
+    if (_needsReference &&
+        (_referenceDocumentId == null || _reasonCtrl.text.trim().isEmpty)) {
+      setState(
+        () => _errorText =
+            'Elegí la factura a modificar y escribí el motivo.',
+      );
+      return null;
+    }
 
     setState(() {
       _submitting = true;
@@ -294,6 +318,12 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
               paymentTerm: term,
               tip: _tip < 0 ? 0 : _tip,
               additionalInfo: _additional,
+              referenceDocumentId: _needsReference
+                  ? _referenceDocumentId
+                  : null,
+              modificationReason: _needsReference
+                  ? _reasonCtrl.text.trim()
+                  : null,
             ),
           );
       _invalidateData();
@@ -756,6 +786,193 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
     if (selected != null) setState(() => _customerId = selected);
   }
 
+  ApiDocument? get _selectedReferenceDoc {
+    if (_referenceDocumentId == null) return null;
+    for (final d in _referenceDocs) {
+      if (d.id == _referenceDocumentId) return d;
+    }
+    return null;
+  }
+
+  Widget _referenceCard() {
+    final d = _selectedReferenceDoc;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _openReferenceSearch,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceDark,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.description_outlined,
+                color: AppColors.textMuted,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: d == null
+                    ? const Text(
+                        'Elegí la factura a modificar',
+                        style: TextStyle(
+                          fontFamily: 'Avenir Next',
+                          color: AppColors.textMuted,
+                        ),
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            d.documentNumber,
+                            style: const TextStyle(
+                              fontFamily: 'Avenir Next',
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${d.issuer} · ${currency(d.total)}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: 'Avenir Next',
+                              color: AppColors.textSecondary,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+              const Icon(Icons.search_rounded, color: AppColors.primary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openReferenceSearch() async {
+    // Carga las facturas la primera vez.
+    if (_referenceDocs.isEmpty) {
+      setState(() {
+        _submitting = true;
+        _errorText = null;
+      });
+      try {
+        final page = await ref
+            .read(v1ApiServiceProvider)
+            .documents(documentType: '01', perPage: 50);
+        _referenceDocs = page.items;
+      } catch (_) {
+        // El sheet mostrará "sin resultados".
+      } finally {
+        if (mounted) setState(() => _submitting = false);
+      }
+    }
+    if (!mounted) return;
+
+    final controller = TextEditingController();
+    final selected = await showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: SizedBox(
+          height:
+              (MediaQuery.of(ctx).size.height * 0.85 -
+                      MediaQuery.of(ctx).viewInsets.bottom)
+                  .clamp(240.0, MediaQuery.of(ctx).size.height * 0.85),
+          child: StatefulBuilder(
+            builder: (ctx, setSheet) {
+              final query = controller.text.trim().toLowerCase();
+              final filtered = query.isEmpty
+                  ? _referenceDocs
+                  : _referenceDocs
+                        .where(
+                          (d) =>
+                              d.documentNumber.toLowerCase().contains(query) ||
+                              d.issuer.toLowerCase().contains(query),
+                        )
+                        .toList();
+              return Column(
+                children: [
+                  const SizedBox(height: 12),
+                  _sheetHandle(),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    child: TextField(
+                      controller: controller,
+                      autofocus: true,
+                      onChanged: (_) => setSheet(() {}),
+                      decoration: const InputDecoration(
+                        hintText: 'Buscar factura por número o cliente',
+                        prefixIcon: Icon(Icons.search_rounded),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: filtered.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'Sin facturas para referenciar',
+                              style: TextStyle(
+                                fontFamily: 'Avenir Next',
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: filtered.length,
+                            itemBuilder: (ctx, i) {
+                              final d = filtered[i];
+                              return ListTile(
+                                leading: const Icon(
+                                  Icons.description_outlined,
+                                  color: AppColors.textMuted,
+                                ),
+                                title: Text(
+                                  d.documentNumber,
+                                  style: const TextStyle(
+                                    fontFamily: 'Avenir Next',
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  '${d.issuer} · ${currency(d.total)}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontFamily: 'Avenir Next',
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                                onTap: () => Navigator.pop(ctx, d.id),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    controller.dispose();
+    if (selected != null) setState(() => _referenceDocumentId = selected);
+  }
+
   Future<void> _openAddProductSheet() async {
     if (_products.isEmpty) return;
     var selected = _products.first;
@@ -1166,13 +1383,30 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
                 DropdownMenuItem(value: '01', child: Text('Factura')),
                 DropdownMenuItem(value: '04', child: Text('Nota de crédito')),
                 DropdownMenuItem(value: '05', child: Text('Nota de débito')),
-                DropdownMenuItem(value: '07', child: Text('Retención')),
+                DropdownMenuItem(
+                  value: '03',
+                  child: Text('Liquidación de compra'),
+                ),
               ],
               onChanged: (value) => setState(() {
                 _selectedType = value ?? '01';
               }),
             ),
             const SizedBox(height: 10),
+            // Nota de Crédito / Débito: documento de referencia + motivo.
+            if (_needsReference) ...[
+              _sectionTitle('Documento que modifica'),
+              const SizedBox(height: 8),
+              _referenceCard(),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _reasonCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Motivo de la modificación',
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
             // Empresa y punto de emisión solo se muestran si hay más de una
             // opción; con una sola quedan preseleccionados y no estorban.
             if (_companies.length > 1) ...[
@@ -1398,8 +1632,8 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             PageHeader(
-              title: 'Flujo rápido',
-              subtitle: 'Inicio > Crear > Validar SRI > Compartir',
+              title: _docTypeLabel,
+              subtitle: 'Crear > Validar SRI > Compartir',
               trailing: IconButton.filledTonal(
                 tooltip: 'Volver a documentos',
                 onPressed: () => context.go('/documents'),

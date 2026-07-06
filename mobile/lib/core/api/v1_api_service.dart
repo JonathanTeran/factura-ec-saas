@@ -110,6 +110,11 @@ class CreateInvoiceInput {
   final double tip;
   final List<({String name, String value})> additionalInfo;
 
+  /// Solo para Nota de Crédito (04) y Nota de Débito (05): documento que se
+  /// modifica y el motivo.
+  final int? referenceDocumentId;
+  final String? modificationReason;
+
   const CreateInvoiceInput({
     required this.companyId,
     required this.customerId,
@@ -120,6 +125,8 @@ class CreateInvoiceInput {
     this.paymentTerm = 0,
     this.tip = 0,
     this.additionalInfo = const [],
+    this.referenceDocumentId,
+    this.modificationReason,
   });
 }
 
@@ -707,6 +714,11 @@ class V1ApiService {
             .map((e) => {'name': e.name, 'value': e.value})
             .toList(),
         'items': items,
+        if (input.referenceDocumentId != null)
+          'reference_document_id': input.referenceDocumentId,
+        if (input.modificationReason != null &&
+            input.modificationReason!.trim().isNotEmpty)
+          'modification_reason': input.modificationReason!.trim(),
       };
 
       final response = await _apiClient.post<Map<String, dynamic>>(
