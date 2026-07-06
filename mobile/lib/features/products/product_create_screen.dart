@@ -5,12 +5,16 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../core/widgets/page_header.dart';
+import '../../data/models/product_model.dart';
 import '../../data/providers/auth_provider.dart';
 import '../../data/providers/product_provider.dart';
 
-/// Form to create a new product or service against the real backend.
+/// Form to create or edit a product/service against the real backend.
 class ProductCreateScreen extends ConsumerStatefulWidget {
-  const ProductCreateScreen({super.key});
+  /// Cuando viene un producto, la pantalla entra en modo edición.
+  final ApiProduct? product;
+
+  const ProductCreateScreen({super.key, this.product});
 
   @override
   ConsumerState<ProductCreateScreen> createState() =>
@@ -27,8 +31,26 @@ class _ProductCreateScreenState extends ConsumerState<ProductCreateScreen> {
   // SRI tax rate options: 0%, 15% (current Ecuador IVA).
   double _taxRate = 15;
   bool _trackInventory = false;
+  bool _isActive = true;
   bool _submitting = false;
   String? _errorText;
+
+  bool get _isEdit => widget.product != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final p = widget.product;
+    if (p != null) {
+      _codeCtrl.text = p.code;
+      _nameCtrl.text = p.name;
+      _priceCtrl.text = p.unitPrice.toStringAsFixed(2);
+      _type = p.type == 'service' ? 'service' : 'product';
+      _taxRate = p.taxRate <= 0 ? 0 : 15;
+      _trackInventory = p.trackInventory;
+      _isActive = p.isActive;
+    }
+  }
 
   @override
   void dispose() {
@@ -63,7 +85,7 @@ class _ProductCreateScreenState extends ConsumerState<ProductCreateScreen> {
     });
 
     try {
-      await ref.read(v1ApiServiceProvider).createProduct({
+      final data = <String, dynamic>{
         'code': _codeCtrl.text.trim(),
         'name': _nameCtrl.text.trim(),
         'type': _type,
@@ -72,14 +94,25 @@ class _ProductCreateScreenState extends ConsumerState<ProductCreateScreen> {
         'tax_percentage_code': _taxPercentageCode(_taxRate),
         'tax_rate': _taxRate,
         'track_inventory': _trackInventory,
-        'is_active': true,
-      });
+        'is_active': _isActive,
+      };
+
+      final api = ref.read(v1ApiServiceProvider);
+      if (_isEdit) {
+        await api.updateProduct(widget.product!.id, data);
+      } else {
+        await api.createProduct(data);
+      }
 
       ref.invalidate(productsProvider);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Producto creado correctamente.')),
+        SnackBar(
+          content: Text(
+            _isEdit ? 'Producto actualizado.' : 'Producto creado correctamente.',
+          ),
+        ),
       );
       context.pop();
     } catch (error) {
@@ -88,6 +121,54 @@ class _ProductCreateScreenState extends ConsumerState<ProductCreateScreen> {
       if (mounted) {
         setState(() => _submitting = false);
       }
+    }
+  }
+
+  Future<void> _delete() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Eliminar producto?'),
+        content: Text(
+          'Se eliminará "${widget.product!.name}". Esta acción no se puede '
+          'deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    setState(() {
+      _submitting = true;
+      _errorText = null;
+    });
+    try {
+      await ref.read(v1ApiServiceProvider).deleteProduct(widget.product!.id);
+      ref.invalidate(productsProvider);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Producto eliminado.')),
+      );
+      context.pop();
+    } catch (error) {
+      // El backend puede impedir borrar productos con documentos asociados.
+      setState(
+        () => _errorText =
+            'No se pudo eliminar. Si el producto ya se usó en documentos, '
+            'desactivalo en vez de eliminarlo.',
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
@@ -100,8 +181,10 @@ class _ProductCreateScreenState extends ConsumerState<ProductCreateScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             PageHeader(
-              title: 'Nuevo producto',
-              subtitle: 'Registra un producto o servicio',
+              title: _isEdit ? 'Editar producto' : 'Nuevo producto',
+              subtitle: _isEdit
+                  ? 'Modificá, desactivá o eliminá'
+                  : 'Registra un producto o servicio',
               trailing: IconButton.filledTonal(
                 tooltip: 'Cancelar',
                 onPressed: () => context.pop(),
@@ -197,6 +280,28 @@ class _ProductCreateScreenState extends ConsumerState<ProductCreateScreen> {
                           onChanged: (value) =>
                               setState(() => _trackInventory = value),
                         ),
+                        SwitchListTile.adaptive(
+                          value: _isActive,
+                          contentPadding: EdgeInsets.zero,
+                          activeThumbColor: AppColors.primary,
+                          title: const Text(
+                            'Activo',
+                            style: TextStyle(
+                              fontFamily: 'Avenir Next',
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          subtitle: const Text(
+                            'Si lo desactivás, no aparece al crear documentos.',
+                            style: TextStyle(
+                              fontFamily: 'Avenir Next',
+                              color: AppColors.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                          onChanged: (value) =>
+                              setState(() => _isActive = value),
+                        ),
                         if (_errorText != null) ...[
                           const SizedBox(height: 12),
                           Text(
@@ -226,12 +331,32 @@ class _ProductCreateScreenState extends ConsumerState<ProductCreateScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.save_rounded),
-                label: Text(_submitting ? 'Guardando...' : 'Guardar producto'),
+                label: Text(
+                  _submitting
+                      ? 'Guardando...'
+                      : (_isEdit ? 'Guardar cambios' : 'Guardar producto'),
+                ),
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size.fromHeight(52),
                 ),
               ),
             ),
+            if (_isEdit) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _submitting ? null : _delete,
+                  icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                  label: const Text('Eliminar producto'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.error,
+                    side: const BorderSide(color: AppColors.error),
+                    minimumSize: const Size.fromHeight(50),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

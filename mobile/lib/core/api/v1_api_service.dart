@@ -695,6 +695,25 @@ class V1ApiService {
     });
   }
 
+  Future<ApiProduct> updateProduct(int id, Map<String, dynamic> data) async {
+    return _guard(() async {
+      final response = await _apiClient.put<Map<String, dynamic>>(
+        '${ApiConstants.products}/$id',
+        data: data,
+      );
+      final payload = _payloadMapFromResponse(response);
+      return ApiProduct.fromJson(mapFrom(payload['product']));
+    });
+  }
+
+  Future<void> deleteProduct(int id) async {
+    return _guard(() async {
+      await _apiClient.delete<Map<String, dynamic>>(
+        '${ApiConstants.products}/$id',
+      );
+    });
+  }
+
   Future<ReportsDashboardStats> reportsDashboard() async {
     return _guard(() async {
       final response = await _apiClient.get<Map<String, dynamic>>(

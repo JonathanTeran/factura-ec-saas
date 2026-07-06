@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -113,13 +114,27 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
             PageHeader(
               title: 'Facturación',
               subtitle: 'Plan, suscripción y pagos',
-              trailing: IconButton.filledTonal(
-                onPressed: () {
-                  ref.invalidate(currentSubscriptionProvider);
-                  ref.invalidate(plansProvider);
-                  ref.invalidate(bankAccountsProvider);
-                },
-                icon: const Icon(Icons.refresh_rounded),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton.filledTonal(
+                    tooltip: 'Actualizar',
+                    onPressed: () {
+                      ref.invalidate(currentSubscriptionProvider);
+                      ref.invalidate(plansProvider);
+                      ref.invalidate(bankAccountsProvider);
+                    },
+                    icon: const Icon(Icons.refresh_rounded),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filledTonal(
+                    tooltip: 'Volver',
+                    onPressed: () => context.canPop()
+                        ? context.pop()
+                        : context.go('/settings'),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 16),

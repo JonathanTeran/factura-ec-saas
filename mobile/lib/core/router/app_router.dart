@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/widgets/app_scaffold.dart';
 import '../../core/widgets/error_widget.dart';
+import '../../data/models/product_model.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/forgot_password_screen.dart';
 import '../../features/auth/register_screen.dart';
@@ -111,6 +112,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: 'new',
                 name: 'new-product',
                 builder: (context, state) => const ProductCreateScreen(),
+              ),
+              GoRoute(
+                path: 'edit',
+                name: 'edit-product',
+                builder: (context, state) =>
+                    ProductCreateScreen(product: state.extra as ApiProduct?),
               ),
             ],
           ),

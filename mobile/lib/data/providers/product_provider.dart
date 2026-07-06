@@ -6,5 +6,9 @@ import 'auth_provider.dart';
 final productsProvider = FutureProvider<PaginatedResult<ApiProduct>>((
   ref,
 ) async {
-  return ref.read(v1ApiServiceProvider).products(perPage: 50);
+  // La lista de gestión incluye inactivos (para editarlos/reactivarlos);
+  // el flujo de facturación pide solo activos por separado.
+  return ref
+      .read(v1ApiServiceProvider)
+      .products(perPage: 50, activeOnly: false);
 });

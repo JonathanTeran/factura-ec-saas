@@ -61,15 +61,25 @@ class ProductsScreen extends ConsumerWidget {
               child: Column(
                 children: [
                   for (var i = 0; i < products.length; i++) ...[
-                    EntityRow(
-                      icon: products[i].trackInventory
-                          ? Icons.verified_user_rounded
-                          : Icons.inventory_2_rounded,
-                      title: products[i].name,
-                      subtitle:
-                          '${products[i].typeLabel} · Código ${products[i].code}',
-                      trailing: currency(products[i].unitPrice),
-                      color: i.isEven ? AppColors.warning : AppColors.info,
+                    InkWell(
+                      onTap: () => context.push(
+                        '/products/edit',
+                        extra: products[i],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      child: EntityRow(
+                        icon: products[i].trackInventory
+                            ? Icons.verified_user_rounded
+                            : Icons.inventory_2_rounded,
+                        title: products[i].name,
+                        subtitle:
+                            '${products[i].typeLabel} · Código ${products[i].code}'
+                            '${products[i].isActive ? '' : ' · Inactivo'}',
+                        trailing: currency(products[i].unitPrice),
+                        color: products[i].isActive
+                            ? (i.isEven ? AppColors.warning : AppColors.info)
+                            : AppColors.textMuted,
+                      ),
                     ),
                     if (i < products.length - 1) ...[
                       const SizedBox(height: 12),
