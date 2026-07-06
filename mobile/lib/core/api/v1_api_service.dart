@@ -98,6 +98,20 @@ class RucLookupResult {
   });
 }
 
+/// Resultado de consultar el catastro del SRI por cédula (10) o RUC (13),
+/// usado para autocompletar clientes/proveedores.
+class SriIdentificationResult {
+  final String businessName;
+  final String? address;
+  final String? tradeName;
+
+  const SriIdentificationResult({
+    required this.businessName,
+    this.address,
+    this.tradeName,
+  });
+}
+
 class OnboardingCertInfo {
   final String subject;
   final int daysUntilExpiry;
@@ -943,6 +957,29 @@ class V1ApiService {
         regime: stringFrom(data['regime']),
         status: stringFrom(data['status']),
         establishments: establishments,
+      );
+    });
+  }
+
+  /// Consulta el catastro público del SRI por cédula (10 dígitos) o RUC (13).
+  /// Devuelve razón social y dirección de la matriz para autocompletar.
+  Future<SriIdentificationResult> lookupIdentification(
+    String identification,
+  ) async {
+    return _guard(() async {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '/sri/identification/$identification',
+      );
+      final data = _payloadMapFromResponse(response);
+      String? orNull(dynamic v) {
+        final s = stringFrom(v);
+        return s.isEmpty ? null : s;
+      }
+
+      return SriIdentificationResult(
+        businessName: stringFrom(data['business_name']),
+        address: orNull(data['address']),
+        tradeName: orNull(data['trade_name']),
       );
     });
   }
