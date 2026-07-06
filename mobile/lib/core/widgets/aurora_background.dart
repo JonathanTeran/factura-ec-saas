@@ -7,43 +7,9 @@ class AuroraBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFFFFF), Color(0xFFF4F7FB), Color(0xFFEAF0FA)],
-        ),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -120,
-            right: -80,
-            child: GlowOrb(
-              size: 260,
-              color: AppColors.primary.withValues(alpha: 0.17),
-            ),
-          ),
-          Positioned(
-            top: 180,
-            left: -120,
-            child: GlowOrb(
-              size: 280,
-              color: AppColors.secondary.withValues(alpha: 0.15),
-            ),
-          ),
-          Positioned(
-            bottom: -140,
-            right: -70,
-            child: GlowOrb(
-              size: 260,
-              color: AppColors.info.withValues(alpha: 0.16),
-            ),
-          ),
-        ],
-      ),
-    );
+    // Editorial: fondo papel plano y sobrio. Sin orbes ni degradados llamativos
+    // (eso es lo que daba el aire "de IA").
+    return const ColoredBox(color: AppColors.background);
   }
 }
 
