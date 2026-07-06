@@ -166,51 +166,34 @@ class DashboardScreen extends ConsumerWidget {
               onTap: () => context.go('/reports'),
             ),
             const SizedBox(height: 20),
-            const SectionHeader(title: 'Accesos rápidos', actionText: ''),
-            const SizedBox(height: 12),
-            // Mosaico de accesos tipo "wallet": tarjetas de color vivo con ícono
-            // y descriptor, para llegar en un toque a lo esencial.
-            GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 1.6,
-                  children: [
-                    _CategoryTile(
-                      icon: Icons.groups_rounded,
-                      label: 'Clientes',
-                      hint: 'Directorio',
-                      color: const Color(0xFF2B54E4),
-                      onTap: () => context.go('/customers'),
-                    ),
-                    _CategoryTile(
-                      icon: Icons.inventory_2_rounded,
-                      label: 'Productos',
-                      hint: 'Catálogo',
-                      color: const Color(0xFF6D5DF6),
-                      onTap: () => context.go('/products'),
-                    ),
-                    _CategoryTile(
-                      icon: Icons.point_of_sale_rounded,
-                      label: 'Cobrar',
-                      hint: 'Punto de venta',
-                      color: const Color(0xFFF7931A),
-                      onTap: () => context.go('/pos'),
-                    ),
-                    _CategoryTile(
-                      icon: Icons.insights_rounded,
-                      label: 'Reportes',
-                      hint: 'Ventas e IVA',
-                      color: const Color(0xFF12B76A),
-                      onTap: () => context.go('/reports'),
-                    ),
-                  ],
-                )
-                .animate()
-                .fadeIn(duration: 420.ms)
-                .slideY(begin: 0.1, duration: 420.ms),
+            // Accesos rápidos a lo que antes estaba escondido en el "Menú".
+            Row(
+              children: [
+                Expanded(
+                  child: _QuickAction(
+                    icon: Icons.people_outline_rounded,
+                    label: 'Clientes',
+                    onTap: () => context.go('/customers'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _QuickAction(
+                    icon: Icons.storefront_outlined,
+                    label: 'Productos',
+                    onTap: () => context.go('/products'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _QuickAction(
+                    icon: Icons.pie_chart_outline_rounded,
+                    label: 'Reportes',
+                    onTap: () => context.go('/reports'),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 20),
             SectionHeader(
               title: 'Visión rápida',
@@ -576,20 +559,16 @@ class _MiniDocumentCard extends StatelessWidget {
   }
 }
 
-/// Tarjeta de acceso rápido tipo "wallet": color vivo, ícono en un chip
-/// translúcido, título y descriptor. Un toque lleva a la sección.
-class _CategoryTile extends StatelessWidget {
+/// Botón de acceso rápido en el inicio: ícono grande + etiqueta, para llegar en
+/// un toque a secciones que antes estaban dentro del "Menú".
+class _QuickAction extends StatelessWidget {
   final IconData icon;
   final String label;
-  final String hint;
-  final Color color;
   final VoidCallback onTap;
 
-  const _CategoryTile({
+  const _QuickAction({
     required this.icon,
     required this.label,
-    required this.hint,
-    required this.color,
     required this.onTap,
   });
 
@@ -600,49 +579,18 @@ class _CategoryTile extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.all(15),
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.28),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
+        child: GlassPanel(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.22),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: Colors.white, size: 21),
-              ),
-              const Spacer(),
+              Icon(icon, color: AppColors.primaryLight, size: 26),
+              const SizedBox(height: 8),
               Text(
                 label,
                 style: const TextStyle(
                   fontFamily: 'Avenir Next',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 15,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 1),
-              Text(
-                hint,
-                style: TextStyle(
-                  fontFamily: 'Avenir Next',
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                  color: Colors.white.withValues(alpha: 0.82),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: AppColors.textPrimary,
                 ),
               ),
             ],
@@ -849,22 +797,14 @@ class _DashboardSkeleton extends StatelessWidget {
             // Hero.
             Skeleton(height: 150, radius: 24),
             SizedBox(height: 20),
-            // Accesos rápidos (mosaico 2×2).
-            Skeleton(width: 150, height: 16),
-            SizedBox(height: 12),
+            // Accesos rápidos.
             Row(
               children: [
-                Expanded(child: Skeleton(height: 92, radius: 20)),
-                SizedBox(width: 12),
-                Expanded(child: Skeleton(height: 92, radius: 20)),
-              ],
-            ),
-            SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(child: Skeleton(height: 92, radius: 20)),
-                SizedBox(width: 12),
-                Expanded(child: Skeleton(height: 92, radius: 20)),
+                Expanded(child: Skeleton(height: 84, radius: 20)),
+                SizedBox(width: 10),
+                Expanded(child: Skeleton(height: 84, radius: 20)),
+                SizedBox(width: 10),
+                Expanded(child: Skeleton(height: 84, radius: 20)),
               ],
             ),
             SizedBox(height: 22),
