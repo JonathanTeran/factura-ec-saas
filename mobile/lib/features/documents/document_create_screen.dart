@@ -52,6 +52,7 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
   );
   String _supportDocCode = '01';
   DateTime _supportDocDate = DateTime.now();
+  List<ApiPurchase> _purchases = const [];
 
   bool get _needsReference => _selectedType == '04' || _selectedType == '05';
   bool get _isRetention => _selectedType == '07';
@@ -1060,9 +1061,145 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
     if (picked != null) setState(() => _supportDocDate = picked);
   }
 
+  String _supportCodeFor(String docType) =>
+      kSupportDocTypes.any((t) => t.code == docType) ? docType : '01';
+
+  Future<void> _openSupportDocSearch() async {
+    if (_purchases.isEmpty) {
+      setState(() {
+        _submitting = true;
+        _errorText = null;
+      });
+      try {
+        final page = await ref.read(v1ApiServiceProvider).purchases(perPage: 50);
+        _purchases = page.items;
+      } catch (_) {
+        // El sheet mostrará "sin resultados".
+      } finally {
+        if (mounted) setState(() => _submitting = false);
+      }
+    }
+    if (!mounted) return;
+
+    final controller = TextEditingController();
+    final selected = await showModalBottomSheet<ApiPurchase>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: SizedBox(
+          height:
+              (MediaQuery.of(ctx).size.height * 0.85 -
+                      MediaQuery.of(ctx).viewInsets.bottom)
+                  .clamp(240.0, MediaQuery.of(ctx).size.height * 0.85),
+          child: StatefulBuilder(
+            builder: (ctx, setSheet) {
+              final query = controller.text.trim().toLowerCase();
+              final filtered = query.isEmpty
+                  ? _purchases
+                  : _purchases
+                        .where(
+                          (p) =>
+                              p.supplierDocumentNumber.toLowerCase().contains(
+                                query,
+                              ) ||
+                              (p.supplierName ?? '').toLowerCase().contains(
+                                query,
+                              ),
+                        )
+                        .toList();
+              return Column(
+                children: [
+                  const SizedBox(height: 12),
+                  _sheetHandle(),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    child: TextField(
+                      controller: controller,
+                      autofocus: true,
+                      onChanged: (_) => setSheet(() {}),
+                      decoration: const InputDecoration(
+                        hintText: 'Buscar compra por número o proveedor',
+                        prefixIcon: Icon(Icons.search_rounded),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: filtered.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'No hay compras registradas',
+                              style: TextStyle(
+                                fontFamily: 'Avenir Next',
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: filtered.length,
+                            itemBuilder: (ctx, i) {
+                              final p = filtered[i];
+                              return ListTile(
+                                leading: const Icon(
+                                  Icons.receipt_outlined,
+                                  color: AppColors.textMuted,
+                                ),
+                                title: Text(
+                                  p.supplierDocumentNumber,
+                                  style: const TextStyle(
+                                    fontFamily: 'Avenir Next',
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  '${p.supplierName ?? 'Proveedor'} · ${currency(p.total)}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontFamily: 'Avenir Next',
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                                onTap: () => Navigator.pop(ctx, p),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    controller.dispose();
+    if (selected != null) {
+      setState(() {
+        _supportDocCode = _supportCodeFor(selected.documentType);
+        _supportNumberCtrl.text = selected.supplierDocumentNumber;
+        if (selected.issueDate != null) _supportDocDate = selected.issueDate!;
+        _supportTotalCtrl.text = selected.total.toStringAsFixed(2);
+      });
+    }
+  }
+
   Widget _supportDocSection() {
     return Column(
       children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: _submitting ? null : _openSupportDocSearch,
+            icon: const Icon(Icons.search_rounded, size: 18),
+            label: const Text('Buscar compra registrada'),
+          ),
+        ),
+        const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           initialValue: _supportDocCode,
           isExpanded: true,
