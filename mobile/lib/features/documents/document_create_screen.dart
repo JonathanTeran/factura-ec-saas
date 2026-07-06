@@ -104,9 +104,15 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
         _emissionPointId = emissionPoints.isNotEmpty
             ? emissionPoints.first.id
             : null;
-        _customerId = customersPage.items.isNotEmpty
-            ? customersPage.items.first.id
-            : null;
+        final custItems = customersPage.items;
+        _customerId = custItems.isEmpty
+            ? null
+            : custItems
+                  .firstWhere(
+                    (c) => c.identificationNumber == '9999999999999',
+                    orElse: () => custItems.first,
+                  )
+                  .id;
       });
     } catch (error) {
       setState(() => _errorText = error.toString());
@@ -252,6 +258,94 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
       if (mounted) {
         setState(() => _submitting = false);
       }
+    }
+  }
+
+  /// Valida y crea la factura (borrador) en el backend. Devuelve el documento
+  /// o null si falta algo o hubo error. Base de "Guardar" y "Enviar".
+  Future<ApiDocument?> _submitInvoice() async {
+    if (_companyId == null ||
+        _customerId == null ||
+        _emissionPointId == null) {
+      setState(() => _errorText = 'Elegí cliente, empresa y punto de emisión.');
+      return null;
+    }
+    if (_lines.isEmpty) {
+      setState(() => _errorText = 'Agregá al menos un producto.');
+      return null;
+    }
+
+    setState(() {
+      _submitting = true;
+      _errorText = null;
+    });
+    try {
+      final term = int.tryParse(_termCtrl.text.trim()) ?? 0;
+      final doc = await ref
+          .read(v1ApiServiceProvider)
+          .createInvoice(
+            CreateInvoiceInput(
+              companyId: _companyId!,
+              customerId: _customerId!,
+              emissionPointId: _emissionPointId!,
+              documentType: _selectedType,
+              lines: _lines,
+              payments: _payments,
+              paymentTerm: term,
+              tip: _tip < 0 ? 0 : _tip,
+              additionalInfo: _additional,
+            ),
+          );
+      _invalidateData();
+      return doc;
+    } catch (error) {
+      setState(() => _errorText = error.toString());
+      return null;
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  /// Guarda como borrador (no envía al SRI) y vuelve a la lista.
+  Future<void> _saveDraft() async {
+    final doc = await _submitInvoice();
+    if (doc == null || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Factura guardada como borrador.')),
+    );
+    context.go('/documents');
+  }
+
+  /// Crea y envía al SRI en un solo paso; muestra el resultado (paso 3).
+  Future<void> _createAndSend() async {
+    final doc = await _submitInvoice();
+    if (doc == null || !mounted) return;
+
+    setState(() {
+      _createdDocument = doc;
+      _submitting = true;
+      _errorText = null;
+    });
+    try {
+      final sent = await ref.read(v1ApiServiceProvider).sendDocument(doc.id);
+      final status = await ref
+          .read(v1ApiServiceProvider)
+          .checkDocumentStatus(sent.id);
+      _invalidateData();
+      setState(() {
+        _createdDocument = sent;
+        _documentStatus = status;
+        _step = 2;
+      });
+    } catch (error) {
+      // El borrador ya quedó guardado; informamos que falló el envío.
+      setState(() {
+        _errorText =
+            'Se guardó el borrador, pero falló el envío al SRI: $error';
+        _step = 2;
+      });
+    } finally {
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
@@ -497,6 +591,170 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
       ),
     ),
   );
+
+  ApiCustomer? get _selectedCustomer {
+    if (_customerId == null) return null;
+    for (final c in _customers) {
+      if (c.id == _customerId) return c;
+    }
+    return null;
+  }
+
+  Widget _customerCard() {
+    final c = _selectedCustomer;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _openCustomerSearch,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceDark,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.person_outline_rounded,
+                color: AppColors.textMuted,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      c?.name ?? 'Seleccioná un cliente',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'Avenir Next',
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    if (c != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        c.identificationNumber,
+                        style: const TextStyle(
+                          fontFamily: 'Avenir Next',
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const Icon(Icons.search_rounded, color: AppColors.primary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openCustomerSearch() async {
+    final controller = TextEditingController();
+    final selected = await showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: SizedBox(
+          height:
+              (MediaQuery.of(ctx).size.height * 0.85 -
+                      MediaQuery.of(ctx).viewInsets.bottom)
+                  .clamp(240.0, MediaQuery.of(ctx).size.height * 0.85),
+          child: StatefulBuilder(
+            builder: (ctx, setSheet) {
+              final query = controller.text.trim().toLowerCase();
+              final filtered = query.isEmpty
+                  ? _customers
+                  : _customers
+                        .where(
+                          (c) =>
+                              c.name.toLowerCase().contains(query) ||
+                              c.identificationNumber.toLowerCase().contains(
+                                query,
+                              ),
+                        )
+                        .toList();
+              return Column(
+                children: [
+                  const SizedBox(height: 12),
+                  _sheetHandle(),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    child: TextField(
+                      controller: controller,
+                      autofocus: true,
+                      onChanged: (_) => setSheet(() {}),
+                      decoration: const InputDecoration(
+                        hintText: 'Buscar por nombre o identificación',
+                        prefixIcon: Icon(Icons.search_rounded),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: filtered.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'Sin resultados',
+                              style: TextStyle(
+                                fontFamily: 'Avenir Next',
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: filtered.length,
+                            itemBuilder: (ctx, i) {
+                              final c = filtered[i];
+                              return ListTile(
+                                leading: const Icon(
+                                  Icons.person_outline_rounded,
+                                  color: AppColors.textMuted,
+                                ),
+                                title: Text(
+                                  c.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontFamily: 'Avenir Next',
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  c.identificationNumber,
+                                  style: const TextStyle(
+                                    fontFamily: 'Avenir Next',
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                                onTap: () => Navigator.pop(ctx, c.id),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    controller.dispose();
+    if (selected != null) setState(() => _customerId = selected);
+  }
 
   Future<void> _openAddProductSheet() async {
     if (_products.isEmpty) return;
@@ -929,22 +1187,9 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
               ),
               const SizedBox(height: 10),
             ],
-            DropdownButtonFormField<int>(
-              initialValue: _customerId,
-              decoration: const InputDecoration(labelText: 'Cliente'),
-              items: _customers
-                  .map(
-                    (customer) => DropdownMenuItem(
-                      value: customer.id,
-                      child: Text(
-                        '${customer.name} · ${customer.identificationNumber}',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) => setState(() => _customerId = value),
-            ),
+            _sectionTitle('Cliente'),
+            const SizedBox(height: 8),
+            _customerCard(),
             const SizedBox(height: 18),
             _sectionTitle('Productos'),
             const SizedBox(height: 8),
@@ -1161,27 +1406,68 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _submitting ? null : _advanceFlow,
-                icon: Icon(
-                  _step == 2 ? Icons.add_rounded : Icons.arrow_forward_rounded,
+            if (_step == 0) ...[
+              // Footer Guardar (borrador) / Enviar (al SRI), como Ecuafact.
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _submitting ? null : _saveDraft,
+                      icon: const Icon(Icons.save_outlined, size: 20),
+                      label: const Text('Guardar'),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(52),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _submitting ? null : _createAndSend,
+                      icon: const Icon(Icons.send_rounded, size: 18),
+                      label: const Text('Enviar'),
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(52),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (_submitting) ...[
+                const SizedBox(height: 10),
+                const Center(
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2.4),
+                  ),
                 ),
-                label: Text(_ctaText),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
+              ],
+            ] else ...[
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _submitting ? null : _advanceFlow,
+                  icon: Icon(
+                    _step == 2
+                        ? Icons.add_rounded
+                        : Icons.arrow_forward_rounded,
+                  ),
+                  label: Text(_ctaText),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: () => context.go('/documents'),
-                child: const Text('Volver a Documentos'),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => context.go('/documents'),
+                  child: const Text('Volver a Documentos'),
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),
