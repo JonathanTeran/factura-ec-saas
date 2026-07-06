@@ -50,11 +50,10 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dataAsync = ref.watch(dashboardViewDataProvider);
-    final state = _stateFromAsyncValue(
-      dataAsync,
-      isEmpty: (data) =>
-          data.recentDocuments.isEmpty && data.stats.currentMonthCount == 0,
-    );
+    // El inicio siempre se muestra cuando hay datos cargados (aunque estén en
+    // cero): así el usuario nuevo ve el home con sus accesos, no un cartel de
+    // "todavía no hay nada aquí". Solo cargando/error/sin conexión interrumpen.
+    final state = _stateFromAsyncValue(dataAsync, isEmpty: (_) => false);
 
     if (state != AppDataState.ready) {
       return ModuleStateView(
@@ -209,19 +208,35 @@ class DashboardScreen extends ConsumerWidget {
                       ? GlassPanel(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              Icon(
+                            children: [
+                              const Icon(
                                 Icons.inbox_outlined,
                                 color: AppColors.textMuted,
                               ),
-                              SizedBox(height: 8),
-                              Text(
-                                'Sin documentos recientes',
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Emití tu primer documento',
+                                style: TextStyle(
+                                  fontFamily: 'Avenir Next',
+                                  color: AppColors.textPrimary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'Acá vas a ver tus facturas y comprobantes.',
+                                textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontFamily: 'Avenir Next',
                                   color: AppColors.textSecondary,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
                                 ),
+                              ),
+                              const SizedBox(height: 12),
+                              FilledButton.icon(
+                                onPressed: () => showCreateMenu(context),
+                                icon: const Icon(Icons.add_rounded, size: 18),
+                                label: const Text('Crear documento'),
                               ),
                             ],
                           ),
