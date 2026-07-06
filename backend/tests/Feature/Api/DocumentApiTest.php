@@ -76,6 +76,89 @@ class DocumentApiTest extends TestCase
         ]);
     }
 
+    public function test_credit_note_persists_reference_and_reason(): void
+    {
+        $customer = $this->createCustomer();
+        $invoice = $this->createDocument(['document_type' => '01']);
+
+        $response = $this->postJson('/api/v1/documents', [
+            'company_id' => $this->company->id,
+            'customer_id' => $customer->id,
+            'emission_point_id' => $this->emissionPoint->id,
+            'document_type' => '04',
+            'reference_document_id' => $invoice->id,
+            'modification_reason' => 'Devolución de mercadería',
+            'subtotal_12' => 100.00,
+            'total_tax' => 12.00,
+            'total' => 112.00,
+            'items' => [
+                [
+                    'main_code' => 'PROD001',
+                    'description' => 'Servicio de consultoría',
+                    'quantity' => 1,
+                    'unit_price' => 100.00,
+                    'subtotal' => 100.00,
+                    'tax_base' => 100.00,
+                    'tax_value' => 12.00,
+                ],
+            ],
+        ]);
+
+        $response->assertCreated();
+
+        $note = ElectronicDocument::where('document_type', '04')
+            ->latest('id')
+            ->firstOrFail();
+
+        $this->assertEquals($invoice->id, $note->related_document_id);
+        $this->assertNotEmpty($note->related_document_number);
+        $this->assertEquals(
+            'Devolución de mercadería',
+            $note->additional_info['motivo'] ?? null,
+        );
+    }
+
+    public function test_debit_note_stores_reason_as_motivos(): void
+    {
+        $customer = $this->createCustomer();
+        $invoice = $this->createDocument(['document_type' => '01']);
+
+        $response = $this->postJson('/api/v1/documents', [
+            'company_id' => $this->company->id,
+            'customer_id' => $customer->id,
+            'emission_point_id' => $this->emissionPoint->id,
+            'document_type' => '05',
+            'reference_document_id' => $invoice->id,
+            'modification_reason' => 'Intereses por mora',
+            'subtotal_12' => 50.00,
+            'total_tax' => 6.00,
+            'total' => 56.00,
+            'items' => [
+                [
+                    'main_code' => 'INT',
+                    'description' => 'Intereses',
+                    'quantity' => 1,
+                    'unit_price' => 50.00,
+                    'subtotal' => 50.00,
+                    'tax_base' => 50.00,
+                    'tax_value' => 6.00,
+                ],
+            ],
+        ]);
+
+        $response->assertCreated();
+
+        $note = ElectronicDocument::where('document_type', '05')
+            ->latest('id')
+            ->firstOrFail();
+
+        $this->assertEquals($invoice->id, $note->related_document_id);
+        $this->assertEquals(
+            'Intereses por mora',
+            $note->additional_info['motivos'][0]['razon'] ?? null,
+        );
+    }
+
     public function test_create_document_requires_subscription(): void
     {
         $this->subscription->delete();

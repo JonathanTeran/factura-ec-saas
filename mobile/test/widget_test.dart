@@ -8,7 +8,7 @@ void main() {
   testWidgets('App boots and renders splash', (WidgetTester tester) async {
     await tester.pumpWidget(const ProviderScope(child: FacturaEcApp()));
 
-    expect(find.text('Factura EC'), findsOneWidget);
+    expect(find.text('Facturón EC'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
     await tester.pump(const Duration(milliseconds: 1000));

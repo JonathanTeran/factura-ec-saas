@@ -145,10 +145,35 @@ class DocumentController extends ApiController
             ->where('tenant_id', $tenant->id)
             ->whereHas('branch', fn ($query) => $query->where('company_id', $company->id))
             ->firstOrFail();
+        // Nota de crédito / débito: persistir el documento modificado y el
+        // motivo donde el generador XML los lee (related_document_* y
+        // additional_info['motivo'|'motivos']). Antes solo se validaba la
+        // referencia y se descartaba, dejando la nota sin documento sustento.
+        $relatedDocumentData = [];
+        $additionalInfo = is_array($request->additional_info)
+            ? $request->additional_info
+            : [];
         if ($request->filled('reference_document_id')) {
-            ElectronicDocument::where('id', $request->reference_document_id)
+            $reference = ElectronicDocument::where('id', $request->reference_document_id)
                 ->where('tenant_id', $tenant->id)
                 ->firstOrFail();
+            $relatedDocumentData = [
+                'related_document_id' => $reference->id,
+                'related_document_type' => $reference->document_type->value,
+                'related_document_number' => $reference->getDocumentNumber(),
+                'related_document_date' => $reference->issue_date,
+            ];
+            $reason = trim((string) $request->input('modification_reason', ''));
+            if ($reason !== '') {
+                if ($request->document_type === DocumentType::NOTA_DEBITO->value) {
+                    $additionalInfo['motivos'] = [[
+                        'razon' => $reason,
+                        'valor' => (float) $request->total,
+                    ]];
+                } else {
+                    $additionalInfo['motivo'] = $reason;
+                }
+            }
         }
 
         $sequential = $emissionPoint->getNextSequential($request->document_type);
@@ -191,8 +216,9 @@ class DocumentController extends ApiController
             'total' => $request->total,
             'payment_methods' => $paymentMethods,
             'status' => DocumentStatus::DRAFT,
-            'additional_info' => $request->additional_info ?? [],
+            'additional_info' => $additionalInfo,
             'created_by' => $user->id,
+            ...$relatedDocumentData,
         ]);
 
         // La clave de acceso es determinística (Módulo 11): se genera desde
