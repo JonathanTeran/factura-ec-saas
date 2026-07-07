@@ -28,7 +28,45 @@ class _SupplierCreateScreenState extends ConsumerState<SupplierCreateScreen> {
   // Maps to App\Enums\IdentificationType values.
   String _identificationType = '04';
   bool _submitting = false;
+  bool _looking = false;
   String? _errorText;
+
+  /// El catastro solo permite consultar por cédula (05) o RUC (04).
+  bool get _canLookup =>
+      _identificationType == '04' || _identificationType == '05';
+
+  Future<void> _lookupSri() async {
+    final id = _identificationCtrl.text.trim();
+    final validLen = (_identificationType == '05' && id.length == 10) ||
+        (_identificationType == '04' && id.length == 13);
+    if (!RegExp(r'^[0-9]+$').hasMatch(id) || !validLen) {
+      setState(() => _errorText =
+          'Ingresá una cédula (10 dígitos) o RUC (13) para consultar el SRI.');
+      return;
+    }
+    setState(() {
+      _looking = true;
+      _errorText = null;
+    });
+    try {
+      final r =
+          await ref.read(v1ApiServiceProvider).lookupIdentification(id);
+      setState(() {
+        if (r.businessName.isNotEmpty) _businessNameCtrl.text = r.businessName;
+        if ((r.address ?? '').isNotEmpty && _addressCtrl.text.trim().isEmpty) {
+          _addressCtrl.text = r.address!;
+        }
+        if (r.businessName.isEmpty) {
+          _errorText = 'El SRI no devolvió datos para esa identificación.';
+        }
+      });
+    } catch (_) {
+      setState(() => _errorText =
+          'No se pudo consultar el SRI. Ingresá los datos manualmente.');
+    } finally {
+      if (mounted) setState(() => _looking = false);
+    }
+  }
 
   static const _identificationTypes = <DropdownMenuItem<String>>[
     DropdownMenuItem(value: '04', child: Text('RUC')),
@@ -120,16 +158,50 @@ class _SupplierCreateScreenState extends ConsumerState<SupplierCreateScreen> {
                           ),
                         ),
                         const SizedBox(height: 10),
-                        TextFormField(
-                          controller: _identificationCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Identificación',
-                          ),
-                          validator: (value) =>
-                              (value == null || value.trim().isEmpty)
-                              ? 'Requerido'
-                              : null,
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _identificationCtrl,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'Identificación',
+                                ),
+                                validator: (value) {
+                                  final v = value?.trim() ?? '';
+                                  if (v.isEmpty) return 'Requerido';
+                                  if (_identificationType == '05' &&
+                                      !RegExp(r'^[0-9]{10}$').hasMatch(v)) {
+                                    return 'La cédula debe tener 10 dígitos.';
+                                  }
+                                  if (_identificationType == '04' &&
+                                      !RegExp(r'^[0-9]{13}$').hasMatch(v)) {
+                                    return 'El RUC debe tener 13 dígitos.';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                            if (_canLookup) ...[
+                              const SizedBox(width: 8),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: OutlinedButton(
+                                  onPressed: _looking ? null : _lookupSri,
+                                  child: _looking
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Text('SRI'),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         const SizedBox(height: 10),
                         TextFormField(

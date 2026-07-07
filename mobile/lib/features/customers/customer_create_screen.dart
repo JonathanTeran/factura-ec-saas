@@ -312,10 +312,19 @@ class _CustomerCreateScreenState extends ConsumerState<CustomerCreateScreen> {
                                         ))
                                 : null,
                           ),
-                          validator: (value) =>
-                              (value == null || value.trim().isEmpty)
-                              ? 'Requerido'
-                              : null,
+                          validator: (value) {
+                            final v = value?.trim() ?? '';
+                            if (v.isEmpty) return 'Requerido';
+                            if (_identificationType == '05' &&
+                                !RegExp(r'^[0-9]{10}$').hasMatch(v)) {
+                              return 'La cédula debe tener 10 dígitos.';
+                            }
+                            if (_identificationType == '04' &&
+                                !RegExp(r'^[0-9]{13}$').hasMatch(v)) {
+                              return 'El RUC debe tener 13 dígitos.';
+                            }
+                            return null;
+                          },
                         ),
                         const SizedBox(height: 10),
                         TextFormField(
