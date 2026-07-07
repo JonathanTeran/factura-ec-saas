@@ -318,6 +318,14 @@ Route::prefix('v1')->group(function () {
         Route::post('support/tickets/{ticket}/close', [\App\Http\Controllers\Api\V1\SupportTicketController::class, 'close']);
         Route::post('support/tickets/{ticket}/reopen', [\App\Http\Controllers\Api\V1\SupportTicketController::class, 'reopen']);
     });
+
+    // Descarga pública del RIDE/XML con token HMAC (la validación del token
+    // reemplaza a la auth): sirve el PDF/XML al navegador por el dominio
+    // público sin exponer el almacenamiento interno.
+    Route::get('public/documents/{document}/ride', [DocumentController::class, 'streamRidePublic'])
+        ->name('documents.ride.public');
+    Route::get('public/documents/{document}/xml', [DocumentController::class, 'streamXmlPublic'])
+        ->name('documents.xml.public');
 });
 
 // API Key authenticated routes (for external integrations)

@@ -17,6 +17,10 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Detrás de nginx: confiar en los headers del proxy para reconstruir
+        // bien esquema/host (necesario para validar URLs firmadas del RIDE/XML).
+        $middleware->trustProxies(at: '*');
+
         // Global middleware applied to all requests
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
 

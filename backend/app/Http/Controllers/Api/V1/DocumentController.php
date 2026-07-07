@@ -441,41 +441,110 @@ class DocumentController extends ApiController
     /**
      * Descargar RIDE
      *
-     * Genera y retorna la URL temporal del RIDE (PDF) del documento.
+     * Devuelve una URL FIRMADA del propio dominio que transmite el PDF (ver
+     * streamRidePublic). Así el navegador puede abrirlo sin depender de la URL
+     * interna del almacenamiento (MinIO no está expuesto públicamente).
      */
     public function downloadRide(Request $request, ElectronicDocument $document): JsonResponse
     {
         $this->authorizeDocument($request, $document);
 
-        $document->load(['company', 'branch', 'emissionPoint', 'customer', 'items', 'withholdingDetails']);
-
-        // Borradores creados antes de que la clave se generara en el alta.
-        if (! $document->access_key && $document->status === DocumentStatus::DRAFT) {
-            $document->update(['access_key' => app(AccessKeyService::class)->generate($document)]);
-        }
-
-        $rideGenerator = app(RIDEGenerator::class);
         $isFinal = in_array($document->status, [DocumentStatus::AUTHORIZED, DocumentStatus::REJECTED]);
-
-        if ($isFinal) {
-            // RIDE definitivo: se genera una vez y se reutiliza.
-            if (! $document->ride_pdf_path || ! Storage::exists($document->ride_pdf_path)) {
-                $document->update(['ride_pdf_path' => $rideGenerator->generate($document)]);
-            }
-            $path = $document->ride_pdf_path;
-            $filename = $document->document_number.'.pdf';
-        } else {
-            // Vista previa (borrador/en proceso): se regenera siempre con
-            // marca de agua, porque el documento puede seguir cambiando.
-            $path = $rideGenerator->generate($document, [], preview: true);
-            $filename = 'borrador-'.$document->document_number.'.pdf';
-        }
-
-        $url = Storage::temporaryUrl($path, now()->addMinutes(30));
+        $filename = ($isFinal ? '' : 'borrador-').$document->document_number.'.pdf';
 
         return $this->success([
-            'url' => $url,
+            'url' => $this->publicFileUrl('ride', $document->id),
             'filename' => $filename,
+        ]);
+    }
+
+    /**
+     * Genera una URL pública con token HMAC de expiración corta (30 min) para
+     * servir el RIDE/XML por el dominio público. El token es independiente de
+     * la reconstrucción de URL detrás del proxy (a diferencia de las URL
+     * firmadas nativas de Laravel).
+     */
+    protected function publicFileUrl(string $kind, int $id): string
+    {
+        $expires = now()->addMinutes(30)->timestamp;
+        $token = $this->fileToken($kind, $id, $expires);
+
+        return rtrim(config('app.url'), '/')
+            ."/api/v1/public/documents/{$id}/{$kind}?e={$expires}&t={$token}";
+    }
+
+    protected function fileToken(string $kind, int $id, int $expires): string
+    {
+        return hash_hmac('sha256', "{$kind}:{$id}:{$expires}", (string) config('app.key'));
+    }
+
+    protected function verifyFileToken(string $kind, int $id, Request $request): void
+    {
+        $expires = (int) $request->query('e');
+        $token = (string) $request->query('t');
+
+        if ($expires < now()->timestamp) {
+            abort(403, 'El enlace expiró. Generá uno nuevo.');
+        }
+        if (! hash_equals($this->fileToken($kind, $id, $expires), $token)) {
+            abort(403, 'Enlace inválido.');
+        }
+    }
+
+    /**
+     * Transmite el RIDE (PDF) por una URL pública con token (sin auth): el
+     * token garantiza que la generó una petición autorizada. Se genera en
+     * memoria.
+     */
+    public function streamRidePublic(Request $request, string $document)
+    {
+        $this->verifyFileToken('ride', (int) $document, $request);
+
+        $doc = ElectronicDocument::withoutGlobalScopes()->findOrFail($document);
+        $doc->load(['company', 'branch', 'emissionPoint', 'customer', 'items', 'withholdingDetails']);
+
+        if (! $doc->access_key && $doc->status === DocumentStatus::DRAFT) {
+            $doc->update(['access_key' => app(AccessKeyService::class)->generate($doc)]);
+        }
+
+        $isFinal = in_array($doc->status, [DocumentStatus::AUTHORIZED, DocumentStatus::REJECTED]);
+        $preview = ! $isFinal;
+        $filename = ($preview ? 'borrador-' : '').$doc->document_number.'.pdf';
+
+        $pdf = app(RIDEGenerator::class)->render($doc, [], $preview);
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$filename.'"',
+        ]);
+    }
+
+    /**
+     * Transmite el XML firmado por una URL pública con token.
+     */
+    public function streamXmlPublic(Request $request, string $document)
+    {
+        $this->verifyFileToken('xml', (int) $document, $request);
+
+        $doc = ElectronicDocument::withoutGlobalScopes()->findOrFail($document);
+
+        if (! $doc->xml_signed_path) {
+            abort(404);
+        }
+
+        try {
+            $contents = Storage::disk(config('filesystems.default'))->get($doc->xml_signed_path);
+        } catch (\Throwable $e) {
+            $contents = null;
+        }
+
+        if (empty($contents)) {
+            abort(404);
+        }
+
+        return response($contents, 200, [
+            'Content-Type' => 'application/xml',
+            'Content-Disposition' => 'inline; filename="'.$doc->access_key.'.xml"',
         ]);
     }
 
@@ -492,14 +561,8 @@ class DocumentController extends ApiController
             return $this->error('El XML firmado no está disponible.', 400);
         }
 
-        // Disco por defecto: local en dev, s3 en producción (FILESYSTEM_DISK).
-        $url = Storage::temporaryUrl(
-            $document->xml_signed_path,
-            now()->addMinutes(30)
-        );
-
         return $this->success([
-            'url' => $url,
+            'url' => $this->publicFileUrl('xml', $document->id),
             'filename' => $document->access_key.'.xml',
         ]);
     }
