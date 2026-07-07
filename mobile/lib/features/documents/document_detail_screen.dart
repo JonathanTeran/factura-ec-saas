@@ -367,9 +367,19 @@ class _SriCard extends StatelessWidget {
                 value: _dateFormat.format(document.authorizationDate!),
               ),
           ],
-          if (document.sriMessages.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            ...document.sriMessages.map(
+          if (document.errorDetails.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            const Text(
+              'Detalle del error',
+              style: TextStyle(
+                fontFamily: 'Avenir Next',
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
+                color: AppColors.error,
+              ),
+            ),
+            const SizedBox(height: 6),
+            ...document.errorDetails.map(
               (message) => _Banner(
                 color: AppColors.error,
                 icon: Icons.error_outline_rounded,
@@ -378,7 +388,7 @@ class _SriCard extends StatelessWidget {
             ),
           ],
           if (document.authorizationNumber == null &&
-              document.sriMessages.isEmpty &&
+              document.errorDetails.isEmpty &&
               !document.contingencyActive)
             _pendingOrStatus(document),
           if (document.accessKey != null) ...[

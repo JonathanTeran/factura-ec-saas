@@ -40,6 +40,8 @@ class DocumentResource extends JsonResource
             'authorization_number' => $this->authorization_number,
             'authorization_date' => $this->authorization_date?->toISOString(),
             'sri_messages' => $this->sri_response['messages'] ?? null,
+            'sri_errors' => $this->sri_errors,
+            'error_details' => $this->errorDetails(),
             'contingency_active' => (bool) data_get($this->sri_errors, 'contingency_active', false),
             'contingency_message' => data_get($this->sri_errors, 'contingency_message'),
             'additional_info' => $this->additional_info,
@@ -67,5 +69,57 @@ class DocumentResource extends JsonResource
             'created_at' => $this->created_at->toISOString(),
             'updated_at' => $this->updated_at->toISOString(),
         ];
+    }
+
+    /**
+     * Lista legible con TODO el detalle de errores/observaciones: errores
+     * fatales de firma/envío (sri_errors) y mensajes del SRI (sri_response).
+     *
+     * @return array<int, string>
+     */
+    protected function errorDetails(): array
+    {
+        $out = [];
+        $errors = $this->sri_errors;
+
+        if (is_array($errors)) {
+            if (! empty($errors['fatal'])) {
+                $out[] = (string) $errors['fatal'];
+            }
+            foreach (($errors['messages'] ?? $errors['errors'] ?? []) as $m) {
+                $out[] = $this->formatSriMessage($m);
+            }
+            foreach ($errors as $key => $value) {
+                if (in_array($key, ['fatal', 'messages', 'errors', 'contingency_active', 'contingency_message'], true)) {
+                    continue;
+                }
+                if (is_string($value) && $value !== '') {
+                    $out[] = $value;
+                }
+            }
+        }
+
+        foreach (($this->sri_response['messages'] ?? []) as $m) {
+            $out[] = $this->formatSriMessage($m);
+        }
+
+        return array_values(array_unique(array_filter($out, fn ($v) => trim((string) $v) !== '')));
+    }
+
+    protected function formatSriMessage(mixed $m): string
+    {
+        if (is_array($m)) {
+            $id = $m['identificador'] ?? '';
+            $msg = $m['mensaje'] ?? ($m['message'] ?? '');
+            $extra = $m['informacionAdicional'] ?? ($m['info_adicional'] ?? '');
+            $head = trim(($id !== '' ? "[$id] " : '').$msg);
+            if ($extra !== '') {
+                return trim($head === '' ? $extra : "$head — $extra");
+            }
+
+            return $head !== '' ? $head : (string) json_encode($m, JSON_UNESCAPED_UNICODE);
+        }
+
+        return (string) $m;
     }
 }

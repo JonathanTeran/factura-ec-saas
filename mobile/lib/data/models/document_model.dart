@@ -153,6 +153,7 @@ class ApiDocumentDetail {
   final String? authorizationNumber;
   final DateTime? authorizationDate;
   final List<String> sriMessages;
+  final List<String> errorDetails;
   final bool contingencyActive;
   final String? contingencyMessage;
   final bool hasRide;
@@ -189,6 +190,7 @@ class ApiDocumentDetail {
     required this.authorizationNumber,
     required this.authorizationDate,
     required this.sriMessages,
+    required this.errorDetails,
     required this.contingencyActive,
     required this.contingencyMessage,
     required this.hasRide,
@@ -216,6 +218,12 @@ class ApiDocumentDetail {
 
     final messages = listFrom(json['sri_messages'])
         .map(sriMessageToText)
+        .where((s) => s.trim().isNotEmpty)
+        .toList(growable: false);
+
+    // error_details ya viene armado por el backend (fatal + mensajes SRI).
+    final errors = listFrom(json['error_details'])
+        .map((e) => stringFrom(e))
         .where((s) => s.trim().isNotEmpty)
         .toList(growable: false);
 
@@ -276,6 +284,7 @@ class ApiDocumentDetail {
       authorizationNumber: nullableStringFrom(json['authorization_number']),
       authorizationDate: dateFrom(json['authorization_date']),
       sriMessages: messages,
+      errorDetails: errors,
       contingencyActive: json['contingency_active'] == true,
       contingencyMessage: nullableStringFrom(json['contingency_message']),
       hasRide: json['has_ride'] == true,

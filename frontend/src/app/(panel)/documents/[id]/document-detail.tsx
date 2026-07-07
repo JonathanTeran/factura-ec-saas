@@ -146,6 +146,12 @@ export function DocumentDetail({ id }: { id: number }) {
       )
     : [];
   const sriMessages = normalizeSriMessages(doc.sri_messages);
+  // Detalle completo de errores (fatal + mensajes del SRI), armado por el API.
+  const errorDetails: string[] = Array.isArray(
+    (doc as { error_details?: unknown }).error_details,
+  )
+    ? ((doc as { error_details?: string[] }).error_details as string[])
+    : [];
   const payments = doc.payment_methods ?? [];
   const withholdings = doc.withholding_details ?? [];
 
@@ -528,8 +534,30 @@ export function DocumentDetail({ id }: { id: number }) {
           {/* Guía de remisión: transporte y destinatarios */}
           {isGuide && <GuideTransportCard info={info} />}
 
-          {/* Mensajes del SRI (rechazos / advertencias) */}
-          {sriMessages.length > 0 && (
+          {/* Detalle del error (incluye errores fatales de firma/envío) */}
+          {errorDetails.length > 0 && (
+            <Card className="border-destructive/30">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <AlertTriangle className="size-4 text-destructive" />
+                  Detalle del error
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {errorDetails.map((m, i) => (
+                  <div
+                    key={i}
+                    className="rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm"
+                  >
+                    {m}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Mensajes del SRI (rechazos / advertencias) — fallback */}
+          {errorDetails.length === 0 && sriMessages.length > 0 && (
             <Card className="border-destructive/30">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-sm">
