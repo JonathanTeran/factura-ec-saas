@@ -279,6 +279,37 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
     });
   }
 
+  String _currentBranchLabel() {
+    for (final b in _branches) {
+      if (b.id == _branchId) return '${b.code} · ${b.name}';
+    }
+    return '-';
+  }
+
+  String _currentEmissionPointLabel() {
+    for (final p in _emissionPoints) {
+      if (p.id == _emissionPointId) return '${p.code} · ${p.description}';
+    }
+    return '-';
+  }
+
+  /// Campo de solo lectura (cuando hay una sola opción): muestra el valor sin
+  /// desplegable, pero deja claro qué establecimiento/punto se usará.
+  Widget _readonlyField(String label, String value) {
+    return InputDecorator(
+      decoration: InputDecoration(labelText: label),
+      child: Text(
+        value,
+        style: const TextStyle(
+          fontFamily: 'Avenir Next',
+          fontWeight: FontWeight.w600,
+          fontSize: 15,
+          color: AppColors.textPrimary,
+        ),
+      ),
+    );
+  }
+
   Future<void> _loadEmissionPoints(int companyId) async {
     setState(() {
       _loading = true;
@@ -2281,7 +2312,8 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
               ),
               const SizedBox(height: 10),
             ],
-            // Establecimiento: se muestra si hay más de uno configurado.
+            // Establecimiento: desplegable si hay varios, o campo informativo
+            // si hay uno solo (siempre visible para saber qué se usará).
             if (_branches.length > 1) ...[
               DropdownButtonFormField<int>(
                 initialValue: _branchId,
@@ -2301,7 +2333,11 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
                 },
               ),
               const SizedBox(height: 10),
+            ] else if (_branchId != null) ...[
+              _readonlyField('Establecimiento', _currentBranchLabel()),
+              const SizedBox(height: 10),
             ],
+            // Punto de emisión: siempre visible.
             if (_emissionPoints.length > 1) ...[
               DropdownButtonFormField<int>(
                 initialValue: _emissionPointId,
@@ -2318,6 +2354,9 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
                     .toList(),
                 onChanged: (value) => setState(() => _emissionPointId = value),
               ),
+              const SizedBox(height: 10),
+            ] else if (_emissionPointId != null) ...[
+              _readonlyField('Punto de emisión', _currentEmissionPointLabel()),
               const SizedBox(height: 10),
             ],
             _sectionTitle('Cliente'),
