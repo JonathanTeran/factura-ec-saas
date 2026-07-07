@@ -315,6 +315,10 @@ class DocumentController extends ApiController
             }
         }
 
+        // El inicio (recientes/estadísticas) está cacheado: invalidar para que
+        // los cambios del borrador se reflejen de inmediato.
+        TenantCacheService::invalidateDashboard($document->tenant_id);
+
         return $this->success([
             'document' => new DocumentResource($document->fresh(['customer', 'company', 'items'])),
         ], 'Documento actualizado exitosamente');
@@ -331,8 +335,11 @@ class DocumentController extends ApiController
             );
         }
 
+        $tenantId = $document->tenant_id;
         $document->items()->delete();
         $document->delete();
+
+        TenantCacheService::invalidateDashboard($tenantId);
 
         return $this->success(null, 'Documento eliminado exitosamente');
     }
