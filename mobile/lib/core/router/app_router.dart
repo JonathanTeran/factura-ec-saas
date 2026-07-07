@@ -89,6 +89,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 ),
               ),
               GoRoute(
+                path: 'edit/:id',
+                name: 'edit-document',
+                builder: (context, state) {
+                  final id = int.tryParse(state.pathParameters['id'] ?? '');
+                  return NewDocumentScreen(editDocumentId: id);
+                },
+              ),
+              GoRoute(
                 path: ':id',
                 name: 'document-detail',
                 builder: (context, state) {

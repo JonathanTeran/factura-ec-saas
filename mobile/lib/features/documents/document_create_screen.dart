@@ -18,7 +18,11 @@ class NewDocumentScreen extends ConsumerStatefulWidget {
   /// Tipo de comprobante inicial (viene del menú "+" del inicio).
   final String? initialType;
 
-  const NewDocumentScreen({super.key, this.initialType});
+  /// Si viene, se edita ese borrador (se precargan sus datos y al guardar se
+  /// actualiza en vez de crear). Solo para tipos con ítems (01/03/04/05).
+  final int? editDocumentId;
+
+  const NewDocumentScreen({super.key, this.initialType, this.editDocumentId});
 
   @override
   ConsumerState<NewDocumentScreen> createState() => _NewDocumentScreenState();
@@ -101,6 +105,8 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
   ApiDocument? _createdDocument;
   ApiDocumentStatus? _documentStatus;
 
+  bool get _isEditing => widget.editDocumentId != null;
+
   @override
   void initState() {
     super.initState();
@@ -174,6 +180,11 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
                   )
                   .id;
       });
+
+      // Modo edición: precargar el borrador.
+      if (_isEditing) {
+        await _prefillFromDraft(api, widget.editDocumentId!);
+      }
     } catch (error) {
       setState(() => _errorText = error.toString());
     } finally {
@@ -181,6 +192,62 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
         setState(() => _loading = false);
       }
     }
+  }
+
+  /// Carga un borrador y precarga el formulario: tipo, cliente, ítems, formas
+  /// de pago, propina e información adicional.
+  Future<void> _prefillFromDraft(V1ApiService api, int id) async {
+    final doc = await api.getDocument(id);
+
+    final lines = <InvoiceLine>[];
+    for (final item in doc.items) {
+      // Reconstruimos un producto (real si existe en el catálogo, o sintético
+      // a partir del ítem) para conservar códigos de impuesto al reenviar.
+      final product = _products.firstWhere(
+        (p) => item.productId != null && p.id == item.productId,
+        orElse: () => ApiProduct(
+          id: item.productId ?? 0,
+          code: item.mainCode ?? '-',
+          name: item.description,
+          type: 'product',
+          typeLabel: 'Producto',
+          unitPrice: item.unitPrice,
+          taxRate: item.taxRate,
+          taxCode: item.taxCode,
+          taxPercentageCode: item.taxPercentageCode,
+          trackInventory: false,
+          stock: null,
+          isActive: true,
+        ),
+      );
+      lines.add(InvoiceLine(
+        product: product,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        discount: item.discount,
+      ));
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _selectedType = doc.documentType.isNotEmpty ? doc.documentType : _selectedType;
+      if (doc.customerId != null &&
+          _customers.any((c) => c.id == doc.customerId)) {
+        _customerId = doc.customerId;
+      }
+      _lines
+        ..clear()
+        ..addAll(lines);
+      _payments
+        ..clear()
+        ..addAll(doc.paymentMethods
+            .map((p) => InvoicePayment(code: p.code, amount: p.amount)));
+      _additional
+        ..clear()
+        ..addAll(doc.additionalInfoPairs
+            .map((e) => (name: e.name, value: e.value)));
+      _tipCtrl.text = doc.tip.toStringAsFixed(2);
+    });
   }
 
   Future<void> _loadEmissionPoints(int companyId) async {
@@ -267,23 +334,26 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
     });
     try {
       final term = int.tryParse(_termCtrl.text.trim()) ?? 0;
-      final document = await ref
-          .read(v1ApiServiceProvider)
-          .createInvoice(
-            CreateInvoiceInput(
-              companyId: _companyId!,
-              customerId: _customerId!,
-              emissionPointId: _emissionPointId!,
-              documentType: _selectedType,
-              lines: _lines,
-              payments: _payments,
-              paymentTerm: term,
-              tip: _tip < 0 ? 0 : _tip,
-              additionalInfo: _additional,
-            ),
-          );
+      final api = ref.read(v1ApiServiceProvider);
+      final input = CreateInvoiceInput(
+        companyId: _companyId!,
+        customerId: _customerId!,
+        emissionPointId: _emissionPointId!,
+        documentType: _selectedType,
+        lines: _lines,
+        payments: _payments,
+        paymentTerm: term,
+        tip: _tip < 0 ? 0 : _tip,
+        additionalInfo: _additional,
+      );
+      final document = _isEditing
+          ? await api.updateInvoice(widget.editDocumentId!, input)
+          : await api.createInvoice(input);
 
       _invalidateData();
+      if (_isEditing) {
+        ref.invalidate(documentDetailProvider(widget.editDocumentId!));
+      }
       setState(() {
         _createdDocument = document;
         _step = 1;
@@ -361,28 +431,27 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
     });
     try {
       final term = int.tryParse(_termCtrl.text.trim()) ?? 0;
-      final doc = await ref
-          .read(v1ApiServiceProvider)
-          .createInvoice(
-            CreateInvoiceInput(
-              companyId: _companyId!,
-              customerId: _customerId!,
-              emissionPointId: _emissionPointId!,
-              documentType: _selectedType,
-              lines: _lines,
-              payments: _payments,
-              paymentTerm: term,
-              tip: _tip < 0 ? 0 : _tip,
-              additionalInfo: _additional,
-              referenceDocumentId: _needsReference
-                  ? _referenceDocumentId
-                  : null,
-              modificationReason: _needsReference
-                  ? _reasonCtrl.text.trim()
-                  : null,
-            ),
-          );
+      final api = ref.read(v1ApiServiceProvider);
+      final input = CreateInvoiceInput(
+        companyId: _companyId!,
+        customerId: _customerId!,
+        emissionPointId: _emissionPointId!,
+        documentType: _selectedType,
+        lines: _lines,
+        payments: _payments,
+        paymentTerm: term,
+        tip: _tip < 0 ? 0 : _tip,
+        additionalInfo: _additional,
+        referenceDocumentId: _needsReference ? _referenceDocumentId : null,
+        modificationReason: _needsReference ? _reasonCtrl.text.trim() : null,
+      );
+      final doc = _isEditing
+          ? await api.updateInvoice(widget.editDocumentId!, input)
+          : await api.createInvoice(input);
       _invalidateData();
+      if (_isEditing) {
+        ref.invalidate(documentDetailProvider(widget.editDocumentId!));
+      }
       return doc;
     } catch (error) {
       setState(() => _errorText = error.toString());
@@ -527,7 +596,13 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
     final doc = await _submitInvoice();
     if (doc == null || !mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Factura guardada como borrador.')),
+      SnackBar(
+        content: Text(
+          _isEditing
+              ? 'Cambios guardados en el borrador.'
+              : 'Factura guardada como borrador.',
+        ),
+      ),
     );
     context.go('/documents');
   }
@@ -2476,7 +2551,7 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             PageHeader(
-              title: _docTypeLabel,
+              title: _isEditing ? 'Editar borrador' : _docTypeLabel,
               subtitle: 'Crear > Validar SRI > Compartir',
               trailing: IconButton.filledTonal(
                 tooltip: 'Volver a documentos',

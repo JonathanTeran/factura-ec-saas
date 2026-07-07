@@ -764,6 +764,10 @@ class _DocumentActionsState extends ConsumerState<_DocumentActions> {
   // "En proceso": enviado pero aún sin resolución del SRI.
   bool get _isProcessing =>
       !_isDraft && !_isAuthorized && !_isRejected && !_isVoided && !_isFailed;
+  // Tipos con ítems que se pueden editar como borrador. (NC/ND requieren
+  // reprecargar el documento de referencia; se abordan aparte.)
+  static const _editableTypes = {'01', '03'};
+  bool get _canEdit => _isDraft && _editableTypes.contains(_doc.documentType);
 
   V1ApiService get _api => ref.read(v1ApiServiceProvider);
 
@@ -945,6 +949,15 @@ class _DocumentActionsState extends ConsumerState<_DocumentActions> {
         children: [
           const _SectionTitle('Acciones'),
           const SizedBox(height: 12),
+          if (_canEdit) ...[
+            _ActionButton(
+              icon: Icons.edit_rounded,
+              label: 'Editar borrador',
+              loading: false,
+              onTap: () => context.push('/documents/edit/${_doc.id}'),
+            ),
+            const SizedBox(height: 10),
+          ],
           // El RIDE (PDF) está siempre disponible: definitivo si ya está
           // autorizado/rechazado, o una vista previa con marca de agua si no.
           _ActionButton(

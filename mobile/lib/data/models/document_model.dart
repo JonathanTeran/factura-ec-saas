@@ -84,6 +84,7 @@ class ApiDocument {
 /// A single line item inside an electronic document.
 class ApiDocumentItem {
   final int id;
+  final int? productId;
   final String description;
   final String? mainCode;
   final double quantity;
@@ -92,9 +93,12 @@ class ApiDocumentItem {
   final double subtotal;
   final double taxRate;
   final double taxValue;
+  final String taxCode;
+  final String taxPercentageCode;
 
   const ApiDocumentItem({
     required this.id,
+    required this.productId,
     required this.description,
     required this.mainCode,
     required this.quantity,
@@ -103,11 +107,14 @@ class ApiDocumentItem {
     required this.subtotal,
     required this.taxRate,
     required this.taxValue,
+    required this.taxCode,
+    required this.taxPercentageCode,
   });
 
   factory ApiDocumentItem.fromJson(Map<String, dynamic> json) {
     return ApiDocumentItem(
       id: intFrom(json['id']),
+      productId: nullableIntFrom(json['product_id']),
       description: stringFrom(json['description'], fallback: 'Ítem'),
       mainCode: nullableStringFrom(json['main_code']),
       quantity: doubleFrom(json['quantity']),
@@ -116,6 +123,8 @@ class ApiDocumentItem {
       subtotal: doubleFrom(json['subtotal']),
       taxRate: doubleFrom(json['tax_rate']),
       taxValue: doubleFrom(json['tax_value']),
+      taxCode: stringFrom(json['tax_code'], fallback: '2'),
+      taxPercentageCode: stringFrom(json['tax_percentage_code'], fallback: ''),
     );
   }
 }
@@ -152,6 +161,9 @@ class ApiDocumentDetail {
   final DateTime? emailSentAt;
   final String? emailSentTo;
   final String? customerEmail;
+  final int? customerId;
+  final List<({String code, double amount})> paymentMethods;
+  final List<({String name, String value})> additionalInfoPairs;
   final List<ApiDocumentItem> items;
 
   const ApiDocumentDetail({
@@ -185,6 +197,9 @@ class ApiDocumentDetail {
     required this.emailSentAt,
     required this.emailSentTo,
     required this.customerEmail,
+    required this.customerId,
+    required this.paymentMethods,
+    required this.additionalInfoPairs,
     required this.items,
   });
 
@@ -207,6 +222,30 @@ class ApiDocumentDetail {
     final items = listFrom(json['items'])
         .map((item) => ApiDocumentItem.fromJson(mapFrom(item)))
         .toList(growable: false);
+
+    final payments = listFrom(json['payment_methods'])
+        .map((p) {
+          final m = mapFrom(p);
+          return (code: stringFrom(m['code'], fallback: '01'), amount: doubleFrom(m['amount']));
+        })
+        .toList(growable: false);
+
+    // additional_info puede venir como lista [{name,value}] o como mapa {k:v}.
+    final rawAdditional = json['additional_info'];
+    final additional = <({String name, String value})>[];
+    if (rawAdditional is List) {
+      for (final e in rawAdditional) {
+        final m = mapFrom(e);
+        additional.add((
+          name: stringFrom(m['name']),
+          value: stringFrom(m['value']),
+        ));
+      }
+    } else if (rawAdditional is Map) {
+      rawAdditional.forEach((k, v) {
+        additional.add((name: k.toString(), value: v?.toString() ?? ''));
+      });
+    }
 
     return ApiDocumentDetail(
       id: intFrom(json['id']),
@@ -245,6 +284,9 @@ class ApiDocumentDetail {
       emailSentAt: dateFrom(json['email_sent_at']),
       emailSentTo: nullableStringFrom(json['email_sent_to']),
       customerEmail: nullableStringFrom(customer?['email']),
+      customerId: customer == null ? null : nullableIntFrom(customer['id']),
+      paymentMethods: payments,
+      additionalInfoPairs: additional,
       items: items,
     );
   }

@@ -822,94 +822,110 @@ class V1ApiService {
   /// Crea una factura con varios ítems. Calcula los subtotales por tarifa de
   /// IVA, el IVA total, el descuento y el total, y arma el payload que el
   /// backend ya soporta (items[], payment_methods[], additional_info[]).
+  /// Arma el payload de una factura (y tipos con ítems) a partir del input.
+  Map<String, dynamic> _invoicePayload(CreateInvoiceInput input) {
+    double subtotal0 = 0, subtotal12 = 0, subtotal15 = 0;
+    double tax12 = 0, tax15 = 0, totalDiscount = 0;
+    final items = <Map<String, dynamic>>[];
+
+    for (final line in input.lines) {
+      final rate = line.taxRate;
+      final base = line.base;
+      final taxValue = line.taxValue;
+      final isNoTax = rate <= 0;
+      final is12 = rate > 0 && rate <= 12.5;
+      final is15 = rate > 12.5;
+
+      if (isNoTax) subtotal0 += base;
+      if (is12) {
+        subtotal12 += base;
+        tax12 += taxValue;
+      }
+      if (is15) {
+        subtotal15 += base;
+        tax15 += taxValue;
+      }
+      totalDiscount += line.lineDiscount;
+
+      items.add({
+        'product_id': line.product.id,
+        'main_code': line.product.code,
+        'aux_code': null,
+        'description': line.product.name,
+        'quantity': line._qty,
+        'unit_price': line.unitPrice,
+        'discount': line.lineDiscount,
+        'subtotal': base,
+        'tax_code': line.product.taxCode,
+        'tax_percentage_code': line.product.taxPercentageCode,
+        'tax_rate': rate,
+        'tax_base': base,
+        'tax_value': taxValue,
+      });
+    }
+
+    final totalTax = tax12 + tax15;
+    final tip = input.tip < 0 ? 0.0 : input.tip;
+    final total = subtotal0 + subtotal12 + subtotal15 + totalTax + tip;
+
+    final payments = input.payments.isEmpty
+        ? [
+            {'code': '01', 'amount': total},
+          ]
+        : input.payments
+              .map((p) => {'code': p.code, 'amount': p.amount})
+              .toList();
+
+    return <String, dynamic>{
+      'company_id': input.companyId,
+      'customer_id': input.customerId,
+      'emission_point_id': input.emissionPointId,
+      'document_type': input.documentType,
+      'issue_date': dateOnly(DateTime.now()),
+      'subtotal_no_tax': 0,
+      'subtotal_0': subtotal0,
+      'subtotal_12': subtotal12,
+      'subtotal_15': subtotal15,
+      'total_tax': totalTax,
+      'total_discount': totalDiscount,
+      'tax_12': tax12,
+      'tax_15': tax15,
+      'discount': totalDiscount,
+      'tip': tip,
+      'total': total,
+      'payment_method': payments.first['code'],
+      'payment_methods': payments,
+      'payment_term': input.paymentTerm,
+      'additional_info': input.additionalInfo
+          .map((e) => {'name': e.name, 'value': e.value})
+          .toList(),
+      'items': items,
+      if (input.referenceDocumentId != null)
+        'reference_document_id': input.referenceDocumentId,
+      if (input.modificationReason != null &&
+          input.modificationReason!.trim().isNotEmpty)
+        'modification_reason': input.modificationReason!.trim(),
+    };
+  }
+
   Future<ApiDocument> createInvoice(CreateInvoiceInput input) async {
     return _guard(() async {
-      double subtotal0 = 0, subtotal12 = 0, subtotal15 = 0;
-      double tax12 = 0, tax15 = 0, totalDiscount = 0;
-      final items = <Map<String, dynamic>>[];
-
-      for (final line in input.lines) {
-        final rate = line.taxRate;
-        final base = line.base;
-        final taxValue = line.taxValue;
-        final isNoTax = rate <= 0;
-        final is12 = rate > 0 && rate <= 12.5;
-        final is15 = rate > 12.5;
-
-        if (isNoTax) subtotal0 += base;
-        if (is12) {
-          subtotal12 += base;
-          tax12 += taxValue;
-        }
-        if (is15) {
-          subtotal15 += base;
-          tax15 += taxValue;
-        }
-        totalDiscount += line.lineDiscount;
-
-        items.add({
-          'product_id': line.product.id,
-          'main_code': line.product.code,
-          'aux_code': null,
-          'description': line.product.name,
-          'quantity': line._qty,
-          'unit_price': line.unitPrice,
-          'discount': line.lineDiscount,
-          'subtotal': base,
-          'tax_code': line.product.taxCode,
-          'tax_percentage_code': line.product.taxPercentageCode,
-          'tax_rate': rate,
-          'tax_base': base,
-          'tax_value': taxValue,
-        });
-      }
-
-      final totalTax = tax12 + tax15;
-      final tip = input.tip < 0 ? 0.0 : input.tip;
-      final total = subtotal0 + subtotal12 + subtotal15 + totalTax + tip;
-
-      final payments = input.payments.isEmpty
-          ? [
-              {'code': '01', 'amount': total},
-            ]
-          : input.payments
-                .map((p) => {'code': p.code, 'amount': p.amount})
-                .toList();
-
-      final payload = <String, dynamic>{
-        'company_id': input.companyId,
-        'customer_id': input.customerId,
-        'emission_point_id': input.emissionPointId,
-        'document_type': input.documentType,
-        'issue_date': dateOnly(DateTime.now()),
-        'subtotal_no_tax': 0,
-        'subtotal_0': subtotal0,
-        'subtotal_12': subtotal12,
-        'subtotal_15': subtotal15,
-        'total_tax': totalTax,
-        'total_discount': totalDiscount,
-        'tax_12': tax12,
-        'tax_15': tax15,
-        'discount': totalDiscount,
-        'tip': tip,
-        'total': total,
-        'payment_method': payments.first['code'],
-        'payment_methods': payments,
-        'payment_term': input.paymentTerm,
-        'additional_info': input.additionalInfo
-            .map((e) => {'name': e.name, 'value': e.value})
-            .toList(),
-        'items': items,
-        if (input.referenceDocumentId != null)
-          'reference_document_id': input.referenceDocumentId,
-        if (input.modificationReason != null &&
-            input.modificationReason!.trim().isNotEmpty)
-          'modification_reason': input.modificationReason!.trim(),
-      };
-
       final response = await _apiClient.post<Map<String, dynamic>>(
         ApiConstants.documents,
-        data: payload,
+        data: _invoicePayload(input),
+      );
+      final data = _payloadMapFromResponse(response);
+      return ApiDocument.fromJson(mapFrom(data['document']));
+    });
+  }
+
+  /// Actualiza un borrador con ítems (PUT). Reemplaza ítems y datos según el
+  /// mismo payload que la creación. Solo funciona en documentos editables.
+  Future<ApiDocument> updateInvoice(int documentId, CreateInvoiceInput input) async {
+    return _guard(() async {
+      final response = await _apiClient.put<Map<String, dynamic>>(
+        '${ApiConstants.documents}/$documentId',
+        data: _invoicePayload(input),
       );
       final data = _payloadMapFromResponse(response);
       return ApiDocument.fromJson(mapFrom(data['document']));
