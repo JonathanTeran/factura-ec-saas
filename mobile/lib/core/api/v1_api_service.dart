@@ -1055,9 +1055,11 @@ class V1ApiService {
       'payment_method': payments.first['code'],
       'payment_methods': payments,
       'payment_term': input.paymentTerm,
-      'additional_info': input.additionalInfo
-          .map((e) => {'name': e.name, 'value': e.value})
-          .toList(),
+      // El RIDE renderiza la info adicional como mapa {clave: valor}.
+      'additional_info': {
+        for (final e in input.additionalInfo)
+          if (e.name.trim().isNotEmpty) e.name.trim(): e.value,
+      },
       'items': items,
       if (input.referenceDocumentId != null)
         'reference_document_id': input.referenceDocumentId,

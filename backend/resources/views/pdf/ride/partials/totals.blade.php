@@ -15,8 +15,16 @@
     ];
     $payments = collect($document->payment_methods ?? []);
 
-    // Información adicional: contacto del receptor + campos manuales
-    $manualInfo = collect($document->additional_info ?? [])->filter(fn ($v) => is_scalar($v) && $v !== '');
+    // Información adicional: contacto del receptor + campos manuales.
+    // Acepta mapa {clave: valor} (web) o lista [{name, value}] (app).
+    $manualInfo = collect();
+    foreach (($document->additional_info ?? []) as $k => $v) {
+        if (is_scalar($v) && $v !== '') {
+            $manualInfo[$k] = $v;
+        } elseif (is_array($v) && isset($v['name']) && ($v['value'] ?? '') !== '') {
+            $manualInfo[$v['name']] = $v['value'];
+        }
+    }
     $autoInfo = collect([
         'Dirección' => $customer?->address,
         'Teléfono' => $customer?->phone,
