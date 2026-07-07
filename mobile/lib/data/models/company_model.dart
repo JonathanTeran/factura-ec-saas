@@ -1,5 +1,14 @@
 import 'json_helpers.dart';
 
+/// Mapea el régimen del catastro del SRI (p. ej. 'rimpe_emprendedor',
+/// 'rimpe_popular', 'general') al valor de `rimpe_type` de la empresa.
+String rimpeTypeFromRegime(String regime) {
+  final r = regime.toLowerCase();
+  if (r.contains('popular')) return 'negocio_popular';
+  if (r.contains('emprendedor') || r.contains('rimpe')) return 'emprendedor';
+  return 'none';
+}
+
 /// Represents a company (emisor) from the API.
 class ApiCompany {
   final int id;

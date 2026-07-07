@@ -20,8 +20,10 @@ class EstablishmentsScreen extends ConsumerStatefulWidget {
 }
 
 class _EstablishmentsScreenState extends ConsumerState<EstablishmentsScreen> {
+  ApiCompany? _company;
   int? _companyId;
   bool _loading = true;
+  bool _importing = false;
   Object? _error;
   List<ApiBranch> _branches = const [];
 
@@ -50,8 +52,45 @@ class _EstablishmentsScreenState extends ConsumerState<EstablishmentsScreen> {
       (c) => c.id == me.currentCompanyId,
       orElse: () => companies.first,
     );
+    _company = active;
     _companyId = active.id;
     await _load();
+  }
+
+  /// Importa del catastro del SRI los establecimientos que aún no existen
+  /// (los ubica por código). Facilita la configuración como en la web.
+  Future<void> _importFromSri() async {
+    final company = _company;
+    if (company == null || _importing) return;
+    setState(() => _importing = true);
+    try {
+      final r = await _api.lookupRuc(company.ruc);
+      final existing = _branches.map((b) => b.code).toSet();
+      var created = 0;
+      for (final est in r.establishments) {
+        if (est.code.isEmpty || existing.contains(est.code)) continue;
+        await _api.createBranch(company.id, {
+          'code': est.code,
+          'name': (est.tradeName ?? '').isNotEmpty
+              ? est.tradeName
+              : (est.isMain ? 'Matriz' : 'Establecimiento ${est.code}'),
+          'address': (est.address ?? '').isNotEmpty
+              ? est.address
+              : (company.address.isNotEmpty ? company.address : 'S/N'),
+          'is_main': est.isMain,
+          'is_active': true,
+        });
+        created++;
+      }
+      _toast(created == 0
+          ? 'No hay establecimientos nuevos en el SRI.'
+          : 'Se importaron $created establecimiento(s) del SRI.');
+      await _load();
+    } catch (e) {
+      _toast(e is ApiException ? e.message : 'No se pudo consultar el SRI.');
+    } finally {
+      if (mounted) setState(() => _importing = false);
+    }
   }
 
   Future<void> _load() async {
@@ -131,6 +170,17 @@ class _EstablishmentsScreenState extends ConsumerState<EstablishmentsScreen> {
       appBar: AppBar(
         title: const Text('Establecimientos'),
         actions: [
+          IconButton(
+            tooltip: 'Importar del SRI',
+            onPressed: (_loading || _importing) ? null : _importFromSri,
+            icon: _importing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.cloud_download_outlined),
+          ),
           IconButton(
             tooltip: 'Agregar establecimiento',
             onPressed: _loading ? null : () => _branchForm(),

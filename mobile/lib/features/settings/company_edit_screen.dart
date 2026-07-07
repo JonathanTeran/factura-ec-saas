@@ -38,6 +38,7 @@ class _CompanyEditScreenState extends ConsumerState<CompanyEditScreen> {
   String? _logoUrl;
   bool _busy = false;
   bool _uploadingLogo = false;
+  bool _lookingUp = false;
   String? _error;
 
   @override
@@ -82,6 +83,40 @@ class _CompanyEditScreenState extends ConsumerState<CompanyEditScreen> {
       ..showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  /// Trae los datos de la empresa desde el catastro del SRI y autocompleta el
+  /// formulario (razón social, dirección, régimen, obligado a contabilidad…).
+  Future<void> _lookupFromSri() async {
+    final company = _company;
+    if (company == null || _lookingUp) return;
+    setState(() => _lookingUp = true);
+    try {
+      final r = await ref.read(v1ApiServiceProvider).lookupRuc(company.ruc);
+      RucEstablishment? main;
+      for (final e in r.establishments) {
+        if (e.isMain) {
+          main = e;
+          break;
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        if (r.businessName.isNotEmpty) _bnCtrl.text = r.businessName;
+        if ((main?.tradeName ?? '').isNotEmpty) _tnCtrl.text = main!.tradeName!;
+        if ((main?.address ?? '').isNotEmpty) _addrCtrl.text = main!.address!;
+        if (r.taxpayerType == 'natural' || r.taxpayerType == 'juridical') {
+          _taxpayerType = r.taxpayerType;
+        }
+        _rimpeType = rimpeTypeFromRegime(r.regime);
+        _obligatedAccounting = r.obligatedAccounting;
+      });
+      _toast('Datos traídos del SRI.');
+    } catch (_) {
+      _toast('No se pudo consultar el SRI. Completá los datos manualmente.');
+    } finally {
+      if (mounted) setState(() => _lookingUp = false);
+    }
+  }
+
   Future<void> _pickLogo() async {
     final company = _company;
     if (company == null || _uploadingLogo) return;
@@ -117,6 +152,11 @@ class _CompanyEditScreenState extends ConsumerState<CompanyEditScreen> {
         _addrCtrl.text.trim().isEmpty ||
         _emailCtrl.text.trim().isEmpty) {
       setState(() => _error = 'Completá razón social, dirección y correo.');
+      return;
+    }
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+        .hasMatch(_emailCtrl.text.trim())) {
+      setState(() => _error = 'Ingresá un correo electrónico válido.');
       return;
     }
 
@@ -198,7 +238,30 @@ class _CompanyEditScreenState extends ConsumerState<CompanyEditScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _ReadOnlyRow(label: 'RUC', value: _company!.ruc),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _ReadOnlyRow(
+                                label: 'RUC',
+                                value: _company!.ruc,
+                              ),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: _lookingUp ? null : _lookupFromSri,
+                              icon: _lookingUp
+                                  ? const SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.cloud_download_outlined,
+                                      size: 18),
+                              label: const Text('Traer del SRI'),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 12),
                         TextField(
                           controller: _bnCtrl,

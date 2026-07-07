@@ -26,6 +26,8 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
   final _emailCtrl = TextEditingController();
   final _addrCtrl = TextEditingController();
   String _taxpayerType = 'natural';
+  String _rimpeType = 'none';
+  bool _obligated = false;
   String _sriEnv = '1';
   bool _busy = false;
   bool _rucLoading = false;
@@ -73,6 +75,8 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
         if (_tnCtrl.text.isEmpty && (main?.tradeName ?? '').isNotEmpty) {
           _tnCtrl.text = main!.tradeName!;
         }
+        _rimpeType = rimpeTypeFromRegime(r.regime);
+        _obligated = r.obligatedAccounting;
       });
       _toast('Datos cargados desde el SRI.');
     } catch (_) {
@@ -91,6 +95,15 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
       setState(() => _error = 'Completa los campos obligatorios.');
       return;
     }
+    if (!RegExp(r'^[0-9]{13}$').hasMatch(_rucCtrl.text.trim())) {
+      setState(() => _error = 'El RUC debe tener 13 dígitos numéricos.');
+      return;
+    }
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+        .hasMatch(_emailCtrl.text.trim())) {
+      setState(() => _error = 'Ingresá un correo electrónico válido.');
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
@@ -103,6 +116,8 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
         'address': _addrCtrl.text.trim(),
         'email': _emailCtrl.text.trim(),
         'taxpayer_type': _taxpayerType,
+        'rimpe_type': _rimpeType,
+        'obligated_accounting': _obligated,
         'sri_environment': _sriEnv,
       });
       ref.invalidate(companiesProvider);
@@ -215,6 +230,43 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                           ],
                           onChanged: (v) =>
                               setState(() => _taxpayerType = v ?? 'natural'),
+                        ),
+                        const SizedBox(height: 10),
+                        DropdownButtonFormField<String>(
+                          initialValue: _rimpeType,
+                          decoration: const InputDecoration(
+                            labelText: 'Régimen RIMPE',
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'none',
+                              child: Text('Régimen general'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'emprendedor',
+                              child: Text('RIMPE Emprendedor'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'negocio_popular',
+                              child: Text('RIMPE Negocio Popular'),
+                            ),
+                          ],
+                          onChanged: (v) =>
+                              setState(() => _rimpeType = v ?? 'none'),
+                        ),
+                        SwitchListTile.adaptive(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text(
+                            'Obligado a llevar contabilidad',
+                            style: TextStyle(
+                              fontFamily: 'Avenir Next',
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          value: _obligated,
+                          onChanged: (v) => setState(() => _obligated = v),
                         ),
                         const SizedBox(height: 10),
                         DropdownButtonFormField<String>(
