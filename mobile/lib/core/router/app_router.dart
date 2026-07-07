@@ -30,6 +30,8 @@ import '../../features/settings/billing_screen.dart';
 import '../../features/settings/certificate_screen.dart';
 import '../../features/settings/company_create_screen.dart';
 import '../../features/settings/company_edit_screen.dart';
+import '../../features/settings/establishments_screen.dart';
+import '../../features/settings/sequentials_screen.dart';
 import '../../features/settings/settings_screen.dart';
 
 /// Central GoRouter provider. All screens are imported from feature modules.
@@ -169,6 +171,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 name: 'company-edit',
                 builder: (context, state) =>
                     CompanyEditScreen(company: state.extra as ApiCompany?),
+              ),
+              GoRoute(
+                path: 'establishments',
+                name: 'establishments',
+                builder: (context, state) => const EstablishmentsScreen(),
+              ),
+              GoRoute(
+                path: 'emission-point/sequentials',
+                name: 'emission-point-sequentials',
+                builder: (context, state) => SequentialsScreen(
+                  emissionPoint: state.extra as ApiEmissionPoint,
+                ),
               ),
               GoRoute(
                 path: 'certificate',

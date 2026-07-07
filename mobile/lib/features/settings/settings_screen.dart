@@ -529,6 +529,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   const Divider(height: 20),
                   _MenuTile(
+                    icon: Icons.store_mall_directory_outlined,
+                    title: 'Establecimientos y puntos de emisión',
+                    subtitle: 'Sucursales, puntos de emisión y secuenciales.',
+                    onTap: () => context.push('/settings/establishments'),
+                  ),
+                  const Divider(height: 20),
+                  _MenuTile(
                     icon: Icons.credit_card_rounded,
                     title: 'Facturación',
                     subtitle: 'Plan, pagos y transferencia bancaria.',

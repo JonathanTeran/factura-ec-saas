@@ -74,23 +74,94 @@ class ApiCompany {
 /// Represents an emission point within a company.
 class ApiEmissionPoint {
   final int id;
+  final int branchId;
   final String code;
   final String description;
+  final bool isActive;
 
   const ApiEmissionPoint({
     required this.id,
+    required this.branchId,
     required this.code,
     required this.description,
+    required this.isActive,
   });
 
   factory ApiEmissionPoint.fromJson(Map<String, dynamic> json) {
     return ApiEmissionPoint(
       id: intFrom(json['id']),
+      branchId: intFrom(json['branch_id']),
       code: stringFrom(json['code'], fallback: '-'),
       description: stringFrom(
         json['description'],
         fallback: 'Punto de emisión',
       ),
+      isActive: json['is_active'] == null ? true : json['is_active'] == true,
+    );
+  }
+}
+
+/// Establecimiento (sucursal) de una empresa, con sus puntos de emisión.
+class ApiBranch {
+  final int id;
+  final int companyId;
+  final String code;
+  final String name;
+  final String address;
+  final bool isMain;
+  final bool isActive;
+  final List<ApiEmissionPoint> emissionPoints;
+
+  const ApiBranch({
+    required this.id,
+    required this.companyId,
+    required this.code,
+    required this.name,
+    required this.address,
+    required this.isMain,
+    required this.isActive,
+    required this.emissionPoints,
+  });
+
+  factory ApiBranch.fromJson(Map<String, dynamic> json) {
+    return ApiBranch(
+      id: intFrom(json['id']),
+      companyId: intFrom(json['company_id']),
+      code: stringFrom(json['code'], fallback: '-'),
+      name: stringFrom(json['name'], fallback: 'Establecimiento'),
+      address: stringFrom(json['address']),
+      isMain: json['is_main'] == true,
+      isActive: json['is_active'] == null ? true : json['is_active'] == true,
+      emissionPoints: listFrom(json['emission_points'])
+          .map((e) => ApiEmissionPoint.fromJson(mapFrom(e)))
+          .toList(growable: false),
+    );
+  }
+}
+
+/// Secuencial de un punto de emisión para un tipo de comprobante.
+class ApiSequential {
+  final String documentType;
+  final String label;
+  final int currentNumber;
+  final int nextNumber;
+
+  const ApiSequential({
+    required this.documentType,
+    required this.label,
+    required this.currentNumber,
+    required this.nextNumber,
+  });
+
+  factory ApiSequential.fromJson(Map<String, dynamic> json) {
+    final current = intFrom(json['current_number']);
+    return ApiSequential(
+      documentType: stringFrom(json['document_type']),
+      label: stringFrom(json['document_type_label'], fallback: 'Comprobante'),
+      currentNumber: current,
+      nextNumber: json['next_number'] == null
+          ? current + 1
+          : intFrom(json['next_number']),
     );
   }
 }

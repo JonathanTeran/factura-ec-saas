@@ -537,6 +537,101 @@ class V1ApiService {
     });
   }
 
+  // ───────── ESTABLECIMIENTOS / PUNTOS DE EMISIÓN / SECUENCIALES ─────────
+
+  /// Establecimientos (sucursales) de la empresa, con sus puntos de emisión.
+  Future<List<ApiBranch>> branches(int companyId) async {
+    return _guard(() async {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '${ApiConstants.companies}/$companyId/branches',
+      );
+      final d = _payloadMapFromResponse(response);
+      return listFrom(d['branches'])
+          .map((e) => ApiBranch.fromJson(mapFrom(e)))
+          .toList(growable: false);
+    });
+  }
+
+  Future<void> createBranch(int companyId, Map<String, dynamic> data) async {
+    return _guard(() async {
+      await _apiClient.post<Map<String, dynamic>>(
+        '${ApiConstants.companies}/$companyId/branches',
+        data: {...data, 'company_id': companyId},
+      );
+    });
+  }
+
+  Future<void> updateBranch(
+    int companyId,
+    int branchId,
+    Map<String, dynamic> data,
+  ) async {
+    return _guard(() async {
+      await _apiClient.put<Map<String, dynamic>>(
+        '${ApiConstants.companies}/$companyId/branches/$branchId',
+        data: {...data, 'company_id': companyId},
+      );
+    });
+  }
+
+  Future<void> createEmissionPoint(int branchId, Map<String, dynamic> data) async {
+    return _guard(() async {
+      await _apiClient.post<Map<String, dynamic>>(
+        '${ApiConstants.branches}/$branchId/emission-points',
+        data: {...data, 'branch_id': branchId},
+      );
+    });
+  }
+
+  Future<void> updateEmissionPoint(
+    int branchId,
+    int emissionPointId,
+    Map<String, dynamic> data,
+  ) async {
+    return _guard(() async {
+      await _apiClient.put<Map<String, dynamic>>(
+        '${ApiConstants.branches}/$branchId/emission-points/$emissionPointId',
+        data: {...data, 'branch_id': branchId},
+      );
+    });
+  }
+
+  /// Secuenciales existentes de un punto de emisión (por tipo de comprobante).
+  Future<List<ApiSequential>> emissionPointSequentials(int emissionPointId) async {
+    return _guard(() async {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '/onboarding/sequentials',
+        queryParameters: {'emission_point_id': emissionPointId},
+      );
+      final d = _payloadMapFromResponse(response);
+      return listFrom(d['sequentials'])
+          .map((e) => ApiSequential.fromJson(mapFrom(e)))
+          .toList(growable: false);
+    });
+  }
+
+  /// Fija el último número usado por tipo de comprobante (migración a
+  /// producción sin repetir números). El próximo emitido será last_number + 1.
+  Future<void> saveEmissionPointSequentials(
+    int emissionPointId,
+    List<({String documentType, int lastNumber})> sequentials,
+  ) async {
+    return _guard(() async {
+      await _apiClient.post<Map<String, dynamic>>(
+        '/onboarding/sequentials',
+        data: {
+          'emission_point_id': emissionPointId,
+          'sequentials': sequentials
+              .map((s) => {
+                    'document_type': s.documentType,
+                    'last_number': s.lastNumber,
+                  })
+              .toList(),
+        },
+      );
+    });
+  }
+
   Future<ApiCompany> switchCompany(int companyId) async {
     return _guard(() async {
       final response = await _apiClient.post<Map<String, dynamic>>(
