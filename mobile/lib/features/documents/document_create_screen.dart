@@ -441,6 +441,8 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
     ref.invalidate(receivedDocumentsProvider);
     ref.invalidate(draftDocumentsProvider);
     ref.invalidate(reportsViewDataProvider);
+    // Señal para que la lista de Documentos (paginada) recargue.
+    ref.read(documentsRefreshProvider.notifier).state++;
   }
 
   Future<void> _advanceFlow() async {

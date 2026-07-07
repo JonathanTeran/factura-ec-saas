@@ -11,6 +11,7 @@ import '../../core/widgets/glass_panel.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/ui_kit.dart';
 import '../../data/providers/auth_provider.dart';
+import '../../data/providers/document_provider.dart';
 
 enum DocumentStatus { validated, pending, rejected, draft }
 
@@ -310,6 +311,9 @@ class _PaginatedDocumentsTabState extends ConsumerState<_PaginatedDocumentsTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+
+    // Al crear/editar/enviar/eliminar un documento, se recarga esta pestaña.
+    ref.listen(documentsRefreshProvider, (_, _) => _load(reset: true));
 
     if (_initial && _loading) return const _DocumentsSkeleton();
 

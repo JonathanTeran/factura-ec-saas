@@ -103,6 +103,7 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
       ref.invalidate(documentDetailProvider(_id));
       ref.invalidate(sentDocumentsProvider);
       ref.invalidate(draftDocumentsProvider);
+      ref.read(documentsRefreshProvider.notifier).state++;
       messenger.showSnackBar(
         const SnackBar(content: Text('Documento enviado al SRI')),
       );
