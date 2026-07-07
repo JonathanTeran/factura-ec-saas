@@ -127,6 +127,7 @@ export function DocumentDetail({ id }: { id: number }) {
 
   const meta = documentStatusMeta(doc.status);
   const canSend = doc.status === "draft";
+  const canRetry = doc.status === "failed" || doc.status === "rejected";
   const canVoid =
     doc.status === "authorized" || doc.status === "draft" || doc.status === "sent";
   const canDelete = doc.status === "draft";
@@ -211,6 +212,25 @@ export function DocumentDetail({ id }: { id: number }) {
                 <Send className="size-4" />
               )}
               Enviar al SRI
+            </Button>
+          )}
+          {canRetry && (
+            <Button
+              disabled={send.isPending}
+              onClick={() =>
+                send.mutate(undefined, {
+                  onSuccess: () =>
+                    toast.success("Reenviado al SRI. Esperá la autorización."),
+                  onError: (e) => toast.error(errMessage(e)),
+                })
+              }
+            >
+              {send.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <RefreshCw className="size-4" />
+              )}
+              Reintentar envío
             </Button>
           )}
 
