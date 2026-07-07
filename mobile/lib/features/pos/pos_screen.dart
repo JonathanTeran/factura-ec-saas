@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass_panel.dart';
@@ -99,32 +98,21 @@ class PosScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              const SectionHeader(title: 'Acciones rapidas', actionText: ''),
+              const SectionHeader(title: 'Acciones rápidas', actionText: ''),
               const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: _ActionCard(
-                      icon: Icons.add_shopping_cart_rounded,
-                      title: 'Nueva venta',
-                      color: AppColors.primary,
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Proximamente: Nueva venta POS')),
-                        );
-                      },
+              _ActionCard(
+                icon: Icons.add_shopping_cart_rounded,
+                title: 'Nueva venta',
+                color: AppColors.primary,
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Las ventas del POS se registran desde la web por ahora.',
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _ActionCard(
-                      icon: Icons.receipt_long_rounded,
-                      title: 'Historial',
-                      color: AppColors.secondary,
-                      onTap: () => context.go('/pos'),
-                    ),
-                  ),
-                ],
+                  );
+                },
               ),
             ] else ...[
               GlassPanel(
@@ -141,11 +129,15 @@ class PosScreen extends ConsumerWidget {
                     ElevatedButton.icon(
                       onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Apertura de sesión POS próximamente disponible')),
+                          const SnackBar(
+                            content: Text(
+                              'La apertura de caja POS está disponible en la web por ahora.',
+                            ),
+                          ),
                         );
                       },
                       icon: const Icon(Icons.play_arrow_rounded),
-                      label: const Text('Abrir sesion'),
+                      label: const Text('Abrir sesión'),
                     ),
                   ],
                 ),

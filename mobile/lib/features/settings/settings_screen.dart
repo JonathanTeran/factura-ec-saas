@@ -207,12 +207,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               title: 'Menú',
               subtitle: 'Cuenta, seguridad y automatizaciones',
               trailing: IconButton.filledTonal(
-                tooltip: 'Ayuda',
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Próximamente disponible')),
-                  );
-                },
+                tooltip: 'Ayuda y soporte',
+                onPressed: () => _openUrl('https://facturacion.amephia.com'),
                 icon: const Icon(Icons.help_outline_rounded),
               ),
             ),
@@ -476,15 +472,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 18),
-            SectionHeader(
-              title: 'Productividad',
-              actionText: 'Personalizar',
-              onAction: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Próximamente disponible')),
-                );
-              },
-            ),
+            const SectionHeader(title: 'Productividad', actionText: ''),
             const SizedBox(height: 10),
             GlassPanel(
               child: Column(
@@ -557,25 +545,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   const Divider(height: 20),
                   _MenuTile(
-                    icon: Icons.stars_outlined,
-                    title: 'Rewards',
-                    subtitle: 'Programa de incentivos premium.',
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Proximamente')),
-                      );
-                    },
-                  ),
-                  const Divider(height: 20),
-                  _MenuTile(
                     icon: Icons.support_agent_outlined,
-                    title: 'Soporte prioritario',
-                    subtitle: 'Resuelve tickets en menos tiempo.',
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Proximamente')),
-                      );
-                    },
+                    title: 'Ayuda y soporte',
+                    subtitle: 'Centro de ayuda y contacto.',
+                    onTap: () => _openUrl('https://facturacion.amephia.com'),
                   ),
                   const Divider(height: 20),
                   _MenuTile(

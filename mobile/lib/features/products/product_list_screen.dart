@@ -13,11 +13,18 @@ import '../../core/widgets/section_header.dart';
 import '../../data/providers/auth_provider.dart';
 import '../../data/providers/product_provider.dart';
 
-class ProductsScreen extends ConsumerWidget {
+class ProductsScreen extends ConsumerStatefulWidget {
   const ProductsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProductsScreen> createState() => _ProductsScreenState();
+}
+
+class _ProductsScreenState extends ConsumerState<ProductsScreen> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
     final productsAsync = ref.watch(productsProvider);
     final state = productsAsync.when(
       data: (data) =>
@@ -35,7 +42,12 @@ class ProductsScreen extends ConsumerWidget {
       );
     }
 
-    final products = productsAsync.value!.items;
+    final q = _query.trim().toLowerCase();
+    final products = productsAsync.value!.items.where((p) {
+      if (q.isEmpty) return true;
+      return p.name.toLowerCase().contains(q) ||
+          p.code.toLowerCase().contains(q);
+    }).toList(growable: false);
 
     return RefreshIndicator(
       color: AppColors.primary,
@@ -60,10 +72,32 @@ class ProductsScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 12),
-            const SearchInput(),
+            SearchInput(
+              hintText: 'Buscar por nombre o código',
+              onChanged: (v) => setState(() => _query = v),
+            ),
             const SizedBox(height: 16),
-            const SectionHeader(title: 'Catálogo activo', actionText: ''),
+            SectionHeader(
+              title:
+                  q.isEmpty ? 'Catálogo activo' : 'Resultados (${products.length})',
+              actionText: '',
+            ),
             const SizedBox(height: 10),
+            if (products.isEmpty)
+              const GlassPanel(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 18),
+                  child: Text(
+                    'Sin resultados para tu búsqueda.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Avenir Next',
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              )
+            else
             GlassPanel(
               child: Column(
                 children: [

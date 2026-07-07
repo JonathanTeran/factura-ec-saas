@@ -12,11 +12,18 @@ import '../../core/widgets/section_header.dart';
 import '../../data/providers/auth_provider.dart';
 import '../../data/providers/customer_provider.dart';
 
-class CustomersScreen extends ConsumerWidget {
+class CustomersScreen extends ConsumerStatefulWidget {
   const CustomersScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CustomersScreen> createState() => _CustomersScreenState();
+}
+
+class _CustomersScreenState extends ConsumerState<CustomersScreen> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
     final customersAsync = ref.watch(customersProvider);
     final state = customersAsync.when(
       data: (data) =>
@@ -34,7 +41,12 @@ class CustomersScreen extends ConsumerWidget {
       );
     }
 
-    final items = customersAsync.value!.items;
+    final q = _query.trim().toLowerCase();
+    final items = customersAsync.value!.items.where((c) {
+      if (q.isEmpty) return true;
+      return c.name.toLowerCase().contains(q) ||
+          c.identificationNumber.toLowerCase().contains(q);
+    }).toList(growable: false);
 
     return RefreshIndicator(
       color: AppColors.primary,
@@ -59,10 +71,31 @@ class CustomersScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 12),
-            const SearchInput(),
+            SearchInput(
+              hintText: 'Buscar por nombre o identificación',
+              onChanged: (v) => setState(() => _query = v),
+            ),
             const SizedBox(height: 16),
-            const SectionHeader(title: 'Clientes activos', actionText: ''),
+            SectionHeader(
+              title: q.isEmpty ? 'Clientes activos' : 'Resultados (${items.length})',
+              actionText: '',
+            ),
             const SizedBox(height: 10),
+            if (items.isEmpty)
+              const GlassPanel(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 18),
+                  child: Text(
+                    'Sin resultados para tu búsqueda.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Avenir Next',
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              )
+            else
             GlassPanel(
               child: Column(
                 children: [

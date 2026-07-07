@@ -12,11 +12,18 @@ import '../../core/widgets/section_header.dart';
 import '../../data/providers/auth_provider.dart';
 import '../../data/providers/purchase_provider.dart';
 
-class SuppliersScreen extends ConsumerWidget {
+class SuppliersScreen extends ConsumerStatefulWidget {
   const SuppliersScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SuppliersScreen> createState() => _SuppliersScreenState();
+}
+
+class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
     final suppliersAsync = ref.watch(suppliersProvider);
     final state = suppliersAsync.when(
       data: (data) =>
@@ -34,7 +41,12 @@ class SuppliersScreen extends ConsumerWidget {
       );
     }
 
-    final items = suppliersAsync.value!.items;
+    final q = _query.trim().toLowerCase();
+    final items = suppliersAsync.value!.items.where((s) {
+      if (q.isEmpty) return true;
+      return s.businessName.toLowerCase().contains(q) ||
+          s.identification.toLowerCase().contains(q);
+    }).toList(growable: false);
 
     return RefreshIndicator(
       color: AppColors.primary,
@@ -59,10 +71,31 @@ class SuppliersScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 12),
-            const SearchInput(),
+            SearchInput(
+              hintText: 'Buscar por nombre o RUC/cédula',
+              onChanged: (v) => setState(() => _query = v),
+            ),
             const SizedBox(height: 16),
-            const SectionHeader(title: 'Directorio', actionText: ''),
+            SectionHeader(
+              title: q.isEmpty ? 'Directorio' : 'Resultados (${items.length})',
+              actionText: '',
+            ),
             const SizedBox(height: 10),
+            if (items.isEmpty)
+              const GlassPanel(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 18),
+                  child: Text(
+                    'Sin resultados para tu búsqueda.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Avenir Next',
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              )
+            else
             GlassPanel(
               child: Column(
                 children: [

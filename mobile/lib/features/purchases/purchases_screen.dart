@@ -11,11 +11,18 @@ import '../../core/widgets/section_header.dart';
 import '../../data/providers/auth_provider.dart';
 import '../../data/providers/purchase_provider.dart';
 
-class PurchasesScreen extends ConsumerWidget {
+class PurchasesScreen extends ConsumerStatefulWidget {
   const PurchasesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PurchasesScreen> createState() => _PurchasesScreenState();
+}
+
+class _PurchasesScreenState extends ConsumerState<PurchasesScreen> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
     final purchasesAsync = ref.watch(purchasesProvider);
     final state = purchasesAsync.when(
       data: (data) =>
@@ -33,7 +40,12 @@ class PurchasesScreen extends ConsumerWidget {
       );
     }
 
-    final items = purchasesAsync.value!.items;
+    final q = _query.trim().toLowerCase();
+    final items = purchasesAsync.value!.items.where((p) {
+      if (q.isEmpty) return true;
+      return (p.supplierName ?? '').toLowerCase().contains(q) ||
+          p.supplierDocumentNumber.toLowerCase().contains(q);
+    }).toList(growable: false);
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -45,19 +57,45 @@ class PurchasesScreen extends ConsumerWidget {
               title: 'Compras',
               subtitle: '${items.length} registros',
               trailing: IconButton.filledTonal(
+                tooltip: 'Registrar compra',
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Registro de compras próximamente disponible')),
+                    const SnackBar(
+                      content: Text(
+                        'El registro de compras electrónicas se hace desde la web por ahora.',
+                      ),
+                    ),
                   );
                 },
                 icon: const Icon(Icons.add_rounded),
               ),
             ),
             const SizedBox(height: 12),
-            const SearchInput(),
+            SearchInput(
+              hintText: 'Buscar por proveedor o número',
+              onChanged: (v) => setState(() => _query = v),
+            ),
             const SizedBox(height: 16),
-            const SectionHeader(title: 'Recientes', actionText: ''),
+            SectionHeader(
+              title: q.isEmpty ? 'Recientes' : 'Resultados (${items.length})',
+              actionText: '',
+            ),
             const SizedBox(height: 10),
+            if (items.isEmpty)
+              const GlassPanel(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 18),
+                  child: Text(
+                    'Sin resultados.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Avenir Next',
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              )
+            else
             GlassPanel(
               child: Column(
                 children: [
