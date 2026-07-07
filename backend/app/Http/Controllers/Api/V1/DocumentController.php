@@ -489,54 +489,34 @@ class DocumentController extends ApiController
     }
 
     /**
-     * Resuelve la ruta y el nombre del RIDE (PDF) del documento, generándolo si
-     * hace falta. Compartido por la URL temporal y el streaming directo.
+     * Transmite el RIDE (PDF) directamente desde el servidor.
+     *
+     * A diferencia de downloadRide (URL temporal del storage, que apunta a un
+     * host interno no accesible desde el móvil), el PDF se genera en memoria y
+     * se devuelve en la respuesta, servido por el dominio público de la app.
+     * No depende de leer del almacenamiento. Sirve para borradores (vista
+     * previa con marca de agua) y para autorizados/rechazados.
      */
-    protected function resolveRideFile(ElectronicDocument $document): array
+    public function streamRide(Request $request, ElectronicDocument $document)
     {
+        $this->authorizeDocument($request, $document);
+
         $document->load(['company', 'branch', 'emissionPoint', 'customer', 'items', 'withholdingDetails']);
 
         if (! $document->access_key && $document->status === DocumentStatus::DRAFT) {
             $document->update(['access_key' => app(AccessKeyService::class)->generate($document)]);
         }
 
-        $rideGenerator = app(RIDEGenerator::class);
         $isFinal = in_array($document->status, [DocumentStatus::AUTHORIZED, DocumentStatus::REJECTED]);
+        $preview = ! $isFinal;
+        $filename = ($preview ? 'borrador-' : '').$document->document_number.'.pdf';
 
-        if ($isFinal) {
-            if (! $document->ride_pdf_path || ! Storage::exists($document->ride_pdf_path)) {
-                $document->update(['ride_pdf_path' => $rideGenerator->generate($document)]);
-            }
+        $pdf = app(RIDEGenerator::class)->render($document, [], $preview);
 
-            return [$document->ride_pdf_path, $document->document_number.'.pdf'];
-        }
-
-        // Vista previa (borrador/en proceso): se regenera con marca de agua.
-        return [
-            $rideGenerator->generate($document, [], preview: true),
-            'borrador-'.$document->document_number.'.pdf',
-        ];
-    }
-
-    /**
-     * Transmite el RIDE (PDF) directamente desde el servidor.
-     *
-     * A diferencia de downloadRide (URL temporal del storage, que apunta a un
-     * host interno no accesible desde el móvil), esto lee el archivo del disco
-     * y lo devuelve en la respuesta, servido por el dominio público de la app.
-     * Sirve tanto para borradores (vista previa) como para autorizados.
-     */
-    public function streamRide(Request $request, ElectronicDocument $document)
-    {
-        $this->authorizeDocument($request, $document);
-
-        [$path, $filename] = $this->resolveRideFile($document);
-
-        return Storage::disk(config('filesystems.default'))->response(
-            $path,
-            $filename,
-            ['Content-Type' => 'application/pdf'],
-        );
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$filename.'"',
+        ]);
     }
 
     /**
@@ -550,11 +530,20 @@ class DocumentController extends ApiController
             return $this->error('El XML firmado no está disponible.', 400);
         }
 
-        return Storage::disk(config('filesystems.default'))->response(
-            $document->xml_signed_path,
-            $document->access_key.'.xml',
-            ['Content-Type' => 'application/xml'],
-        );
+        try {
+            $contents = Storage::disk(config('filesystems.default'))->get($document->xml_signed_path);
+        } catch (\Throwable $e) {
+            $contents = null;
+        }
+
+        if (empty($contents)) {
+            return $this->error('No se pudo leer el XML firmado.', 404);
+        }
+
+        return response($contents, 200, [
+            'Content-Type' => 'application/xml',
+            'Content-Disposition' => 'inline; filename="'.$document->access_key.'.xml"',
+        ]);
     }
 
     public function resendEmail(Request $request, ElectronicDocument $document): JsonResponse

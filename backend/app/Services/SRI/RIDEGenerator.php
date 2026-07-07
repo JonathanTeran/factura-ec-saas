@@ -55,6 +55,26 @@ class RIDEGenerator
         return $path;
     }
 
+    /**
+     * Genera el RIDE (PDF) en memoria y devuelve los bytes, SIN tocar Storage.
+     *
+     * Se usa para transmitir el PDF directamente al cliente (móvil), evitando
+     * lecturas/checks del almacenamiento. Los datos de autorización salen del
+     * propio documento, así que sirve para borradores (con marca de agua) y
+     * para autorizados/rechazados por igual.
+     */
+    public function render(ElectronicDocument $doc, array $sriResult = [], bool $preview = false): string
+    {
+        $template = $this->getTemplate($doc->document_type);
+        $data = $this->prepareData($doc, $sriResult);
+        $data['preview'] = $preview;
+
+        $pdf = Pdf::loadView($template, $data);
+        $pdf->setPaper('a4', 'portrait');
+
+        return $pdf->output();
+    }
+
     /** Elimina vistas previas de versiones anteriores del documento. */
     private function purgeStalePreviews(string $dir, string $currentPath): void
     {
