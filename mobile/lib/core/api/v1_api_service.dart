@@ -1095,6 +1095,27 @@ class V1ApiService {
     });
   }
 
+  /// Descarga el RIDE (PDF) como bytes, servido por el dominio público de la
+  /// app (no por el storage interno). Sirve para borradores y autorizados.
+  Future<List<int>> documentRideBytes(int documentId) async {
+    return _downloadBytes('${ApiConstants.documents}/$documentId/ride-file');
+  }
+
+  /// Descarga el XML firmado como bytes.
+  Future<List<int>> documentXmlBytes(int documentId) async {
+    return _downloadBytes('${ApiConstants.documents}/$documentId/xml-file');
+  }
+
+  Future<List<int>> _downloadBytes(String path) async {
+    return _guard(() async {
+      final response = await _apiClient.get<List<int>>(
+        path,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return response.data ?? const <int>[];
+    });
+  }
+
   /// URL temporal del XML firmado. Solo existe cuando el documento ya fue
   /// firmado/enviado (el backend responde 400 si no está disponible).
   Future<DocumentFileLink> documentXml(int documentId) async {

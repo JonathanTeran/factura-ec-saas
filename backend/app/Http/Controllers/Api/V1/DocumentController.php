@@ -488,6 +488,75 @@ class DocumentController extends ApiController
         ]);
     }
 
+    /**
+     * Resuelve la ruta y el nombre del RIDE (PDF) del documento, generándolo si
+     * hace falta. Compartido por la URL temporal y el streaming directo.
+     */
+    protected function resolveRideFile(ElectronicDocument $document): array
+    {
+        $document->load(['company', 'branch', 'emissionPoint', 'customer', 'items', 'withholdingDetails']);
+
+        if (! $document->access_key && $document->status === DocumentStatus::DRAFT) {
+            $document->update(['access_key' => app(AccessKeyService::class)->generate($document)]);
+        }
+
+        $rideGenerator = app(RIDEGenerator::class);
+        $isFinal = in_array($document->status, [DocumentStatus::AUTHORIZED, DocumentStatus::REJECTED]);
+
+        if ($isFinal) {
+            if (! $document->ride_pdf_path || ! Storage::exists($document->ride_pdf_path)) {
+                $document->update(['ride_pdf_path' => $rideGenerator->generate($document)]);
+            }
+
+            return [$document->ride_pdf_path, $document->document_number.'.pdf'];
+        }
+
+        // Vista previa (borrador/en proceso): se regenera con marca de agua.
+        return [
+            $rideGenerator->generate($document, [], preview: true),
+            'borrador-'.$document->document_number.'.pdf',
+        ];
+    }
+
+    /**
+     * Transmite el RIDE (PDF) directamente desde el servidor.
+     *
+     * A diferencia de downloadRide (URL temporal del storage, que apunta a un
+     * host interno no accesible desde el móvil), esto lee el archivo del disco
+     * y lo devuelve en la respuesta, servido por el dominio público de la app.
+     * Sirve tanto para borradores (vista previa) como para autorizados.
+     */
+    public function streamRide(Request $request, ElectronicDocument $document)
+    {
+        $this->authorizeDocument($request, $document);
+
+        [$path, $filename] = $this->resolveRideFile($document);
+
+        return Storage::disk(config('filesystems.default'))->response(
+            $path,
+            $filename,
+            ['Content-Type' => 'application/pdf'],
+        );
+    }
+
+    /**
+     * Transmite el XML firmado directamente desde el servidor.
+     */
+    public function streamXml(Request $request, ElectronicDocument $document)
+    {
+        $this->authorizeDocument($request, $document);
+
+        if (! $document->xml_signed_path) {
+            return $this->error('El XML firmado no está disponible.', 400);
+        }
+
+        return Storage::disk(config('filesystems.default'))->response(
+            $document->xml_signed_path,
+            $document->access_key.'.xml',
+            ['Content-Type' => 'application/xml'],
+        );
+    }
+
     public function resendEmail(Request $request, ElectronicDocument $document): JsonResponse
     {
         $this->authorizeDocument($request, $document);

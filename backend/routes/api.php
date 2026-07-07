@@ -131,6 +131,9 @@ Route::prefix('v1')->group(function () {
             Route::post('{document}/void', [DocumentController::class, 'void']);
             Route::get('{document}/ride', [DocumentController::class, 'downloadRide']);
             Route::get('{document}/xml', [DocumentController::class, 'downloadXml']);
+            // Streaming directo (móvil): sirve el archivo por el dominio público.
+            Route::get('{document}/ride-file', [DocumentController::class, 'streamRide']);
+            Route::get('{document}/xml-file', [DocumentController::class, 'streamXml']);
             Route::post('{document}/resend-email', [DocumentController::class, 'resendEmail']);
             Route::get('{document}/status', [DocumentController::class, 'checkStatus']);
             Route::get('{document}/payments', [\App\Http\Controllers\Api\V1\DocumentPaymentController::class, 'index']);

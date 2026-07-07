@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../core/api/v1_api_service.dart';
 import '../../core/theme/app_theme.dart';
@@ -771,21 +774,27 @@ class _DocumentActionsState extends ConsumerState<_DocumentActions> {
 
   Future<void> _openFile(
     String kind,
-    Future<DocumentFileLink> Function() fetch,
+    Future<List<int>> Function() fetchBytes,
+    String filename,
   ) async {
     if (_busy != null) return;
     setState(() => _busy = kind);
     _snack('Preparando archivo…');
     try {
-      final link = await fetch();
-      if (link.url.isEmpty) {
-        throw ApiException('No se recibió el enlace del archivo.');
+      final bytes = await fetchBytes();
+      if (bytes.isEmpty) {
+        throw ApiException('No se recibió el archivo.');
       }
-      final ok = await launchUrl(
-        Uri.parse(link.url),
-        mode: LaunchMode.externalApplication,
-      );
-      if (!ok) _snack('No se pudo abrir ${link.filename}.');
+      // Guardamos en un temporal y lo abrimos con el visor nativo (Quick Look
+      // en iOS), que permite ver, compartir y guardar.
+      final dir = await getTemporaryDirectory();
+      final safeName = filename.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+      final file = File('${dir.path}/$safeName');
+      await file.writeAsBytes(bytes, flush: true);
+      final result = await OpenFilex.open(file.path);
+      if (result.type != ResultType.done) {
+        _snack('No se pudo abrir el archivo: ${result.message}');
+      }
     } on ApiException catch (error) {
       _snack(error.message);
     } catch (error) {
@@ -943,7 +952,11 @@ class _DocumentActionsState extends ConsumerState<_DocumentActions> {
             label: _isDraft ? 'Ver PDF (borrador)' : 'Ver / descargar PDF',
             loading: _busy == 'pdf',
             primary: true,
-            onTap: () => _openFile('pdf', () => _api.documentRide(_doc.id)),
+            onTap: () => _openFile(
+              'pdf',
+              () => _api.documentRideBytes(_doc.id),
+              '${_doc.documentNumber}.pdf',
+            ),
           ),
           if (_doc.hasXml) ...[
             const SizedBox(height: 10),
@@ -951,7 +964,11 @@ class _DocumentActionsState extends ConsumerState<_DocumentActions> {
               icon: Icons.code_rounded,
               label: 'Descargar XML firmado',
               loading: _busy == 'xml',
-              onTap: () => _openFile('xml', () => _api.documentXml(_doc.id)),
+              onTap: () => _openFile(
+                'xml',
+                () => _api.documentXmlBytes(_doc.id),
+                '${_doc.documentNumber}.xml',
+              ),
             ),
           ],
           if (_isProcessing) ...[
