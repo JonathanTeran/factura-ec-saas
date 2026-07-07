@@ -43,6 +43,8 @@ class DocumentBuilder
                 'totalSinImpuestos' => $this->fmt($doc->total - $doc->total_tax - $doc->total_ice),
                 'totalDescuento' => $this->fmt($doc->total_discount),
                 'importeTotal' => $this->fmt($doc->total),
+                // El FacturaGenerator del paquete SRI lee la clave en minúscula.
+                'importetotal' => $this->fmt($doc->total),
                 'moneda' => $doc->currency,
                 'totalConImpuestos' => $this->taxTotals($doc),
                 'propina' => $this->fmt($doc->tip),
