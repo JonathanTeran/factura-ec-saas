@@ -279,37 +279,6 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
     });
   }
 
-  String _currentBranchLabel() {
-    for (final b in _branches) {
-      if (b.id == _branchId) return '${b.code} · ${b.name}';
-    }
-    return '-';
-  }
-
-  String _currentEmissionPointLabel() {
-    for (final p in _emissionPoints) {
-      if (p.id == _emissionPointId) return '${p.code} · ${p.description}';
-    }
-    return '-';
-  }
-
-  /// Campo de solo lectura (cuando hay una sola opción): muestra el valor sin
-  /// desplegable, pero deja claro qué establecimiento/punto se usará.
-  Widget _readonlyField(String label, String value) {
-    return InputDecorator(
-      decoration: InputDecoration(labelText: label),
-      child: Text(
-        value,
-        style: const TextStyle(
-          fontFamily: 'Avenir Next',
-          fontWeight: FontWeight.w600,
-          fontSize: 15,
-          color: AppColors.textPrimary,
-        ),
-      ),
-    );
-  }
-
   Future<void> _loadEmissionPoints(int companyId) async {
     setState(() {
       _loading = true;
@@ -2312,52 +2281,63 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
               ),
               const SizedBox(height: 10),
             ],
-            // Establecimiento: desplegable si hay varios, o campo informativo
-            // si hay uno solo (siempre visible para saber qué se usará).
-            if (_branches.length > 1) ...[
-              DropdownButtonFormField<int>(
-                initialValue: _branchId,
-                decoration: const InputDecoration(
-                  labelText: 'Establecimiento',
-                ),
-                items: _branches
-                    .map(
-                      (b) => DropdownMenuItem(
-                        value: b.id,
-                        child: Text('${b.code} · ${b.name}'),
+            // Establecimiento y punto de emisión: siempre visibles, lado a
+            // lado. Con una sola opción quedan preseleccionados.
+            if (_branchId != null || _emissionPointId != null) ...[
+              _sectionTitle('Establecimiento y punto de emisión'),
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      isExpanded: true,
+                      initialValue: _branchId,
+                      decoration: const InputDecoration(
+                        labelText: 'Establecimiento',
                       ),
-                    )
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) _selectBranch(value);
-                },
-              ),
-              const SizedBox(height: 10),
-            ] else if (_branchId != null) ...[
-              _readonlyField('Establecimiento', _currentBranchLabel()),
-              const SizedBox(height: 10),
-            ],
-            // Punto de emisión: siempre visible.
-            if (_emissionPoints.length > 1) ...[
-              DropdownButtonFormField<int>(
-                initialValue: _emissionPointId,
-                decoration: const InputDecoration(
-                  labelText: 'Punto de emisión',
-                ),
-                items: _emissionPoints
-                    .map(
-                      (point) => DropdownMenuItem(
-                        value: point.id,
-                        child: Text('${point.code} · ${point.description}'),
+                      items: _branches
+                          .map(
+                            (b) => DropdownMenuItem(
+                              value: b.id,
+                              child: Text(
+                                '${b.code} · ${b.name}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) _selectBranch(value);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      isExpanded: true,
+                      initialValue: _emissionPointId,
+                      decoration: const InputDecoration(
+                        labelText: 'Punto de emisión',
                       ),
-                    )
-                    .toList(),
-                onChanged: (value) => setState(() => _emissionPointId = value),
+                      items: _emissionPoints
+                          .map(
+                            (point) => DropdownMenuItem(
+                              value: point.id,
+                              child: Text(
+                                '${point.code} · ${point.description}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) =>
+                          setState(() => _emissionPointId = value),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 10),
-            ] else if (_emissionPointId != null) ...[
-              _readonlyField('Punto de emisión', _currentEmissionPointLabel()),
-              const SizedBox(height: 10),
+              const SizedBox(height: 18),
             ],
             _sectionTitle('Cliente'),
             const SizedBox(height: 8),
