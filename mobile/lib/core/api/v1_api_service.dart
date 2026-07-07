@@ -279,11 +279,16 @@ class RucEstablishment {
   final String? address;
   final bool isMain;
 
+  /// true si el establecimiento está ABIERTO en el catastro del SRI; false si
+  /// está cerrado (en ese caso se desactiva al importar).
+  final bool isOpen;
+
   const RucEstablishment({
     required this.code,
     this.tradeName,
     this.address,
     required this.isMain,
+    required this.isOpen,
   });
 }
 
@@ -1688,6 +1693,9 @@ class V1ApiService {
           tradeName: orNull(m['trade_name']),
           address: orNull(m['address']),
           isMain: b(m['is_main']),
+          // Si el SRI no envía el campo, asumimos abierto para no desactivar
+          // por error.
+          isOpen: m.containsKey('is_open') ? b(m['is_open']) : true,
         );
       }).toList(growable: false);
 

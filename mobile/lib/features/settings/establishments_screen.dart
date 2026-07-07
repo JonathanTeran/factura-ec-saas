@@ -65,26 +65,52 @@ class _EstablishmentsScreenState extends ConsumerState<EstablishmentsScreen> {
     setState(() => _importing = true);
     try {
       final r = await _api.lookupRuc(company.ruc);
-      final existing = _branches.map((b) => b.code).toSet();
+      final existingByCode = {for (final b in _branches) b.code: b};
+      final fallbackAddr =
+          company.address.isNotEmpty ? company.address : 'S/N';
       var created = 0;
+      var deactivated = 0;
+
       for (final est in r.establishments) {
-        if (est.code.isEmpty || existing.contains(est.code)) continue;
-        await _api.createBranch(company.id, {
-          'code': est.code,
-          'name': (est.tradeName ?? '').isNotEmpty
-              ? est.tradeName
-              : (est.isMain ? 'Matriz' : 'Establecimiento ${est.code}'),
-          'address': (est.address ?? '').isNotEmpty
-              ? est.address
-              : (company.address.isNotEmpty ? company.address : 'S/N'),
-          'is_main': est.isMain,
-          'is_active': true,
-        });
-        created++;
+        if (est.code.isEmpty) continue;
+        final existing = existingByCode[est.code];
+
+        if (existing == null) {
+          // Nuevo: se crea, y si en el SRI está cerrado queda inactivo.
+          await _api.createBranch(company.id, {
+            'code': est.code,
+            'name': (est.tradeName ?? '').isNotEmpty
+                ? est.tradeName
+                : (est.isMain ? 'Matriz' : 'Establecimiento ${est.code}'),
+            'address': (est.address ?? '').isNotEmpty
+                ? est.address
+                : fallbackAddr,
+            'is_main': est.isMain,
+            'is_active': est.isOpen,
+          });
+          created++;
+        } else if (!est.isOpen && existing.isActive) {
+          // Ya existe pero está CERRADO en el SRI → se desactiva.
+          await _api.updateBranch(company.id, existing.id, {
+            'code': existing.code,
+            'name': existing.name,
+            'address':
+                existing.address.isNotEmpty ? existing.address : fallbackAddr,
+            'is_main': existing.isMain,
+            'is_active': false,
+          });
+          deactivated++;
+        }
       }
-      _toast(created == 0
-          ? 'No hay establecimientos nuevos en el SRI.'
-          : 'Se importaron $created establecimiento(s) del SRI.');
+
+      final parts = <String>[];
+      if (created > 0) parts.add('$created creado(s)');
+      if (deactivated > 0) {
+        parts.add('$deactivated desactivado(s) por estar cerrado(s) en el SRI');
+      }
+      _toast(parts.isEmpty
+          ? 'Sin cambios: los establecimientos ya coinciden con el SRI.'
+          : 'Importación del SRI: ${parts.join(' · ')}.');
       await _load();
     } catch (e) {
       _toast(e is ApiException ? e.message : 'No se pudo consultar el SRI.');
