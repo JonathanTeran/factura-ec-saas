@@ -146,6 +146,15 @@ class DocumentController extends ApiController
             ->where('tenant_id', $tenant->id)
             ->whereHas('branch', fn ($query) => $query->where('company_id', $company->id))
             ->firstOrFail();
+
+        // No se puede emitir sobre un punto de emisión o establecimiento
+        // inactivo (candado extra; la app ya los oculta).
+        if (! $emissionPoint->is_active || ! optional($emissionPoint->branch)->is_active) {
+            return $this->error(
+                'El punto de emisión o el establecimiento está inactivo. Actívalo para poder emitir.',
+                422
+            );
+        }
         // Nota de crédito / débito: persistir el documento modificado y el
         // motivo donde el generador XML los lee (related_document_* y
         // additional_info['motivo'|'motivos']). Antes solo se validaba la
