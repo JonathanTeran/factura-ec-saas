@@ -104,6 +104,32 @@ class SRIService
                 throw new SriCommunicationException($message, $doc->id, $doc->access_key, 0, $e);
             }
 
+            // Rechazo/validación del SRI con detalle (recepción DEVUELTA, XSD,
+            // etc.): preservar los mensajes reales y marcar como RECHAZADO.
+            if ($e instanceof \Teran\Sri\Exceptions\ValidationException) {
+                $detail = $e->getErrors();
+
+                // "CLAVE ACCESO REGISTRADA": un envío anterior ya llegó al SRI.
+                // No se reenvía; se consulta la autorización real de esa clave.
+                if ($doc->access_key && in_array('CLAVE ACCESO REGISTRADA', $detail, true)) {
+                    $auth = $this->sri->consultarAutorizacion($doc->access_key);
+                    $this->handleResult($doc, [
+                        'autorizacion' => $auth,
+                        'claveAcceso' => $doc->access_key,
+                    ]);
+
+                    return ['claveAcceso' => $doc->access_key];
+                }
+
+                $doc->update([
+                    'status' => DocumentStatus::REJECTED,
+                    'sri_errors' => ! empty($detail) ? $detail : ['general' => $e->getMessage()],
+                    'sri_attempts' => $doc->sri_attempts + 1,
+                    'last_sri_attempt_at' => now(),
+                ]);
+                throw new SriRejectionException($e->getMessage(), $doc->id, $doc->access_key, $detail, 0, $e);
+            }
+
             $doc->update([
                 'status' => DocumentStatus::FAILED,
                 'sri_errors' => ['general' => $e->getMessage()],
@@ -185,7 +211,27 @@ class SRIService
             $update['ride_pdf_path'] = $ridePath;
 
         } else {
+            $estado = $auth->estado ?? null;
             $errors = ($auth && isset($auth->mensajes)) ? (array) $auth->mensajes : [];
+
+            // Aún sin resolución: dejar en proceso y reintentar más tarde.
+            if ($estado === 'EN PROCESAMIENTO') {
+                $this->markAsContingency($doc, 'El SRI aún está procesando el comprobante.');
+                throw new SriCommunicationException(
+                    'El SRI aún está procesando el comprobante.',
+                    $doc->id,
+                    $doc->access_key,
+                );
+            }
+
+            // Rechazo sin motivo del SRI: mensaje claro para el usuario.
+            if (empty($errors)) {
+                $errors = [
+                    'El SRI no autorizó el comprobante ('.($estado ?: 'sin estado').') '
+                    .'y no devolvió un motivo. Reintentá; si persiste, generá el documento de nuevo.',
+                ];
+            }
+
             $update['status'] = DocumentStatus::REJECTED;
             $update['sri_errors'] = $errors;
 

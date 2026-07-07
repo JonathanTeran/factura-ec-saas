@@ -95,6 +95,9 @@ class DocumentResource extends JsonResource
                 }
                 if (is_string($value) && $value !== '') {
                     $out[] = $value;
+                } elseif (is_array($value)) {
+                    // Mensaje de rechazo del SRI (identificador/mensaje/info).
+                    $out[] = $this->formatSriMessage($value);
                 }
             }
         }

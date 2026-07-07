@@ -7,6 +7,7 @@ use App\Events\DocumentAuthorized;
 use App\Events\DocumentFailed;
 use App\Events\DocumentRejected;
 use App\Exceptions\SriCommunicationException;
+use App\Exceptions\SriRejectionException;
 use App\Models\SRI\ElectronicDocument;
 use App\Services\SRI\SRIService;
 use Illuminate\Bus\Queueable;
@@ -138,6 +139,21 @@ class ProcessDocumentJob implements ShouldQueue
                 ]),
                 'last_sri_attempt_at' => now(),
             ]);
+
+            return;
+        }
+
+        // Rechazo del SRI: preservar los mensajes de rechazo (motivo real) en
+        // vez de un genérico, y marcar como RECHAZADO.
+        if ($e instanceof SriRejectionException) {
+            $this->document->update([
+                'status' => DocumentStatus::REJECTED,
+                'sri_errors' => ! empty($e->errors)
+                    ? $e->errors
+                    : ($this->document->sri_errors ?? ['fatal' => $e->getMessage()]),
+            ]);
+
+            event(new DocumentRejected($this->document));
 
             return;
         }

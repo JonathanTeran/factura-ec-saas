@@ -39,7 +39,8 @@ class DocumentBuilder
                 'tipoIdentificacionComprador' => $customer->identification_type->value,
                 'razonSocialComprador' => $customer->name,
                 'identificacionComprador' => $customer->identification,
-                'direccionComprador' => $customer->address ?? '',
+                // Vacío viola el XSD (minLength 1). En null se omite (opcional).
+                'direccionComprador' => $customer->address ?: null,
                 'totalSinImpuestos' => $this->fmt($doc->total - $doc->total_tax - $doc->total_ice),
                 'totalDescuento' => $this->fmt($doc->total_discount),
                 'importeTotal' => $this->fmt($doc->total),
@@ -183,6 +184,7 @@ class DocumentBuilder
             // Reutiliza el código numérico de la clave generada en borrador
             // para que la clave enviada al SRI coincida con la vista previa.
             'codigoNumerico' => AccessKeyService::numericCodeFrom($doc->access_key),
+            'claveAcceso' => $doc->access_key,
             'ambiente' => $doc->environment ?: $company->sri_environment,
             'razonSocial' => $company->business_name,
             'nombreComercial' => $company->trade_name ?? $company->business_name,
