@@ -124,6 +124,7 @@ class DashboardScreen extends ConsumerWidget {
     final recentDocs = data.recentDocuments
         .map(
           (doc) => _MiniDocItem(
+            id: doc.id,
             title: doc.documentTypeLabel.toUpperCase(),
             subtitle: doc.issuer,
             amount: currency(doc.total),
@@ -527,6 +528,7 @@ class _BillingHeroCard extends StatelessWidget {
 }
 
 class _MiniDocItem {
+  final int id;
   final String title;
   final String subtitle;
   final String amount;
@@ -534,6 +536,7 @@ class _MiniDocItem {
   final String status;
 
   _MiniDocItem({
+    required this.id,
     required this.title,
     required this.subtitle,
     required this.amount,
@@ -555,7 +558,12 @@ class _MiniDocumentCard extends StatelessWidget {
 
     return SizedBox(
       width: 244,
-      child: Container(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => context.push('/documents/${item.id}'),
+          child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: AppColors.surface.withValues(alpha: 0.92),
@@ -637,6 +645,8 @@ class _MiniDocumentCard extends StatelessWidget {
               ),
             ),
           ],
+        ),
+          ),
         ),
       ),
     );
