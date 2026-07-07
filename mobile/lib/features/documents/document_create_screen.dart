@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../core/api/v1_api_service.dart';
 import '../../core/theme/app_theme.dart';
@@ -106,8 +110,21 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
 
   ApiDocument? _createdDocument;
   ApiDocumentStatus? _documentStatus;
+  Timer? _resultPoll;
+  String? _busyAction; // 'pdf' | 'email' | 'share' en el paso de resultado
 
   bool get _isEditing => widget.editDocumentId != null;
+
+  static const _finalStatuses = {
+    'authorized',
+    'rejected',
+    'voided',
+    'failed',
+  };
+
+  bool get _isAuthorized =>
+      (_documentStatus?.authorizationNumber ?? '').isNotEmpty ||
+      _documentStatus?.status == 'authorized';
 
   @override
   void initState() {
@@ -117,6 +134,7 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
 
   @override
   void dispose() {
+    _resultPoll?.cancel();
     _tipCtrl.dispose();
     _termCtrl.dispose();
     _reasonCtrl.dispose();
@@ -130,6 +148,106 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
     _motiveCtrl.dispose();
     _routeCtrl.dispose();
     super.dispose();
+  }
+
+  /// Tras enviar, re-consulta el estado del SRI cada 5 s hasta que se
+  /// autorice/rechace, así el resultado pasa solo de "procesado" a "autorizado".
+  void _startResultPolling(int documentId) {
+    _resultPoll?.cancel();
+    if (_documentStatus != null &&
+        _finalStatuses.contains(_documentStatus!.status)) {
+      return;
+    }
+    _resultPoll = Timer.periodic(const Duration(seconds: 5), (timer) async {
+      try {
+        final status = await ref
+            .read(v1ApiServiceProvider)
+            .checkDocumentStatus(documentId);
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+        setState(() => _documentStatus = status);
+        if (_finalStatuses.contains(status.status)) {
+          timer.cancel();
+          _invalidateData();
+        }
+      } catch (_) {
+        // Reintenta en el próximo tick.
+      }
+    });
+  }
+
+  void _resultSnack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  /// Vista/descarga del PDF (RIDE) del documento creado.
+  Future<void> _openResultPdf() async {
+    final doc = _createdDocument;
+    if (doc == null || _busyAction != null) return;
+    setState(() => _busyAction = 'pdf');
+    _resultSnack('Preparando PDF…');
+    try {
+      final bytes =
+          await ref.read(v1ApiServiceProvider).documentRideBytes(doc.id);
+      if (bytes.isEmpty) throw ApiException('No se recibió el archivo.');
+      final dir = await getTemporaryDirectory();
+      final name = '${doc.documentNumber.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_')}.pdf';
+      final file = File('${dir.path}/$name');
+      await file.writeAsBytes(bytes, flush: true);
+      await OpenFilex.open(file.path);
+    } on ApiException catch (e) {
+      _resultSnack(e.message);
+    } catch (e) {
+      _resultSnack(e.toString());
+    } finally {
+      if (mounted) setState(() => _busyAction = null);
+    }
+  }
+
+  /// Reenvía el comprobante autorizado por correo.
+  Future<void> _emailResult() async {
+    final doc = _createdDocument;
+    if (doc == null || _busyAction != null) return;
+    if (!_isAuthorized) {
+      _resultSnack('Podés enviarlo por correo cuando esté autorizado.');
+      return;
+    }
+    setState(() => _busyAction = 'email');
+    try {
+      final msg =
+          await ref.read(v1ApiServiceProvider).resendDocumentEmail(doc.id);
+      _resultSnack(msg);
+    } on ApiException catch (e) {
+      _resultSnack(e.message);
+    } catch (e) {
+      _resultSnack(e.toString());
+    } finally {
+      if (mounted) setState(() => _busyAction = null);
+    }
+  }
+
+  /// Comparte el enlace público del PDF.
+  Future<void> _shareResultLink() async {
+    final doc = _createdDocument;
+    if (doc == null || _busyAction != null) return;
+    setState(() => _busyAction = 'share');
+    _resultSnack('Generando enlace…');
+    try {
+      final link = await ref.read(v1ApiServiceProvider).documentRide(doc.id);
+      if (link.url.isEmpty) throw ApiException('No se pudo generar el enlace.');
+      await Share.share('Comprobante ${doc.documentNumber}: ${link.url}');
+    } on ApiException catch (e) {
+      _resultSnack(e.message);
+    } catch (e) {
+      _resultSnack(e.toString());
+    } finally {
+      if (mounted) setState(() => _busyAction = null);
+    }
   }
 
   // ── Totales calculados en vivo sobre las líneas ──
@@ -435,6 +553,7 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
         _documentStatus = status;
         _step = 2;
       });
+      _startResultPolling(sent.id);
     } catch (error) {
       setState(() => _errorText = error.toString());
     } finally {
@@ -733,6 +852,7 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
         _documentStatus = status;
         _step = 2;
       });
+      _startResultPolling(sent.id);
     } catch (error) {
       // El borrador ya quedó guardado; informamos que falló el envío.
       setState(() {
@@ -2655,16 +2775,25 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: const [
+              children: [
                 _ActionPill(
                   icon: Icons.picture_as_pdf_rounded,
                   label: 'Vista PDF',
+                  loading: _busyAction == 'pdf',
+                  onTap: _openResultPdf,
                 ),
                 _ActionPill(
                   icon: Icons.mail_outline_rounded,
                   label: 'Enviar correo',
+                  loading: _busyAction == 'email',
+                  onTap: _emailResult,
                 ),
-                _ActionPill(icon: Icons.share_rounded, label: 'Compartir link'),
+                _ActionPill(
+                  icon: Icons.share_rounded,
+                  label: 'Compartir link',
+                  loading: _busyAction == 'share',
+                  onTap: _shareResultLink,
+                ),
               ],
             ),
             if (_documentStatus != null &&
@@ -2892,32 +3021,52 @@ class _RequirementRow extends StatelessWidget {
 class _ActionPill extends StatelessWidget {
   final IconData icon;
   final String label;
+  final VoidCallback? onTap;
+  final bool loading;
 
-  const _ActionPill({required this.icon, required this.label});
+  const _ActionPill({
+    required this.icon,
+    required this.label,
+    this.onTap,
+    this.loading = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceDark.withValues(alpha: 0.9),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: loading ? null : onTap,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: AppColors.primaryLight),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              fontFamily: 'Avenir Next',
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceDark.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: AppColors.border),
           ),
-        ],
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              loading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(icon, size: 16, color: AppColors.primaryLight),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontFamily: 'Avenir Next',
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
