@@ -33,8 +33,38 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
   int get _id => int.tryParse(widget.documentId) ?? 0;
 
   Future<void> _sendToSri(ApiDocumentDetail document) async {
-    setState(() => _sending = true);
     final messenger = ScaffoldMessenger.of(context);
+    final prod = document.environmentLabel.toLowerCase().contains('produc');
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Enviar al SRI'),
+        content: Text(
+          prod
+              ? 'Se firmará y enviará el comprobante al SRI.\n\nSi lo autoriza '
+                  'tendrá VALIDEZ TRIBUTARIA, ya no podrá editarse y consumirá '
+                  'el número del secuencial.'
+              : 'Estás en ambiente de PRUEBAS. Se enviará al SRI para validar '
+                  'el flujo, pero el comprobante NO tendrá validez tributaria.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: prod
+                ? FilledButton.styleFrom(backgroundColor: AppColors.success)
+                : null,
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Enviar al SRI'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _sending = true);
     try {
       await ref.read(v1ApiServiceProvider).sendDocument(document.id);
       if (!mounted) return;

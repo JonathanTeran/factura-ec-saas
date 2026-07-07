@@ -635,7 +635,55 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
   }
 
   /// Guarda como borrador (no envía al SRI) y vuelve a la lista.
+  /// Ambiente de la empresa activa (para avisar sobre la validez tributaria).
+  bool get _isProductionEnv {
+    for (final c in _companies) {
+      if (c.id == _companyId) return c.isProduction;
+    }
+    return false;
+  }
+
+  /// Diálogo de confirmación reutilizable. Devuelve true si el usuario acepta.
+  Future<bool> _confirm({
+    required String title,
+    required String message,
+    required String confirmLabel,
+    Color? confirmColor,
+  }) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: confirmColor == null
+                ? null
+                : FilledButton.styleFrom(backgroundColor: confirmColor),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(confirmLabel),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
   Future<void> _saveDraft() async {
+    final ok = await _confirm(
+      title: _isEditing ? 'Guardar cambios' : 'Guardar borrador',
+      message:
+          'El documento se guardará como BORRADOR. Todavía no se envía al SRI '
+          'ni tiene validez tributaria: vas a poder editarlo y enviarlo cuando '
+          'quieras.',
+      confirmLabel: 'Guardar',
+    );
+    if (!ok) return;
+
     final doc = await _submitInvoice();
     if (doc == null || !mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -652,6 +700,20 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
 
   /// Crea y envía al SRI en un solo paso; muestra el resultado (paso 3).
   Future<void> _createAndSend() async {
+    final prod = _isProductionEnv;
+    final ok = await _confirm(
+      title: 'Enviar al SRI',
+      message: prod
+          ? 'Se generará, firmará y enviará el comprobante al SRI.\n\nSi el SRI '
+              'lo autoriza tendrá VALIDEZ TRIBUTARIA, ya no podrá editarse y '
+              'consumirá el número del secuencial.'
+          : 'Estás en ambiente de PRUEBAS. Se enviará al SRI para validar el '
+              'flujo, pero el comprobante NO tendrá validez tributaria.',
+      confirmLabel: 'Enviar al SRI',
+      confirmColor: prod ? AppColors.success : null,
+    );
+    if (!ok) return;
+
     final doc = await _submitInvoice();
     if (doc == null || !mounted) return;
 
