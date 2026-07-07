@@ -86,9 +86,20 @@ class OnboardingController extends ApiController
         $info = app(SignatureManager::class)->checkStatus($company);
         $expiresAt = $info['expires_at'] ?? $info['expired_at'] ?? null;
 
+        $status = $info['status'];
+        $message = $info['message'] ?? null;
+
+        // Los datos del certificado están registrados, pero el archivo .p12 no
+        // está en el almacenamiento (p. ej. se subió antes de que el storage
+        // funcionara). Avisar para que se vuelva a subir.
+        if (in_array($status, ['valid', 'expiring_soon'], true) && ! $company->hasSignatureFile()) {
+            $status = 'file_missing';
+            $message = 'El archivo de tu firma electrónica (.p12) no se encuentra. Volvé a subirlo.';
+        }
+
         return $this->success([
-            'status' => $info['status'],          // missing|unknown|expired|expiring_soon|valid
-            'message' => $info['message'] ?? null,
+            'status' => $status,   // missing|unknown|expired|expiring_soon|valid|file_missing
+            'message' => $message,
             'days_remaining' => $info['days_remaining'] ?? null,
             'expires_at' => $expiresAt ? $expiresAt->toIso8601String() : null,
             'subject' => $company->signature_subject,

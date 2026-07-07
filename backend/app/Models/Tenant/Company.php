@@ -138,6 +138,29 @@ class Company extends Model implements HasMedia
                $this->signature_expires_at->isFuture();
     }
 
+    /**
+     * true si el archivo .p12 realmente está en el almacenamiento. Los datos
+     * pueden estar registrados pero el archivo perderse (p. ej. subido antes
+     * de que el storage estuviera disponible).
+     */
+    public function hasSignatureFile(): bool
+    {
+        if (! $this->signature_path) {
+            return false;
+        }
+        try {
+            return \Illuminate\Support\Facades\Storage::exists($this->signature_path);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /** Firma lista para emitir: datos válidos Y el archivo presente. */
+    public function signatureReady(): bool
+    {
+        return $this->hasValidSignature() && $this->hasSignatureFile();
+    }
+
     public function hasBasicFiscalData(): bool
     {
         return filled($this->ruc)
@@ -159,7 +182,7 @@ class Company extends Model implements HasMedia
         return [
             'basic_data' => $this->hasBasicFiscalData(),
             'sri_password' => $this->hasSriPassword(),
-            'digital_signature' => $this->hasValidSignature(),
+            'digital_signature' => $this->signatureReady(),
             'establishments' => $this->hasOperationalSetup(),
         ];
     }

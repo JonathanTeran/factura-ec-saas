@@ -134,6 +134,12 @@ class _CertificateScreenState extends ConsumerState<CertificateScreen> {
           color: AppColors.error,
           icon: Icons.error_outline_rounded,
         );
+      case 'file_missing':
+        return (
+          label: 'Falta el archivo del certificado',
+          color: AppColors.error,
+          icon: Icons.report_problem_rounded,
+        );
       default:
         return (
           label: 'Sin firma configurada',
@@ -294,6 +300,19 @@ class _CertificateScreenState extends ConsumerState<CertificateScreen> {
               ),
             ],
           ),
+          if ((status?.message ?? '').isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              status!.message!,
+              style: TextStyle(
+                fontFamily: 'Avenir Next',
+                color: v.color,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                height: 1.35,
+              ),
+            ),
+          ],
           if (status != null && status.hasCertificate) ...[
             const SizedBox(height: 12),
             _row('Titular', status.subject ?? '—'),

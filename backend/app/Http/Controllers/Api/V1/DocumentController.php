@@ -394,6 +394,15 @@ class DocumentController extends ApiController
 
         // Validate company has signature
         if (! $checklist['digital_signature']) {
+            $company = $document->company;
+            if ($company->hasValidSignature() && ! $company->hasSignatureFile()) {
+                return $this->error(
+                    'El archivo de tu firma electrónica (.p12) no se encuentra. '
+                    .'Volvé a subirlo en Firma electrónica y reintentá.',
+                    400
+                );
+            }
+
             return $this->error(
                 'La empresa no tiene una firma electrónica válida configurada.',
                 400
