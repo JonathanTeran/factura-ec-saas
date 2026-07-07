@@ -131,16 +131,45 @@ class _EstablishmentsScreenState extends ConsumerState<EstablishmentsScreen> {
     );
     if (result == null || _companyId == null) return;
     try {
-      if (branch == null) {
+      if (result['__delete'] == true && branch != null) {
+        if (!await _confirmDelete('¿Eliminar el establecimiento "${branch.name}"?')) {
+          return;
+        }
+        await _api.deleteBranch(_companyId!, branch.id);
+        _toast('Establecimiento eliminado.');
+      } else if (branch == null) {
         await _api.createBranch(_companyId!, result);
+        _toast('Establecimiento creado.');
       } else {
         await _api.updateBranch(_companyId!, branch.id, result);
+        _toast('Cambios guardados.');
       }
-      _toast(branch == null ? 'Establecimiento creado.' : 'Cambios guardados.');
       await _load();
     } catch (e) {
       _toast(e is ApiException ? e.message : 'No se pudo guardar.');
     }
+  }
+
+  Future<bool> _confirmDelete(String message) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirmar'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
   }
 
   Future<void> _emissionPointForm(ApiBranch branch, {ApiEmissionPoint? ep}) async {
@@ -152,12 +181,19 @@ class _EstablishmentsScreenState extends ConsumerState<EstablishmentsScreen> {
     );
     if (result == null) return;
     try {
-      if (ep == null) {
+      if (result['__delete'] == true && ep != null) {
+        if (!await _confirmDelete('¿Eliminar el punto de emisión ${ep.code}?')) {
+          return;
+        }
+        await _api.deleteEmissionPoint(branch.id, ep.id);
+        _toast('Punto de emisión eliminado.');
+      } else if (ep == null) {
         await _api.createEmissionPoint(branch.id, result);
+        _toast('Punto de emisión creado.');
       } else {
         await _api.updateEmissionPoint(branch.id, ep.id, result);
+        _toast('Cambios guardados.');
       }
-      _toast(ep == null ? 'Punto de emisión creado.' : 'Cambios guardados.');
       await _load();
     } catch (e) {
       _toast(e is ApiException ? e.message : 'No se pudo guardar.');
@@ -419,6 +455,7 @@ class _BranchFormSheetState extends State<_BranchFormSheet> {
   late final _name =
       TextEditingController(text: widget.branch?.name ?? 'Matriz');
   late final _addr = TextEditingController(text: widget.branch?.address ?? '');
+  late bool _active = widget.branch?.isActive ?? true;
 
   @override
   void dispose() {
@@ -454,7 +491,20 @@ class _BranchFormSheetState extends State<_BranchFormSheet> {
           controller: _addr,
           decoration: const InputDecoration(labelText: 'Dirección *'),
         ),
-        const SizedBox(height: 16),
+        SwitchListTile.adaptive(
+          contentPadding: EdgeInsets.zero,
+          title: const Text(
+            'Activo',
+            style: TextStyle(
+              fontFamily: 'Avenir Next',
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          value: _active,
+          onChanged: (v) => setState(() => _active = v),
+        ),
+        const SizedBox(height: 8),
         ElevatedButton(
           onPressed: () {
             final code = _code.text.trim();
@@ -472,12 +522,25 @@ class _BranchFormSheetState extends State<_BranchFormSheet> {
               'code': code,
               'name': _name.text.trim(),
               'address': _addr.text.trim(),
-              'is_active': true,
+              'is_active': _active,
             });
           },
           style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
           child: Text(editing ? 'Guardar' : 'Crear'),
         ),
+        if (editing) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.pop(context, {'__delete': true}),
+            icon: const Icon(Icons.delete_outline_rounded, size: 18),
+            label: const Text('Eliminar establecimiento'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.error,
+              side: BorderSide(color: AppColors.error.withValues(alpha: 0.5)),
+              minimumSize: const Size.fromHeight(48),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -565,6 +628,19 @@ class _EmissionPointFormSheetState extends State<_EmissionPointFormSheet> {
           style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
           child: Text(editing ? 'Guardar' : 'Crear'),
         ),
+        if (editing) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.pop(context, {'__delete': true}),
+            icon: const Icon(Icons.delete_outline_rounded, size: 18),
+            label: const Text('Eliminar punto de emisión'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.error,
+              side: BorderSide(color: AppColors.error.withValues(alpha: 0.5)),
+              minimumSize: const Size.fromHeight(48),
+            ),
+          ),
+        ],
       ],
     );
   }

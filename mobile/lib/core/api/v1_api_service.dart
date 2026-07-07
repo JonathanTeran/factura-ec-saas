@@ -596,6 +596,22 @@ class V1ApiService {
     });
   }
 
+  Future<void> deleteEmissionPoint(int branchId, int emissionPointId) async {
+    return _guard(() async {
+      await _apiClient.delete<Map<String, dynamic>>(
+        '${ApiConstants.branches}/$branchId/emission-points/$emissionPointId',
+      );
+    });
+  }
+
+  Future<void> deleteBranch(int companyId, int branchId) async {
+    return _guard(() async {
+      await _apiClient.delete<Map<String, dynamic>>(
+        '${ApiConstants.companies}/$companyId/branches/$branchId',
+      );
+    });
+  }
+
   /// Secuenciales existentes de un punto de emisión (por tipo de comprobante).
   Future<List<ApiSequential>> emissionPointSequentials(int emissionPointId) async {
     return _guard(() async {
