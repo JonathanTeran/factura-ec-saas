@@ -160,7 +160,10 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
       List<ApiBranch> branches = const [];
       if (companies.isNotEmpty) {
         companyId = companies.first.id;
-        branches = await api.branches(companyId);
+        // Solo establecimientos activos: los desactivados no se pueden usar.
+        branches = (await api.branches(companyId))
+            .where((b) => b.isActive)
+            .toList(growable: false);
       }
       final firstBranch = _pickBranch(branches);
 
@@ -171,7 +174,7 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
         _companyId = companyId;
         _branches = branches;
         _branchId = firstBranch?.id;
-        _emissionPoints = firstBranch?.emissionPoints ?? const [];
+        _emissionPoints = _activePoints(firstBranch);
         _emissionPointId = _emissionPoints.isNotEmpty
             ? _emissionPoints.first.id
             : null;
@@ -264,18 +267,27 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
     return branches.first;
   }
 
-  /// Al elegir un establecimiento, sus puntos de emisión pasan a estar
+  /// Puntos de emisión ACTIVOS de un establecimiento (los inactivos no se
+  /// pueden usar para emitir).
+  List<ApiEmissionPoint> _activePoints(ApiBranch? branch) {
+    if (branch == null) return const [];
+    return branch.emissionPoints
+        .where((e) => e.isActive)
+        .toList(growable: false);
+  }
+
+  /// Al elegir un establecimiento, sus puntos de emisión activos pasan a estar
   /// disponibles y se preselecciona el primero.
   void _selectBranch(int branchId) {
     final branch = _branches.firstWhere(
       (b) => b.id == branchId,
       orElse: () => _branches.first,
     );
+    final points = _activePoints(branch);
     setState(() {
       _branchId = branchId;
-      _emissionPoints = branch.emissionPoints;
-      _emissionPointId =
-          branch.emissionPoints.isNotEmpty ? branch.emissionPoints.first.id : null;
+      _emissionPoints = points;
+      _emissionPointId = points.isNotEmpty ? points.first.id : null;
     });
   }
 
@@ -285,13 +297,14 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
       _errorText = null;
     });
     try {
-      final branches =
-          await ref.read(v1ApiServiceProvider).branches(companyId);
+      final branches = (await ref.read(v1ApiServiceProvider).branches(companyId))
+          .where((b) => b.isActive)
+          .toList(growable: false);
       final firstBranch = _pickBranch(branches);
       setState(() {
         _branches = branches;
         _branchId = firstBranch?.id;
-        _emissionPoints = firstBranch?.emissionPoints ?? const [];
+        _emissionPoints = _activePoints(firstBranch);
         _emissionPointId =
             _emissionPoints.isNotEmpty ? _emissionPoints.first.id : null;
       });
