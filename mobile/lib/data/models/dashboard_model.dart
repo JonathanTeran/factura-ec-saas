@@ -112,8 +112,15 @@ class DashboardViewData {
 class ReportsViewData {
   final ReportsDashboardStats dashboard;
   final Map<String, int> byStatus;
+  final List<ApiChartPoint> daily;
+  final List<ApiTypeSummary> byType;
 
-  const ReportsViewData({required this.dashboard, required this.byStatus});
+  const ReportsViewData({
+    required this.dashboard,
+    required this.byStatus,
+    required this.daily,
+    required this.byType,
+  });
 }
 
 /// Aggregated statistics for the reports dashboard.

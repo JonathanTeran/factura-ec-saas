@@ -8,11 +8,17 @@ final reportsViewDataProvider = FutureProvider<ReportsViewData>((ref) async {
   final api = ref.read(v1ApiServiceProvider);
   final to = DateTime.now();
   final from = to.subtract(const Duration(days: 30));
-  final dashboardFuture = api.reportsDashboard();
-  final byStatusFuture = api.documentsByStatus(from: from, to: to);
+  // El dashboard de reportes está detrás del plan (403 si no aplica); se pide
+  // primero para que ese candado gobierne toda la vista.
+  final dashboard = await api.reportsDashboard();
+  final byStatus = await api.documentsByStatus(from: from, to: to);
+  final daily = await api.chartData(days: 30);
+  final byType = await api.chartByType(days: 30);
 
-  final dashboard = await dashboardFuture;
-  final byStatus = await byStatusFuture;
-
-  return ReportsViewData(dashboard: dashboard, byStatus: byStatus);
+  return ReportsViewData(
+    dashboard: dashboard,
+    byStatus: byStatus,
+    daily: daily,
+    byType: byType,
+  );
 });

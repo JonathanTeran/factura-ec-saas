@@ -35,7 +35,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
       switch (availability) {
         case BackendAvailability.noSession:
-          context.go('/login');
+          // Sin sesión: mostramos la bienvenida (crear cuenta / iniciar sesión).
+          context.go('/welcome');
           return;
         case BackendAvailability.unreachable:
           setState(() => _status = 'No pudimos conectar con el backend');
