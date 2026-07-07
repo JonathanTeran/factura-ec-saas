@@ -14,6 +14,7 @@ import '../../core/widgets/money_text.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/section_header.dart';
 import '../../data/providers/auth_provider.dart';
+import '../../data/providers/company_provider.dart';
 import '../../data/providers/dashboard_provider.dart';
 
 AppDataState _stateFromAsyncValue<T>(
@@ -79,6 +80,16 @@ class DashboardScreen extends ConsumerWidget {
 
     final data = dataAsync.value!;
     final meAsync = ref.watch(meProvider);
+    // Empresa activa en ambiente de Pruebas → cinta de aviso en el inicio.
+    final companies = ref.watch(companiesProvider).valueOrNull ?? const [];
+    final currentCompanyId = meAsync.valueOrNull?.currentCompanyId;
+    final activeCompany = companies.isEmpty
+        ? null
+        : companies.firstWhere(
+            (company) => company.id == currentCompanyId,
+            orElse: () => companies.first,
+          );
+    final isTestMode = activeCompany != null && !activeCompany.isProduction;
     final trendDelta = _percentChange(
       previous: data.stats.lastMonthCount.toDouble(),
       current: data.stats.currentMonthCount.toDouble(),
@@ -158,6 +169,10 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ),
             ),
+            if (isTestMode) ...[
+              const SizedBox(height: 14),
+              _TestModeRibbon(onTap: () => context.go('/settings')),
+            ],
             const SizedBox(height: 16),
             _BillingHeroCard(
               monthTotal: data.stats.currentMonthTotal,
@@ -313,6 +328,75 @@ String _monthNameEs(int month) {
     'diciembre',
   ];
   return months[(month - 1).clamp(0, 11)];
+}
+
+/// Cinta delgada de aviso: la empresa activa emite en ambiente de PRUEBAS, así
+/// que los comprobantes no tienen validez tributaria. Toca para ir a Ajustes.
+class _TestModeRibbon extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _TestModeRibbon({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            color: AppColors.warning.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.warning.withValues(alpha: 0.6),
+              width: 1.4,
+            ),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.science_rounded,
+                color: AppColors.warning,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'AMBIENTE DE PRUEBAS',
+                style: TextStyle(
+                  fontFamily: 'Avenir Next',
+                  color: AppColors.warning,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                  letterSpacing: 0.4,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'sin validez tributaria',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'Avenir Next',
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.warning.withValues(alpha: 0.8),
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Tarjeta principal del inicio: lo facturado en el mes, tendencia vs el mes
