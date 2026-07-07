@@ -31,6 +31,29 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->configureRateLimiting();
+        $this->ensureStorageBucket();
+    }
+
+    /**
+     * Garantiza que el bucket de almacenamiento exista (auto-reparación si se
+     * recrea MinIO). Cacheado 12 h para no golpear el storage en cada request;
+     * cualquier fallo se ignora para no romper la app.
+     */
+    protected function ensureStorageBucket(): void
+    {
+        try {
+            \Illuminate\Support\Facades\Cache::remember(
+                'storage:bucket-ready',
+                now()->addHours(12),
+                function () {
+                    \App\Support\StorageBucket::ensure();
+
+                    return true;
+                }
+            );
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     /**

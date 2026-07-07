@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -29,8 +30,39 @@ class DocumentDetailScreen extends ConsumerStatefulWidget {
 
 class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
   bool _sending = false;
+  Timer? _pollTimer;
 
   int get _id => int.tryParse(widget.documentId) ?? 0;
+
+  /// Estados finales: ya no cambian, no hace falta seguir consultando.
+  static const _finalStatuses = {
+    'authorized',
+    'rejected',
+    'voided',
+    'failed',
+    'draft',
+  };
+
+  /// Mientras el documento está "en proceso" (enviado y esperando resolución
+  /// del SRI), se re-consulta solo cada 5 s hasta que se autorice/rechace, sin
+  /// que el usuario tenga que tocar "Consultar estado".
+  void _syncPolling(String status) {
+    final pending = !_finalStatuses.contains(status);
+    if (pending) {
+      _pollTimer ??= Timer.periodic(const Duration(seconds: 5), (_) {
+        ref.invalidate(documentDetailProvider(_id));
+      });
+    } else {
+      _pollTimer?.cancel();
+      _pollTimer = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
 
   Future<void> _sendToSri(ApiDocumentDetail document) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -87,6 +119,11 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
   Widget build(BuildContext context) {
     final asyncDocument = ref.watch(documentDetailProvider(_id));
 
+    // Auto-actualización: arranca/detiene el polling según el estado cargado.
+    ref.listen(documentDetailProvider(_id), (prev, next) {
+      next.whenData((doc) => _syncPolling(doc.status));
+    });
+
     return SafeArea(
       child: asyncDocument.when(
         loading: () => const _DocumentDetailSkeleton(),
@@ -94,12 +131,17 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
           message: error is ApiException ? error.message : error.toString(),
           onRetry: () => ref.invalidate(documentDetailProvider(_id)),
         ),
-        data: (document) => _DocumentDetailBody(
-          document: document,
-          sending: _sending,
-          onSend: () => _sendToSri(document),
-          onRefresh: () async => ref.invalidate(documentDetailProvider(_id)),
-        ),
+        data: (document) {
+          // También sincroniza en el primer render (por si el listen no
+          // disparó todavía).
+          _syncPolling(document.status);
+          return _DocumentDetailBody(
+            document: document,
+            sending: _sending,
+            onSend: () => _sendToSri(document),
+            onRefresh: () async => ref.invalidate(documentDetailProvider(_id)),
+          );
+        },
       ),
     );
   }
@@ -254,6 +296,50 @@ class _SriCard extends StatelessWidget {
 
   const _SriCard({required this.document});
 
+  static const _finalStatuses = {
+    'authorized',
+    'rejected',
+    'voided',
+    'failed',
+    'draft',
+  };
+
+  /// Si el documento sigue en proceso, muestra un aviso de que se actualiza
+  /// solo; si no, el estado tal cual.
+  Widget _pendingOrStatus(ApiDocumentDetail doc) {
+    final pending = !_finalStatuses.contains(doc.status);
+    if (!pending) {
+      return Text(
+        doc.statusLabel,
+        style: const TextStyle(
+          fontFamily: 'Avenir Next',
+          color: AppColors.textSecondary,
+          fontSize: 14,
+        ),
+      );
+    }
+    return Row(
+      children: [
+        const SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            'Esperando autorización del SRI… se actualiza solo.',
+            style: const TextStyle(
+              fontFamily: 'Avenir Next',
+              color: AppColors.textSecondary,
+              fontSize: 13,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return GlassPanel(
@@ -293,14 +379,7 @@ class _SriCard extends StatelessWidget {
           if (document.authorizationNumber == null &&
               document.sriMessages.isEmpty &&
               !document.contingencyActive)
-            Text(
-              document.statusLabel,
-              style: const TextStyle(
-                fontFamily: 'Avenir Next',
-                color: AppColors.textSecondary,
-                fontSize: 14,
-              ),
-            ),
+            _pendingOrStatus(document),
           if (document.accessKey != null) ...[
             const SizedBox(height: 8),
             const Text(
