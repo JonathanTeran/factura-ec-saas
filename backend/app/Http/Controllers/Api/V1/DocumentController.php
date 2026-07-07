@@ -363,9 +363,15 @@ class DocumentController extends ApiController
     {
         $this->authorizeDocument($request, $document);
 
-        if ($document->status !== DocumentStatus::DRAFT) {
+        // Borradores nuevos + reintento de los que fallaron o fueron rechazados.
+        $sendable = [
+            DocumentStatus::DRAFT,
+            DocumentStatus::FAILED,
+            DocumentStatus::REJECTED,
+        ];
+        if (! in_array($document->status, $sendable, true)) {
             return $this->error(
-                'Solo se pueden enviar documentos en estado borrador.',
+                'Solo se pueden enviar borradores o reintentar documentos fallidos/rechazados.',
                 400
             );
         }
@@ -398,8 +404,12 @@ class DocumentController extends ApiController
         // la firma usa el certificado .p12 y el webservice de recepción/
         // autorización no la requiere. No debe bloquear el envío.
 
-        // Dispatch job to process document
-        $document->update(['status' => DocumentStatus::PROCESSING]);
+        // Dispatch job to process document. Se limpia el error anterior para no
+        // arrastrar el detalle de un intento fallido previo.
+        $document->update([
+            'status' => DocumentStatus::PROCESSING,
+            'sri_errors' => null,
+        ]);
         ProcessDocumentJob::dispatch($document);
 
         TenantCacheService::invalidateDashboard($document->tenant_id);

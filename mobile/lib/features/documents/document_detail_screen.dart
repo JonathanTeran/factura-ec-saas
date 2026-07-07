@@ -945,6 +945,26 @@ class _DocumentActionsState extends ConsumerState<_DocumentActions> {
     }
   }
 
+  /// Reintenta enviar al SRI un documento que falló o fue rechazado.
+  Future<void> _retry() async {
+    if (_busy != null) return;
+    setState(() => _busy = 'retry');
+    try {
+      await _api.sendDocument(_doc.id);
+      ref.invalidate(documentDetailProvider(_doc.id));
+      ref.invalidate(sentDocumentsProvider);
+      ref.invalidate(draftDocumentsProvider);
+      ref.read(documentsRefreshProvider.notifier).state++;
+      _snack('Reenviado al SRI. Esperá la autorización.');
+    } on ApiException catch (error) {
+      _snack(error.message);
+    } catch (error) {
+      _snack(error.toString());
+    } finally {
+      if (mounted) setState(() => _busy = null);
+    }
+  }
+
   Future<void> _resendEmail() async {
     final controller = TextEditingController(
       text: _doc.emailSentTo ?? _doc.customerEmail ?? '',
@@ -1069,6 +1089,16 @@ class _DocumentActionsState extends ConsumerState<_DocumentActions> {
         children: [
           const _SectionTitle('Acciones'),
           const SizedBox(height: 12),
+          if (_isRejected || _isFailed) ...[
+            _ActionButton(
+              icon: Icons.refresh_rounded,
+              label: 'Reintentar envío al SRI',
+              loading: _busy == 'retry',
+              primary: true,
+              onTap: _retry,
+            ),
+            const SizedBox(height: 10),
+          ],
           if (_canEdit) ...[
             _ActionButton(
               icon: Icons.edit_rounded,
