@@ -94,11 +94,13 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
   };
 
   List<ApiCompany> _companies = const [];
+  List<ApiBranch> _branches = const [];
   List<ApiEmissionPoint> _emissionPoints = const [];
   List<ApiCustomer> _customers = const [];
   List<ApiProduct> _products = const [];
 
   int? _companyId;
+  int? _branchId;
   int? _emissionPointId;
   int? _customerId;
 
@@ -155,20 +157,23 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
       final productsPage = await api.products(perPage: 100);
 
       int? companyId;
-      List<ApiEmissionPoint> emissionPoints = const [];
+      List<ApiBranch> branches = const [];
       if (companies.isNotEmpty) {
         companyId = companies.first.id;
-        emissionPoints = await api.companyEmissionPoints(companyId);
+        branches = await api.branches(companyId);
       }
+      final firstBranch = _pickBranch(branches);
 
       setState(() {
         _companies = companies;
         _customers = customersPage.items;
         _products = productsPage.items;
         _companyId = companyId;
-        _emissionPoints = emissionPoints;
-        _emissionPointId = emissionPoints.isNotEmpty
-            ? emissionPoints.first.id
+        _branches = branches;
+        _branchId = firstBranch?.id;
+        _emissionPoints = firstBranch?.emissionPoints ?? const [];
+        _emissionPointId = _emissionPoints.isNotEmpty
+            ? _emissionPoints.first.id
             : null;
         final custItems = customersPage.items;
         _customerId = custItems.isEmpty
@@ -250,20 +255,45 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
     });
   }
 
+  /// Establecimiento por defecto: la matriz si existe, si no el primero.
+  ApiBranch? _pickBranch(List<ApiBranch> branches) {
+    if (branches.isEmpty) return null;
+    for (final b in branches) {
+      if (b.isMain) return b;
+    }
+    return branches.first;
+  }
+
+  /// Al elegir un establecimiento, sus puntos de emisión pasan a estar
+  /// disponibles y se preselecciona el primero.
+  void _selectBranch(int branchId) {
+    final branch = _branches.firstWhere(
+      (b) => b.id == branchId,
+      orElse: () => _branches.first,
+    );
+    setState(() {
+      _branchId = branchId;
+      _emissionPoints = branch.emissionPoints;
+      _emissionPointId =
+          branch.emissionPoints.isNotEmpty ? branch.emissionPoints.first.id : null;
+    });
+  }
+
   Future<void> _loadEmissionPoints(int companyId) async {
     setState(() {
       _loading = true;
       _errorText = null;
     });
     try {
-      final emissionPoints = await ref
-          .read(v1ApiServiceProvider)
-          .companyEmissionPoints(companyId);
+      final branches =
+          await ref.read(v1ApiServiceProvider).branches(companyId);
+      final firstBranch = _pickBranch(branches);
       setState(() {
-        _emissionPoints = emissionPoints;
-        _emissionPointId = emissionPoints.isNotEmpty
-            ? emissionPoints.first.id
-            : null;
+        _branches = branches;
+        _branchId = firstBranch?.id;
+        _emissionPoints = firstBranch?.emissionPoints ?? const [];
+        _emissionPointId =
+            _emissionPoints.isNotEmpty ? _emissionPoints.first.id : null;
       });
     } catch (error) {
       setState(() => _errorText = error.toString());
@@ -2247,6 +2277,27 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
                   if (value == null) return;
                   setState(() => _companyId = value);
                   unawaited(_loadEmissionPoints(value));
+                },
+              ),
+              const SizedBox(height: 10),
+            ],
+            // Establecimiento: se muestra si hay más de uno configurado.
+            if (_branches.length > 1) ...[
+              DropdownButtonFormField<int>(
+                initialValue: _branchId,
+                decoration: const InputDecoration(
+                  labelText: 'Establecimiento',
+                ),
+                items: _branches
+                    .map(
+                      (b) => DropdownMenuItem(
+                        value: b.id,
+                        child: Text('${b.code} · ${b.name}'),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) _selectBranch(value);
                 },
               ),
               const SizedBox(height: 10),
