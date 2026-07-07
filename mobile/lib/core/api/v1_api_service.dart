@@ -509,6 +509,34 @@ class V1ApiService {
     });
   }
 
+  /// Actualiza los datos de una empresa (PUT). Requiere el conjunto completo de
+  /// campos fiscales (razón social, RUC, dirección, tipo, ambiente, correo…).
+  Future<ApiCompany> updateCompany(int companyId, Map<String, dynamic> data) async {
+    return _guard(() async {
+      final response = await _apiClient.put<Map<String, dynamic>>(
+        '${ApiConstants.companies}/$companyId',
+        data: data,
+      );
+      final d = _payloadMapFromResponse(response);
+      return ApiCompany.fromJson(mapFrom(d['company']));
+    });
+  }
+
+  /// Sube el logo de la empresa (imagen, máx 2 MB) y devuelve su URL pública.
+  Future<String> uploadCompanyLogo(int companyId, String filePath) async {
+    return _guard(() async {
+      final formData = FormData.fromMap({
+        'logo': await MultipartFile.fromFile(filePath),
+      });
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '${ApiConstants.companies}/$companyId/logo',
+        data: formData,
+      );
+      final d = _payloadMapFromResponse(response);
+      return stringFrom(d['logo_url']);
+    });
+  }
+
   Future<ApiCompany> switchCompany(int companyId) async {
     return _guard(() async {
       final response = await _apiClient.post<Map<String, dynamic>>(

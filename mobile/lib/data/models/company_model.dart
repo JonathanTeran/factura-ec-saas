@@ -11,6 +11,17 @@ class ApiCompany {
   final String sriEnvironment;
   final String sriEnvironmentLabel;
 
+  // Datos editables de la empresa.
+  final String tradeName;
+  final String address;
+  final String phone;
+  final String email;
+  final String taxpayerType; // natural | juridical | rise
+  final String rimpeType; // none | emprendedor | negocio_popular
+  final bool obligatedAccounting;
+  final bool specialTaxpayer;
+  final String? logoUrl;
+
   const ApiCompany({
     required this.id,
     required this.businessName,
@@ -18,6 +29,15 @@ class ApiCompany {
     required this.hasValidSignature,
     required this.sriEnvironment,
     required this.sriEnvironmentLabel,
+    required this.tradeName,
+    required this.address,
+    required this.phone,
+    required this.email,
+    required this.taxpayerType,
+    required this.rimpeType,
+    required this.obligatedAccounting,
+    required this.specialTaxpayer,
+    required this.logoUrl,
   });
 
   /// true cuando la empresa emite en Producción (comprobantes con validez
@@ -36,6 +56,17 @@ class ApiCompany {
         json['sri_environment_label'],
         fallback: env == '2' ? 'Producción' : 'Pruebas',
       ),
+      tradeName: stringFrom(json['trade_name']),
+      address: stringFrom(json['address']),
+      phone: stringFrom(json['phone']),
+      email: stringFrom(json['email']),
+      taxpayerType: stringFrom(json['taxpayer_type'], fallback: 'natural'),
+      rimpeType: stringFrom(json['rimpe_type'], fallback: 'none'),
+      obligatedAccounting: json['is_accounting_required'] == true ||
+          json['obligated_accounting'] == true,
+      specialTaxpayer: json['is_special_taxpayer'] == true ||
+          json['special_taxpayer'] == true,
+      logoUrl: nullableStringFrom(json['logo_url']),
     );
   }
 }

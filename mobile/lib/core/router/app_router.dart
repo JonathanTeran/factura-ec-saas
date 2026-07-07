@@ -25,9 +25,11 @@ import '../../features/purchases/purchases_screen.dart';
 import '../../features/purchases/supplier_create_screen.dart';
 import '../../features/purchases/suppliers_screen.dart';
 import '../../features/reports/reports_screen.dart';
+import '../../data/models/company_model.dart';
 import '../../features/settings/billing_screen.dart';
 import '../../features/settings/certificate_screen.dart';
 import '../../features/settings/company_create_screen.dart';
+import '../../features/settings/company_edit_screen.dart';
 import '../../features/settings/settings_screen.dart';
 
 /// Central GoRouter provider. All screens are imported from feature modules.
@@ -161,6 +163,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: 'company/new',
                 name: 'company-new',
                 builder: (context, state) => const CompanyCreateScreen(),
+              ),
+              GoRoute(
+                path: 'company/edit',
+                name: 'company-edit',
+                builder: (context, state) =>
+                    CompanyEditScreen(company: state.extra as ApiCompany?),
               ),
               GoRoute(
                 path: 'certificate',

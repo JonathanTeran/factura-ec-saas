@@ -519,6 +519,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               child: Column(
                 children: [
                   _MenuTile(
+                    icon: Icons.business_rounded,
+                    title: 'Datos de la empresa',
+                    subtitle: 'Razón social, dirección, régimen y logo.',
+                    onTap: () => context.push(
+                      '/settings/company/edit',
+                      extra: activeCompany,
+                    ),
+                  ),
+                  const Divider(height: 20),
+                  _MenuTile(
                     icon: Icons.credit_card_rounded,
                     title: 'Facturación',
                     subtitle: 'Plan, pagos y transferencia bancaria.',
