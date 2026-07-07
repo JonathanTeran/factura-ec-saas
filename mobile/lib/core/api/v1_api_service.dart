@@ -1842,7 +1842,17 @@ class V1ApiService {
       );
     }
 
-    return ApiException(error.message ?? 'Error de red', statusCode: status);
+    // Mensajes amigables (sin la jerga técnica de Dio) según el tipo de error.
+    final friendly = switch (error.type) {
+      DioExceptionType.connectionTimeout ||
+      DioExceptionType.receiveTimeout ||
+      DioExceptionType.sendTimeout =>
+        'El servidor está tardando en responder. Reintentá en unos segundos.',
+      DioExceptionType.connectionError =>
+        'Sin conexión con el servidor. Revisá tu internet e intentá de nuevo.',
+      _ => 'No pudimos conectar con el servidor. Intentá de nuevo.',
+    };
+    return ApiException(friendly, statusCode: status);
   }
 
   Map<String, dynamic> _bodyFromResponse(Response<dynamic> response) {
