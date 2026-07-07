@@ -75,6 +75,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/', [CompanyController::class, 'store']);
             Route::get('{company}', [CompanyController::class, 'show']);
             Route::put('{company}', [CompanyController::class, 'update']);
+            Route::post('{company}/environment', [CompanyController::class, 'updateEnvironment']);
             Route::post('{company}/switch', [CompanyController::class, 'switch']);
             Route::post('{company}/logo', [CompanyController::class, 'uploadLogo']);
             Route::delete('{company}/logo', [CompanyController::class, 'deleteLogo']);

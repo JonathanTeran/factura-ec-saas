@@ -634,21 +634,88 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 // Banner de ambiente SRI (Producción vs Pruebas)
 // ──────────────────────────────────────────────────────────────
 
-/// Muestra el ambiente SRI de la empresa activa. En Producción es un aviso
-/// discreto en verde; en Pruebas se resalta en ámbar porque los comprobantes
-/// NO tienen validez tributaria.
-class _EnvironmentBanner extends StatelessWidget {
+/// Muestra el ambiente SRI de la empresa activa y permite alternarlo desde la
+/// app. En Producción es un aviso discreto en verde; en Pruebas se resalta en
+/// ámbar porque los comprobantes NO tienen validez tributaria.
+class _EnvironmentBanner extends ConsumerStatefulWidget {
   final ApiCompany company;
 
   const _EnvironmentBanner({required this.company});
 
   @override
+  ConsumerState<_EnvironmentBanner> createState() => _EnvironmentBannerState();
+}
+
+class _EnvironmentBannerState extends ConsumerState<_EnvironmentBanner> {
+  bool _switching = false;
+
+  ApiCompany get company => widget.company;
+
+  Future<void> _switchEnvironment(String target) async {
+    final toProd = target == '2';
+    final messenger = ScaffoldMessenger.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(toProd ? 'Pasar a Producción' : 'Volver a Pruebas'),
+        content: Text(
+          toProd
+              ? 'A partir de ahora tus comprobantes se emitirán en PRODUCCIÓN y '
+                  'tendrán validez tributaria ante el SRI.\n\nAsegurate de tener '
+                  'tu RUC autorizado para producción y tu firma electrónica '
+                  'vigente.'
+              : 'Volverás al ambiente de PRUEBAS. Los comprobantes que emitas '
+                  'dejarán de tener validez tributaria.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: toProd ? AppColors.success : AppColors.warning,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(toProd ? 'Sí, pasar a Producción' : 'Volver a Pruebas'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _switching = true);
+    try {
+      await ref
+          .read(v1ApiServiceProvider)
+          .updateCompanyEnvironment(company.id, target);
+      ref.invalidate(companiesProvider);
+      ref.invalidate(meProvider);
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            toProd
+                ? 'Ambiente cambiado a Producción.'
+                : 'Ambiente cambiado a Pruebas.',
+          ),
+        ),
+      );
+    } catch (error) {
+      final msg = error is ApiException
+          ? error.message
+          : 'No se pudo cambiar el ambiente.';
+      messenger.showSnackBar(SnackBar(content: Text(msg)));
+    } finally {
+      if (mounted) setState(() => _switching = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isProd = company.isProduction;
     final color = isProd ? AppColors.success : AppColors.warning;
-    final icon = isProd
-        ? Icons.verified_rounded
-        : Icons.science_rounded;
+    final icon = isProd ? Icons.verified_rounded : Icons.science_rounded;
     final title = isProd ? 'Ambiente de Producción' : 'Ambiente de PRUEBAS';
     final subtitle = isProd
         ? 'Tus comprobantes tienen validez tributaria ante el SRI.'
@@ -667,96 +734,130 @@ class _EnvironmentBanner extends StatelessWidget {
           width: isProd ? 1 : 1.6,
         ),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: TextStyle(
-                          fontFamily: 'Avenir Next',
-                          fontWeight: FontWeight.w800,
-                          fontSize: 16,
-                          color: isProd ? AppColors.textPrimary : color,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: TextStyle(
+                              fontFamily: 'Avenir Next',
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                              color: isProd ? AppColors.textPrimary : color,
+                            ),
+                          ),
                         ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            company.sriEnvironmentLabel.toUpperCase(),
+                            style: const TextStyle(
+                              fontFamily: 'Avenir Next',
+                              fontWeight: FontWeight.w800,
+                              fontSize: 10,
+                              letterSpacing: 0.4,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontFamily: 'Avenir Next',
+                        fontWeight: FontWeight.w500,
+                        fontSize: 13,
+                        height: 1.35,
+                        color: AppColors.textSecondary,
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        company.sriEnvironmentLabel.toUpperCase(),
-                        style: const TextStyle(
-                          fontFamily: 'Avenir Next',
-                          fontWeight: FontWeight.w800,
-                          fontSize: 10,
-                          letterSpacing: 0.4,
-                          color: Colors.white,
-                        ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Empresa: ${company.businessName}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'Avenir Next',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                        color: AppColors.textMuted,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontFamily: 'Avenir Next',
-                    fontWeight: FontWeight.w500,
-                    fontSize: 13,
-                    height: 1.35,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Empresa: ${company.businessName}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontFamily: 'Avenir Next',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                    color: AppColors.textMuted,
-                  ),
-                ),
-                if (!isProd) ...[
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Cambiá a Producción desde la web cuando estés listo.',
-                    style: TextStyle(
-                      fontFamily: 'Avenir Next',
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                      color: AppColors.textMuted,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Cambio de ambiente desde la app.
+          SizedBox(
+            width: double.infinity,
+            child: isProd
+                ? OutlinedButton.icon(
+                    onPressed: _switching ? null : () => _switchEnvironment('1'),
+                    icon: _switching
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.science_outlined, size: 18),
+                    label: const Text('Volver a Pruebas'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.textSecondary,
+                      side: const BorderSide(color: AppColors.border),
+                      minimumSize: const Size.fromHeight(46),
+                    ),
+                  )
+                : FilledButton.icon(
+                    onPressed: _switching ? null : () => _switchEnvironment('2'),
+                    icon: _switching
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.rocket_launch_rounded, size: 18),
+                    label: const Text('Pasar a Producción'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.success,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(46),
                     ),
                   ),
-                ],
-              ],
-            ),
           ),
         ],
       ),

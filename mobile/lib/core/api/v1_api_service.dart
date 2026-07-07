@@ -604,6 +604,21 @@ class V1ApiService {
     });
   }
 
+  /// Cambia el ambiente SRI de la empresa ('1' Pruebas, '2' Producción).
+  Future<ApiCompany> updateCompanyEnvironment(
+    int companyId,
+    String environment,
+  ) async {
+    return _guard(() async {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '${ApiConstants.companies}/$companyId/environment',
+        data: {'environment': environment},
+      );
+      final data = _payloadMapFromResponse(response);
+      return ApiCompany.fromJson(mapFrom(data['company']));
+    });
+  }
+
   Future<PaginatedResult<ApiCustomer>> customers({
     String? search,
     int perPage = 15,

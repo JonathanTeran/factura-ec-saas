@@ -219,6 +219,30 @@ class CompanyController extends ApiController
         return $this->success(['logo_url' => null], 'Logo eliminado.');
     }
 
+    /**
+     * Cambia el ambiente SRI de la empresa (1 = Pruebas, 2 = Producción).
+     *
+     * Endpoint dedicado para poder alternar el ambiente sin reenviar todos los
+     * datos fiscales de la empresa. El usuario decide cuándo pasar a Producción.
+     */
+    public function updateEnvironment(Request $request, Company $company): JsonResponse
+    {
+        $this->authorizeCompany($request, $company);
+
+        $data = $request->validate([
+            'environment' => ['required', 'in:1,2'],
+        ]);
+
+        $company->sri_environment = $data['environment'];
+        $company->save();
+
+        return $this->success([
+            'company' => new CompanyResource($company->fresh()),
+        ], $data['environment'] === '2'
+            ? 'Ambiente cambiado a Producción.'
+            : 'Ambiente cambiado a Pruebas.');
+    }
+
     protected function authorizeCompany(Request $request, Company $company): void
     {
         if ($company->tenant_id !== $request->user()->tenant_id) {
