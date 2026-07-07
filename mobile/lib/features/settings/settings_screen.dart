@@ -188,6 +188,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         meAsync.valueOrNull?.email ?? 'Inicia sesión para continuar';
     final companies = companiesAsync.valueOrNull ?? const <ApiCompany>[];
     final hasSignature = companies.any((company) => company.hasValidSignature);
+    // Empresa activa (la del usuario) para mostrar su ambiente SRI.
+    final currentCompanyId = meAsync.valueOrNull?.currentCompanyId;
+    final activeCompany = companies.isEmpty
+        ? null
+        : companies.firstWhere(
+            (company) => company.id == currentCompanyId,
+            orElse: () => companies.first,
+          );
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -209,6 +217,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 14),
+            if (activeCompany != null) ...[
+              _EnvironmentBanner(company: activeCompany),
+              const SizedBox(height: 14),
+            ],
             GlassPanel(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -613,6 +625,140 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// Banner de ambiente SRI (Producción vs Pruebas)
+// ──────────────────────────────────────────────────────────────
+
+/// Muestra el ambiente SRI de la empresa activa. En Producción es un aviso
+/// discreto en verde; en Pruebas se resalta en ámbar porque los comprobantes
+/// NO tienen validez tributaria.
+class _EnvironmentBanner extends StatelessWidget {
+  final ApiCompany company;
+
+  const _EnvironmentBanner({required this.company});
+
+  @override
+  Widget build(BuildContext context) {
+    final isProd = company.isProduction;
+    final color = isProd ? AppColors.success : AppColors.warning;
+    final icon = isProd
+        ? Icons.verified_rounded
+        : Icons.science_rounded;
+    final title = isProd ? 'Ambiente de Producción' : 'Ambiente de PRUEBAS';
+    final subtitle = isProd
+        ? 'Tus comprobantes tienen validez tributaria ante el SRI.'
+        : 'Estás emitiendo en el ambiente de pruebas del SRI. Los comprobantes '
+            'NO tienen validez tributaria.';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        // En Pruebas resaltamos con relleno y borde ámbar más marcados.
+        color: color.withValues(alpha: isProd ? 0.08 : 0.14),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: color.withValues(alpha: isProd ? 0.35 : 0.75),
+          width: isProd ? 1 : 1.6,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontFamily: 'Avenir Next',
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          color: isProd ? AppColors.textPrimary : color,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        company.sriEnvironmentLabel.toUpperCase(),
+                        style: const TextStyle(
+                          fontFamily: 'Avenir Next',
+                          fontWeight: FontWeight.w800,
+                          fontSize: 10,
+                          letterSpacing: 0.4,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontFamily: 'Avenir Next',
+                    fontWeight: FontWeight.w500,
+                    fontSize: 13,
+                    height: 1.35,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Empresa: ${company.businessName}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: 'Avenir Next',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+                if (!isProd) ...[
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Cambiá a Producción desde la web cuando estés listo.',
+                    style: TextStyle(
+                      fontFamily: 'Avenir Next',
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
