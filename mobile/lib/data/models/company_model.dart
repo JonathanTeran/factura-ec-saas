@@ -30,6 +30,7 @@ class ApiCompany {
   final bool obligatedAccounting;
   final bool specialTaxpayer;
   final String? logoUrl;
+  final bool isReadyForEmission;
 
   const ApiCompany({
     required this.id,
@@ -47,6 +48,7 @@ class ApiCompany {
     required this.obligatedAccounting,
     required this.specialTaxpayer,
     required this.logoUrl,
+    required this.isReadyForEmission,
   });
 
   /// true cuando la empresa emite en Producción (comprobantes con validez
@@ -76,6 +78,7 @@ class ApiCompany {
       specialTaxpayer: json['is_special_taxpayer'] == true ||
           json['special_taxpayer'] == true,
       logoUrl: nullableStringFrom(json['logo_url']),
+      isReadyForEmission: json['is_ready_for_emission'] == true,
     );
   }
 }

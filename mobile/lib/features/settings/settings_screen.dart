@@ -536,6 +536,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   const Divider(height: 20),
                   _MenuTile(
+                    icon: Icons.rocket_launch_outlined,
+                    title: 'Migrar a Producción',
+                    subtitle: 'Guía paso a paso para emitir con validez.',
+                    onTap: () => context.push('/settings/migrate-production'),
+                  ),
+                  const Divider(height: 20),
+                  _MenuTile(
                     icon: Icons.credit_card_rounded,
                     title: 'Facturación',
                     subtitle: 'Plan, pagos y transferencia bancaria.',

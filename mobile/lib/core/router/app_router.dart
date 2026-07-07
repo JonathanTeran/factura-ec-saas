@@ -31,6 +31,7 @@ import '../../features/settings/certificate_screen.dart';
 import '../../features/settings/company_create_screen.dart';
 import '../../features/settings/company_edit_screen.dart';
 import '../../features/settings/establishments_screen.dart';
+import '../../features/settings/migrate_production_screen.dart';
 import '../../features/settings/sequentials_screen.dart';
 import '../../features/settings/settings_screen.dart';
 
@@ -183,6 +184,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 builder: (context, state) => SequentialsScreen(
                   emissionPoint: state.extra as ApiEmissionPoint,
                 ),
+              ),
+              GoRoute(
+                path: 'migrate-production',
+                name: 'migrate-production',
+                builder: (context, state) => const MigrateProductionScreen(),
               ),
               GoRoute(
                 path: 'certificate',
