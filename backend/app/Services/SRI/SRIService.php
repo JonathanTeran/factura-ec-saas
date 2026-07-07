@@ -36,6 +36,13 @@ class SRIService
         $sig = $this->signatures->decrypt($company);
         $this->sri->setFirma($sig['content'], $sig['password']);
 
+        // Descripción de marca en la firma XAdES (etsi:Description). Sin esto el
+        // paquete usa un texto neutral; acá ponemos la marca propia. Nunca la de
+        // terceros. Configurable por env SRI_SIGNATURE_DESCRIPTION.
+        $this->sri->setDescripcionFirma(
+            config('services.sri.signature_description', 'Comprobante electrónico emitido con Facturón EC · amephia.com')
+        );
+
         return $this;
     }
 
@@ -74,6 +81,15 @@ class SRIService
             ]);
 
             $this->markAsContingency($doc, $e->getMessage());
+
+            throw $e;
+        } catch (SriRejectionException $e) {
+            // handleResult() ya persistió status=REJECTED con el motivo real del
+            // SRI. No sobrescribir con un mensaje genérico: solo propagar.
+            Log::warning('SRI Processing Rejected', [
+                'document_id' => $doc->id,
+                'errors' => $e->errors,
+            ]);
 
             throw $e;
         } catch (SriException|DocumentProcessingException $e) {
@@ -149,6 +165,85 @@ class SRIService
     }
 
     /**
+     * Re-consulta la autorización del SRI de un documento EN PROCESO y aplica
+     * el resultado (autorizado / rechazado / sigue en proceso). Idempotente y
+     * seguro: si no hay novedad, no cambia nada. Usado por el polling de la app.
+     */
+    public function refreshStatus(ElectronicDocument $doc): void
+    {
+        $pending = [DocumentStatus::PROCESSING, DocumentStatus::SENT, DocumentStatus::SIGNED];
+        if (! in_array($doc->status, $pending, true) || empty($doc->access_key)) {
+            return;
+        }
+
+        // Consultamos el SOAP crudo y lo parseamos nosotros mismos, sin depender
+        // del DTO del vendor (que en 2.x no desenvuelve RespuestaAutorizacion-
+        // Comprobante y reporta como 'ERROR' comprobantes que están AUTORIZADOS).
+        // Así, aunque un composer install revierta el parche del vendor, el
+        // polling de la app/web sigue reflejando el estado real del SRI.
+        $env = $doc->company->sri_environment === '2' ? 'produccion' : 'pruebas';
+        $raw = (new \Teran\Sri\Soap\SriSoapClient(30, 2))->autorizar($doc->access_key, $env);
+
+        [$auth, $xmlAutorizado] = $this->parseAuthorizationSoap($raw);
+
+        try {
+            // Reutiliza el manejo de autorización (autorizado/rechazado/pending).
+            $this->handleResult($doc, [
+                'autorizacion' => $auth,
+                'claveAcceso' => $doc->access_key,
+                'xmlAutorizado' => $xmlAutorizado,
+            ]);
+        } catch (SriRejectionException|SriCommunicationException $e) {
+            // handleResult ya persistió el estado (rejected / sigue en proceso).
+        }
+    }
+
+    /**
+     * Parsea la respuesta SOAP cruda de autorización del SRI, desenvolviendo el
+     * nodo RespuestaAutorizacionComprobante. Devuelve [AutorizacionResponse|null,
+     * xmlAutorizado|null].
+     *
+     * @return array{0: ?\Teran\Sri\Dto\AutorizacionResponse, 1: ?string}
+     */
+    private function parseAuthorizationSoap(object $raw): array
+    {
+        $root = $raw->RespuestaAutorizacionComprobante ?? $raw;
+
+        $nodo = $root->autorizaciones->autorizacion ?? null;
+        if (is_array($nodo)) {
+            $nodo = $nodo[0] ?? null;
+        }
+
+        if (! $nodo) {
+            // Sin nodo de autorización: el SRI aún no resolvió (o no lo recibió).
+            return [new \Teran\Sri\Dto\AutorizacionResponse('ERROR', null, null, null, []), null];
+        }
+
+        $mensajes = [];
+        $rawMsgs = $nodo->mensajes->mensaje ?? null;
+        if ($rawMsgs !== null) {
+            foreach (is_array($rawMsgs) ? $rawMsgs : [$rawMsgs] as $m) {
+                $mensajes[] = [
+                    'identificador' => (string) ($m->identificador ?? ''),
+                    'mensaje' => (string) ($m->mensaje ?? ''),
+                    'informacionAdicional' => (string) ($m->informacionAdicional ?? ''),
+                    'tipo' => (string) ($m->tipo ?? ''),
+                ];
+            }
+        }
+
+        $auth = new \Teran\Sri\Dto\AutorizacionResponse(
+            (string) ($nodo->estado ?? 'NO AUTORIZADO'),
+            isset($nodo->numeroAutorizacion) ? (string) $nodo->numeroAutorizacion : null,
+            isset($nodo->fechaAutorizacion) ? (string) $nodo->fechaAutorizacion : null,
+            isset($nodo->comprobante) ? (string) $nodo->comprobante : null,
+            $mensajes,
+        );
+
+        return [$auth, isset($nodo->comprobante) ? (string) $nodo->comprobante : null];
+    }
+
+    /**
      * Health check del SRI
      */
     public function isAvailable(): bool
@@ -214,9 +309,13 @@ class SRIService
             $estado = $auth->estado ?? null;
             $errors = ($auth && isset($auth->mensajes)) ? (array) $auth->mensajes : [];
 
-            // Aún sin resolución: dejar en proceso y reintentar más tarde.
-            if ($estado === 'EN PROCESAMIENTO') {
-                $this->markAsContingency($doc, 'El SRI aún está procesando el comprobante.');
+            // La autorización del SRI es ASÍNCRONA: tras "RECIBIDA", la consulta
+            // puede volver sin autorización todavía (EN PROCESAMIENTO, o 'ERROR'
+            // = lista de autorizaciones vacía en el DTO). Eso NO es un rechazo:
+            // se deja EN PROCESO y se re-consulta más tarde.
+            $pendiente = empty($errors) && in_array($estado, ['EN PROCESAMIENTO', 'ERROR', '', null], true);
+            if ($pendiente) {
+                $this->markAsContingency($doc, 'El SRI está procesando el comprobante; se consultará la autorización nuevamente.');
                 throw new SriCommunicationException(
                     'El SRI aún está procesando el comprobante.',
                     $doc->id,
@@ -224,12 +323,9 @@ class SRIService
                 );
             }
 
-            // Rechazo sin motivo del SRI: mensaje claro para el usuario.
+            // Rechazo real (con motivo o estado NO AUTORIZADO/RECHAZADA).
             if (empty($errors)) {
-                $errors = [
-                    'El SRI no autorizó el comprobante ('.($estado ?: 'sin estado').') '
-                    .'y no devolvió un motivo. Reintentá; si persiste, generá el documento de nuevo.',
-                ];
+                $errors = ['El SRI no autorizó el comprobante ('.($estado ?: 'sin estado').').'];
             }
 
             $update['status'] = DocumentStatus::REJECTED;

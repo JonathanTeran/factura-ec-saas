@@ -413,6 +413,26 @@ class DocumentController extends ApiController
         // la firma usa el certificado .p12 y el webservice de recepción/
         // autorización no la requiere. No debe bloquear el envío.
 
+        // Validación local de reglas del SRI ANTES de enviar: evita gastar
+        // llamadas al webservice y que el comprobante sea devuelto por errores
+        // que podemos detectar aquí (ej. factura > $50 a Consumidor Final,
+        // identificación inválida, sin detalle).
+        $preErrors = app(\App\Services\SRI\SriPreValidator::class)->validate($document);
+        if (! empty($preErrors)) {
+            $document->update([
+                'status' => DocumentStatus::REJECTED,
+                'sri_errors' => ['validation' => $preErrors],
+            ]);
+            TenantCacheService::invalidateDashboard($document->tenant_id);
+
+            return $this->error(
+                'El documento no cumple las reglas del SRI y no se envió: '
+                .implode(' ', $preErrors),
+                422,
+                $preErrors
+            );
+        }
+
         // Dispatch job to process document. Se limpia el error anterior para no
         // arrastrar el detalle de un intento fallido previo.
         $document->update([
@@ -675,6 +695,19 @@ class DocumentController extends ApiController
     public function checkStatus(Request $request, ElectronicDocument $document): JsonResponse
     {
         $this->authorizeDocument($request, $document);
+
+        // La autorización del SRI es asíncrona: si el documento sigue en
+        // proceso, re-consultamos al SRI en vivo (lo dispara el polling de la
+        // app/web). Nunca rompe la respuesta si el SRI está caído.
+        try {
+            app(\App\Services\SRI\SRIService::class)->refreshStatus($document);
+            $document->refresh();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::info('checkStatus refresh skipped', [
+                'document_id' => $document->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return $this->success([
             'status' => $document->status->value,

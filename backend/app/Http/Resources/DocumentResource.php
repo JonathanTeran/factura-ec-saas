@@ -95,6 +95,11 @@ class DocumentResource extends JsonResource
                 }
                 if (is_string($value) && $value !== '') {
                     $out[] = $value;
+                } elseif (is_array($value) && array_is_list($value)) {
+                    // Lista (validaciones locales = strings; rechazos SRI = objetos).
+                    foreach ($value as $item) {
+                        $out[] = is_string($item) ? $item : $this->formatSriMessage($item);
+                    }
                 } elseif (is_array($value)) {
                     // Mensaje de rechazo del SRI (identificador/mensaje/info).
                     $out[] = $this->formatSriMessage($value);

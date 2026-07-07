@@ -56,4 +56,13 @@ return [
         'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
     ],
 
+    'sri' => [
+        // Texto libre en la firma XAdES (etsi:Description). Sin valor fiscal;
+        // solo marca. Cambiá SRI_SIGNATURE_DESCRIPTION para personalizarlo.
+        'signature_description' => env(
+            'SRI_SIGNATURE_DESCRIPTION',
+            'Comprobante electrónico emitido con Facturón EC · amephia.com'
+        ),
+    ],
+
 ];

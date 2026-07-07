@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b87adcfcd3afba33a4e8b67c6d58d01f",
+    "content-hash": "5b9c19e35de90e91fe23aeb156b538e6",
     "packages": [
         {
             "name": "amephia/sri-ec",
-            "version": "2.2.0",
+            "version": "2.2.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/JonathanTeran/teran-sri-ec.git",
-                "reference": "9b403d9dc593335dfe8c59e8bfb802524ffd37ac"
+                "reference": "bba035eeed327d46cb27b92ea32b91ac3a686e44"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/JonathanTeran/teran-sri-ec/zipball/9b403d9dc593335dfe8c59e8bfb802524ffd37ac",
-                "reference": "9b403d9dc593335dfe8c59e8bfb802524ffd37ac",
+                "url": "https://api.github.com/repos/JonathanTeran/teran-sri-ec/zipball/bba035eeed327d46cb27b92ea32b91ac3a686e44",
+                "reference": "bba035eeed327d46cb27b92ea32b91ac3a686e44",
                 "shasum": ""
             },
             "require": {
@@ -74,7 +74,7 @@
                     "type": "paypal"
                 }
             ],
-            "time": "2026-07-02T14:20:26+00:00"
+            "time": "2026-07-07T22:24:04+00:00"
         },
         {
             "name": "anourvalar/eloquent-serialize",
