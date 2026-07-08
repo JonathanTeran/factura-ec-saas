@@ -987,10 +987,15 @@ class _DocumentActionsState extends ConsumerState<_DocumentActions> {
       );
       final wa = Uri.parse('https://wa.me/?text=$text');
       final opened = await launchUrl(wa, mode: LaunchMode.externalApplication);
-      if (!opened) {
-        // Sin WhatsApp instalado: hoja de compartir del sistema.
+      if (!opened && mounted) {
+        // Sin WhatsApp instalado: hoja de compartir del sistema. iOS exige
+        // sharePositionOrigin (ancla del popover) o lanza PlatformException.
+        final box = context.findRenderObject() as RenderBox?;
         await Share.share(
           'Comprobante ${_doc.documentNumber}: ${link.url}',
+          sharePositionOrigin: box != null
+              ? box.localToGlobal(Offset.zero) & box.size
+              : const Rect.fromLTWH(0, 0, 1, 1),
         );
       }
     } on ApiException catch (error) {

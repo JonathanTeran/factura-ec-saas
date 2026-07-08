@@ -240,7 +240,16 @@ class _NewDocumentScreenState extends ConsumerState<NewDocumentScreen> {
     try {
       final link = await ref.read(v1ApiServiceProvider).documentRide(doc.id);
       if (link.url.isEmpty) throw ApiException('No se pudo generar el enlace.');
-      await Share.share('Comprobante ${doc.documentNumber}: ${link.url}');
+      if (!mounted) return;
+      // iOS exige sharePositionOrigin (ancla del popover); sin él la hoja de
+      // compartir lanza PlatformException en iPhone/iPad.
+      final box = context.findRenderObject() as RenderBox?;
+      await Share.share(
+        'Comprobante ${doc.documentNumber}: ${link.url}',
+        sharePositionOrigin: box != null
+            ? box.localToGlobal(Offset.zero) & box.size
+            : const Rect.fromLTWH(0, 0, 1, 1),
+      );
     } on ApiException catch (e) {
       _resultSnack(e.message);
     } catch (e) {
