@@ -289,9 +289,11 @@ class ElectronicDocumentResource extends Resource
                             ->placeholder('Sin intentos'),
                         Infolists\Components\KeyValueEntry::make('sri_response')
                             ->label('Respuesta')
+                            ->state(fn ($record) => self::flattenForKeyValue($record->sri_response))
                             ->columnSpanFull(),
                         Infolists\Components\KeyValueEntry::make('sri_errors')
                             ->label('Errores')
+                            ->state(fn ($record) => self::flattenForKeyValue($record->sri_errors))
                             ->columnSpanFull(),
                     ])->columns(2)
                     ->collapsible(),
@@ -330,5 +332,25 @@ class ElectronicDocumentResource extends Resource
             'index' => Pages\ListElectronicDocuments::route('/'),
             'view' => Pages\ViewElectronicDocument::route('/{record}'),
         ];
+    }
+
+    /**
+     * KeyValueEntry solo renderiza valores string: los datos del SRI traen
+     * arrays anidados (mensajes con identificador/mensaje/informacionAdicional)
+     * y XMLs enormes — sin esto la vista 500-ea con htmlspecialchars(array).
+     *
+     * @return array<string, string>
+     */
+    protected static function flattenForKeyValue(?array $data): array
+    {
+        return collect($data ?? [])
+            ->map(function ($value) {
+                $text = is_scalar($value) || $value === null
+                    ? (string) $value
+                    : (string) json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+                return \Illuminate\Support\Str::limit($text, 500);
+            })
+            ->all();
     }
 }
