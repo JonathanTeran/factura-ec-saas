@@ -30,7 +30,8 @@ import {
   type CompanyUpdateInput,
 } from "@/lib/api/queries/companies";
 import { useRucLookup } from "@/lib/api/queries/onboarding";
-import { ClientApiError } from "@/lib/api/client";
+import { api, ClientApiError, type ApiSuccess } from "@/lib/api/client";
+import { DeleteConfirmButton } from "@/components/forms/delete-confirm-button";
 import { companyInitials } from "@/lib/format";
 
 function errMessage(err: unknown): string {
@@ -438,6 +439,33 @@ function FormInner({
               autoComplete="new-password"
             />
           </Field>
+
+          <div className="sm:col-span-2 rounded-lg border border-destructive/30 p-4">
+            <p className="text-sm font-medium">Limpieza de pruebas</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Elimina definitivamente los comprobantes emitidos en ambiente de
+              pruebas (no tienen validez fiscal), junto con sus PDF/XML y
+              asientos contables. Los documentos de Producción no se tocan.
+              Útil al pasar a Producción para empezar con la cuenta limpia.
+            </p>
+            <div className="mt-3">
+              <DeleteConfirmButton
+                onConfirm={async () => {
+                  const res = await api.delete<
+                    ApiSuccess<{ deleted: number }>
+                  >(`companies/${company.id}/test-documents?confirm=1`);
+                  return res;
+                }}
+                isPending={false}
+                title="¿Eliminar documentos de pruebas?"
+                description="Se borrarán DEFINITIVAMENTE todos los comprobantes emitidos en ambiente de pruebas, con sus PDF/XML y asientos contables. Esta acción no se puede deshacer. Los documentos de Producción no se tocan."
+                successMessage="Documentos de pruebas eliminados."
+                triggerLabel="Eliminar documentos de pruebas"
+                triggerVariant="outline"
+                triggerSize="sm"
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
