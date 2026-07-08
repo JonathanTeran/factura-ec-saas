@@ -26,6 +26,7 @@ class _MigrateProductionScreenState
   int _emissionPoints = 0;
   bool _loading = true;
   bool _switching = false;
+  bool _purging = false;
   Object? _error;
 
   V1ApiService get _api => ref.read(v1ApiServiceProvider);
@@ -254,9 +255,112 @@ class _MigrateProductionScreenState
               ),
             ),
           ],
+          const SizedBox(height: 18),
+          // Limpieza: los comprobantes de PRUEBAS no tienen validez fiscal.
+          GlassPanel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Limpieza de pruebas',
+                  style: TextStyle(
+                    fontFamily: 'Avenir Next',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Elimina definitivamente los comprobantes emitidos en '
+                  'ambiente de pruebas (no tienen validez fiscal), junto con '
+                  'sus PDF/XML y asientos contables. Los documentos de '
+                  'Producción no se tocan.',
+                  style: TextStyle(
+                    fontFamily: 'Avenir Next',
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _purging ? null : _purgeTestDocuments,
+                    icon: _purging
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.delete_sweep_rounded,
+                            color: AppColors.error),
+                    label: const Text(
+                      'Eliminar documentos de pruebas',
+                      style: TextStyle(color: AppColors.error),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(
+                          color: AppColors.error.withValues(alpha: 0.5)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _purgeTestDocuments() async {
+    final company = _company;
+    if (company == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Eliminar documentos de pruebas?'),
+        content: const Text(
+          'Se borrarán DEFINITIVAMENTE todos los comprobantes emitidos en '
+          'ambiente de pruebas, con sus PDF/XML y asientos contables. '
+          'Esta acción no se puede deshacer.\n\n'
+          'Los documentos de Producción no se tocan.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Sí, eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _purging = true);
+    try {
+      final deleted = await _api.purgeTestDocuments(company.id);
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text(deleted == 0
+            ? 'No había documentos de pruebas.'
+            : 'Se eliminaron $deleted documentos de pruebas.'),
+      ));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(
+        content: Text(
+            e is ApiException ? e.message : 'No se pudo completar la limpieza.'),
+      ));
+    } finally {
+      if (mounted) setState(() => _purging = false);
+    }
   }
 }
 

@@ -243,6 +243,70 @@ class CompanyController extends ApiController
             : 'Ambiente cambiado a Pruebas.');
     }
 
+    /**
+     * Eliminar documentos de PRUEBAS
+     *
+     * Borra definitivamente los comprobantes emitidos en ambiente de pruebas
+     * (environment=1) de la empresa: documentos, archivos XML/RIDE del storage
+     * y los asientos contables generados por ellos. Los documentos de pruebas
+     * no tienen validez fiscal; esto deja limpia la cuenta al pasar a
+     * Producción. Requiere confirm=true.
+     */
+    public function purgeTestDocuments(Request $request, Company $company): JsonResponse
+    {
+        $this->authorizeCompany($request, $company);
+
+        $request->validate([
+            'confirm' => ['required', 'accepted'],
+        ], [
+            'confirm.accepted' => 'Debes confirmar la eliminación.',
+        ]);
+
+        $docs = \App\Models\SRI\ElectronicDocument::withoutGlobalScopes()
+            ->withTrashed()
+            ->where('tenant_id', $company->tenant_id)
+            ->where('company_id', $company->id)
+            ->where('environment', '1')
+            ->get();
+
+        if ($docs->isEmpty()) {
+            return $this->success(['deleted' => 0], 'No hay documentos de pruebas para eliminar.');
+        }
+
+        $deleted = 0;
+
+        foreach ($docs as $doc) {
+            // Archivos en storage (XML firmado/autorizado y RIDE).
+            foreach ([$doc->xml_signed_path, $doc->xml_authorized_path, $doc->ride_pdf_path] as $path) {
+                if ($path) {
+                    try {
+                        \Illuminate\Support\Facades\Storage::delete($path);
+                    } catch (\Throwable) {
+                        // El archivo puede no existir; no bloquea la purga.
+                    }
+                }
+            }
+
+            // Asientos contables generados por este documento (líneas cascadean).
+            \App\Models\Accounting\JournalEntry::withoutGlobalScopes()
+                ->where('tenant_id', $company->tenant_id)
+                ->where('source_document_type', \App\Models\SRI\ElectronicDocument::class)
+                ->where('source_document_id', $doc->id)
+                ->forceDelete();
+
+            // Items y pagos cascadean por FK; POS/compras/proformas quedan en null.
+            $doc->forceDelete();
+            $deleted++;
+        }
+
+        \App\Services\Cache\TenantCacheService::invalidateTenant($company->tenant_id);
+
+        return $this->success(
+            ['deleted' => $deleted],
+            "Se eliminaron {$deleted} documentos de pruebas.",
+        );
+    }
+
     protected function authorizeCompany(Request $request, Company $company): void
     {
         if ($company->tenant_id !== $request->user()->tenant_id) {

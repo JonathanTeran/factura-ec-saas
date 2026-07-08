@@ -949,6 +949,20 @@ class V1ApiService {
     });
   }
 
+  /// Elimina definitivamente los comprobantes emitidos en ambiente de PRUEBAS
+  /// (sin validez fiscal): documentos, XML/RIDE y sus asientos contables.
+  /// Devuelve cuántos se eliminaron.
+  Future<int> purgeTestDocuments(int companyId) async {
+    return _guard(() async {
+      final response = await _apiClient.delete<Map<String, dynamic>>(
+        '${ApiConstants.companies}/$companyId/test-documents',
+        data: {'confirm': true},
+      );
+      final data = _payloadMapFromResponse(response);
+      return intFrom(data['deleted']);
+    });
+  }
+
   Future<PaginatedResult<ApiCustomer>> customers({
     String? search,
     int perPage = 15,
