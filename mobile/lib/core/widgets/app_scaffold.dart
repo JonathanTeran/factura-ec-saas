@@ -22,6 +22,7 @@ class AppShell extends StatelessWidget {
     '/pos',
     '/purchases',
     '/suppliers',
+    '/quotes',
   };
 
   /// Una pantalla es "raíz" cuando es una de las pestañas/listas principales.
@@ -31,7 +32,10 @@ class AppShell extends StatelessWidget {
   bool get _isTabRoot => _tabRoots.contains(location);
 
   int _selectedIndexFromLocation() {
-    if (location.startsWith('/documents')) return 1;
+    if (location.startsWith('/documents') ||
+        location.startsWith('/quotes')) {
+      return 1;
+    }
     if (location.startsWith('/reports')) return 2;
     if (location.startsWith('/settings') ||
         location.startsWith('/customers') ||

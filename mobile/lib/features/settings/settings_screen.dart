@@ -482,6 +482,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   const Divider(height: 20),
                   _MenuTile(
+                    icon: Icons.request_quote_outlined,
+                    title: 'Proformas',
+                    subtitle: 'Cotiza, envía y convierte en factura.',
+                    onTap: () => context.go('/quotes'),
+                  ),
+                  const Divider(height: 20),
+                  _MenuTile(
                     icon: Icons.storefront_outlined,
                     title: 'Productos',
                     subtitle: 'Gestiona tu catálogo y precios.',

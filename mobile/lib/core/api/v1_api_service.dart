@@ -11,6 +11,7 @@ import '../../data/models/paginated_result.dart';
 import '../../data/models/pos_model.dart';
 import '../../data/models/product_model.dart';
 import '../../data/models/purchase_model.dart';
+import '../../data/models/quote_model.dart';
 import '../../data/models/subscription_model.dart';
 import '../../data/models/supplier_model.dart';
 import '../../data/models/user_model.dart';
@@ -28,6 +29,7 @@ export '../../data/models/paginated_result.dart';
 export '../../data/models/pos_model.dart';
 export '../../data/models/product_model.dart';
 export '../../data/models/purchase_model.dart';
+export '../../data/models/quote_model.dart';
 export '../../data/models/subscription_model.dart';
 export '../../data/models/supplier_model.dart';
 export '../../data/models/user_model.dart';
@@ -548,6 +550,100 @@ class V1ApiService {
         },
       );
       return DocumentSettings.fromJson(_payloadMapFromResponse(response));
+    });
+  }
+
+  // ==================== Proformas / Cotizaciones ====================
+
+  Future<PaginatedResult<ApiQuote>> quotes({
+    String? search,
+    String? status,
+    int perPage = 15,
+    int page = 1,
+  }) async {
+    return _guard(() async {
+      final query = <String, dynamic>{'per_page': perPage, 'page': page};
+      if (search != null && search.trim().isNotEmpty) {
+        query['search'] = search.trim();
+      }
+      if (status != null && status.isNotEmpty) {
+        query['status'] = status;
+      }
+
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '/quotes',
+        queryParameters: query,
+      );
+      final body = _bodyFromResponse(response);
+      final meta = mapFrom(body['meta']);
+      final items = listFrom(body['data'])
+          .map((item) => ApiQuote.fromJson(mapFrom(item)))
+          .toList(growable: false);
+
+      return PaginatedResult<ApiQuote>(
+        items: items,
+        currentPage: intFrom(meta['current_page']),
+        lastPage: intFrom(meta['last_page']),
+        total: intFrom(meta['total']),
+        perPage: intFrom(meta['per_page']),
+      );
+    });
+  }
+
+  Future<ApiQuote> createQuote({
+    required int companyId,
+    required int customerId,
+    required DateTime issueDate,
+    DateTime? expiryDate,
+    required List<ApiQuoteItem> items,
+    String? notes,
+    String? paymentTerms,
+  }) async {
+    return _guard(() async {
+      final subtotal = items.fold<double>(0, (s, i) => s + i.subtotal);
+      final totalDiscount = items.fold<double>(0, (s, i) => s + i.discount);
+      final totalTax = items.fold<double>(0, (s, i) => s + i.taxValue);
+      final total = items.fold<double>(0, (s, i) => s + i.total);
+
+      String d(DateTime v) =>
+          '${v.year.toString().padLeft(4, '0')}-${v.month.toString().padLeft(2, '0')}-${v.day.toString().padLeft(2, '0')}';
+
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '/quotes',
+        data: {
+          'company_id': companyId,
+          'customer_id': customerId,
+          'issue_date': d(issueDate),
+          if (expiryDate != null) 'expiry_date': d(expiryDate),
+          'subtotal': double.parse(subtotal.toStringAsFixed(2)),
+          'total_discount': double.parse(totalDiscount.toStringAsFixed(2)),
+          'total_tax': double.parse(totalTax.toStringAsFixed(2)),
+          'total': double.parse(total.toStringAsFixed(2)),
+          if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+          if (paymentTerms != null && paymentTerms.trim().isNotEmpty)
+            'payment_terms': paymentTerms.trim(),
+          'items': items.map((i) => i.toPayload()).toList(),
+        },
+      );
+      final data = _payloadMapFromResponse(response);
+      return ApiQuote.fromJson(mapFrom(data['quote']));
+    });
+  }
+
+  /// Acción sobre una proforma: 'send' | 'accept' | 'reject'.
+  Future<ApiQuote> quoteAction(int quoteId, String action) async {
+    return _guard(() async {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '/quotes/$quoteId/$action',
+      );
+      final data = _payloadMapFromResponse(response);
+      return ApiQuote.fromJson(mapFrom(data['quote']));
+    });
+  }
+
+  Future<void> deleteQuote(int quoteId) async {
+    return _guard(() async {
+      await _apiClient.delete<Map<String, dynamic>>('/quotes/$quoteId');
     });
   }
 

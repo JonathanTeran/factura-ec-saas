@@ -86,6 +86,11 @@ Future<void> showCreateMenu(BuildContext context) {
               ),
               const Divider(height: 20),
               _CreateItem(
+                icon: Icons.request_quote_outlined,
+                label: 'Proforma (cotización)',
+                onTap: () => _go(ctx, '/quotes/new'),
+              ),
+              _CreateItem(
                 icon: Icons.person_add_alt_1_rounded,
                 label: 'Cliente',
                 onTap: () => _go(ctx, '/customers/new'),

@@ -24,6 +24,8 @@ import '../../features/products/product_list_screen.dart';
 import '../../features/purchases/purchases_screen.dart';
 import '../../features/purchases/supplier_create_screen.dart';
 import '../../features/purchases/suppliers_screen.dart';
+import '../../features/quotes/quote_create_screen.dart';
+import '../../features/quotes/quote_list_screen.dart';
 import '../../features/reports/reports_screen.dart';
 import '../../data/models/company_model.dart';
 import '../../features/settings/billing_screen.dart';
@@ -228,6 +230,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: 'new',
                 name: 'new-supplier',
                 builder: (context, state) => const SupplierCreateScreen(),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: '/quotes',
+            name: 'quotes',
+            builder: (context, state) => const QuotesScreen(),
+            routes: [
+              GoRoute(
+                path: 'new',
+                name: 'new-quote',
+                builder: (context, state) => const QuoteCreateScreen(),
               ),
             ],
           ),
