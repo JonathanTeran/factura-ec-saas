@@ -357,6 +357,30 @@ class SignatureStatus {
   bool get isExpired => status == 'expired';
 }
 
+/// Plantillas de documento/correo de la empresa (asunto, mensaje y pie del RIDE).
+class DocumentSettings {
+  final bool autoSendEmail;
+  final String emailSubject;
+  final String emailMessage;
+  final String rideFooter;
+
+  const DocumentSettings({
+    required this.autoSendEmail,
+    required this.emailSubject,
+    required this.emailMessage,
+    required this.rideFooter,
+  });
+
+  factory DocumentSettings.fromJson(Map<String, dynamic> json) {
+    return DocumentSettings(
+      autoSendEmail: json['auto_send_email'] == true,
+      emailSubject: stringFrom(json['email_subject']),
+      emailMessage: stringFrom(json['email_message']),
+      rideFooter: stringFrom(json['ride_footer']),
+    );
+  }
+}
+
 class V1ApiService {
   static const String _accessTokenKey = 'access_token';
 
@@ -458,6 +482,72 @@ class V1ApiService {
         data: {'password': password},
       );
       await clearSession();
+    });
+  }
+
+  /// Actualiza el perfil del usuario (nombre y teléfono).
+  Future<ApiUser> updateProfile({String? name, String? phone}) async {
+    return _guard(() async {
+      final response = await _apiClient.put<Map<String, dynamic>>(
+        '/profile',
+        data: {
+          if (name != null) 'name': name.trim(),
+          'phone': (phone == null || phone.trim().isEmpty)
+              ? null
+              : phone.trim(),
+        },
+      );
+      final data = _payloadMapFromResponse(response);
+      return ApiUser.fromJson(mapFrom(data['user']));
+    });
+  }
+
+  /// Cambia la contraseña de la cuenta (requiere la contraseña actual).
+  Future<void> updatePassword({
+    required String currentPassword,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    return _guard(() async {
+      await _apiClient.put<Map<String, dynamic>>(
+        '/profile/password',
+        data: {
+          'current_password': currentPassword,
+          'password': password,
+          'password_confirmation': passwordConfirmation,
+        },
+      );
+    });
+  }
+
+  /// Plantillas de documento/correo de la empresa activa.
+  Future<DocumentSettings> documentSettings() async {
+    return _guard(() async {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '/document-settings',
+      );
+      return DocumentSettings.fromJson(_payloadMapFromResponse(response));
+    });
+  }
+
+  /// Guarda las plantillas de documento/correo de la empresa activa.
+  Future<DocumentSettings> updateDocumentSettings({
+    required bool autoSendEmail,
+    required String emailSubject,
+    required String emailMessage,
+    required String rideFooter,
+  }) async {
+    return _guard(() async {
+      final response = await _apiClient.put<Map<String, dynamic>>(
+        '/document-settings',
+        data: {
+          'auto_send_email': autoSendEmail,
+          'email_subject': emailSubject.trim(),
+          'email_message': emailMessage.trim(),
+          'ride_footer': rideFooter.trim(),
+        },
+      );
+      return DocumentSettings.fromJson(_payloadMapFromResponse(response));
     });
   }
 

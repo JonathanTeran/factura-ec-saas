@@ -32,8 +32,10 @@ import '../../features/settings/company_create_screen.dart';
 import '../../features/settings/company_edit_screen.dart';
 import '../../features/settings/establishments_screen.dart';
 import '../../features/settings/migrate_production_screen.dart';
+import '../../features/settings/profile_screen.dart';
 import '../../features/settings/sequentials_screen.dart';
 import '../../features/settings/settings_screen.dart';
+import '../../features/settings/templates_screen.dart';
 
 /// Central GoRouter provider. All screens are imported from feature modules.
 /// Providers are in `data/providers/`. Widgets are in `core/widgets/`.
@@ -194,6 +196,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: 'certificate',
                 name: 'certificate',
                 builder: (context, state) => const CertificateScreen(),
+              ),
+              GoRoute(
+                path: 'profile',
+                name: 'profile',
+                builder: (context, state) => const ProfileScreen(),
+              ),
+              GoRoute(
+                path: 'templates',
+                name: 'templates',
+                builder: (context, state) => const TemplatesScreen(),
               ),
             ],
           ),

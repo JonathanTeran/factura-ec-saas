@@ -305,11 +305,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                   ),
                   IconButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Edición de perfil disponible en la web')),
-                      );
-                    },
+                    tooltip: 'Cuenta y seguridad',
+                    onPressed: () => context.push('/settings/profile'),
                     icon: const Icon(Icons.chevron_right_rounded),
                   ),
                 ],
@@ -542,6 +539,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     title: 'Firma electrónica',
                     subtitle: 'Sube o actualiza tu certificado .p12.',
                     onTap: () => context.push('/settings/certificate'),
+                  ),
+                  const Divider(height: 20),
+                  _MenuTile(
+                    icon: Icons.mail_outline_rounded,
+                    title: 'Plantillas de documento',
+                    subtitle: 'Correo al cliente y pie de página del RIDE.',
+                    onTap: () => context.push('/settings/templates'),
+                  ),
+                  const Divider(height: 20),
+                  _MenuTile(
+                    icon: Icons.person_outline_rounded,
+                    title: 'Cuenta y seguridad',
+                    subtitle: 'Tu perfil y cambio de contraseña.',
+                    onTap: () => context.push('/settings/profile'),
                   ),
                   const Divider(height: 20),
                   _MenuTile(
