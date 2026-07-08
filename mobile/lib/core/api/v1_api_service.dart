@@ -1639,15 +1639,21 @@ class V1ApiService {
     });
   }
 
-  /// Fetch the current user's active subscription.
-  Future<ApiSubscription?> currentSubscription() async {
+  /// Fetch the current user's subscription + pending transfer payment.
+  Future<SubscriptionOverview> currentSubscription() async {
     return _guard(() async {
       final response = await _apiClient.get<Map<String, dynamic>>(
         ApiConstants.subscriptionCurrent,
       );
       final data = _payloadMapFromResponse(response);
-      if (data.isEmpty || data['subscription'] == null) return null;
-      return ApiSubscription.fromJson(mapFrom(data['subscription']));
+      return SubscriptionOverview(
+        subscription: data['subscription'] == null
+            ? null
+            : ApiSubscription.fromJson(mapFrom(data['subscription'])),
+        pendingPayment: data['pending_payment'] == null
+            ? null
+            : ApiPendingPayment.fromJson(mapFrom(data['pending_payment'])),
+      );
     });
   }
 

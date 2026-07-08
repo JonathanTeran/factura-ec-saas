@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Clock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Card,
@@ -69,9 +69,32 @@ export function SubscriptionView() {
 
   const sub = currentQ.data?.subscription;
   const plan = currentQ.data?.plan;
+  // Comprobante de transferencia esperando verificación: se muestra el aviso
+  // y se bloquea enviar otro (el backend también lo rechaza con 422).
+  const pendingPayment = currentQ.data?.pendingPayment;
 
   return (
     <div className="space-y-6">
+      {pendingPayment && (
+        <Card className="border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30">
+          <CardContent className="flex items-start gap-3 py-4">
+            <Clock className="size-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+            <div>
+              <p className="font-medium text-amber-900 dark:text-amber-200">
+                Pago en revisión
+              </p>
+              <p className="text-sm text-amber-800 dark:text-amber-300 mt-1">
+                Recibimos tu comprobante de transferencia el{" "}
+                {formatDate(pendingPayment.created_at)}. Estamos verificando el
+                pago — te avisaremos por correo cuando tu plan quede activo
+                (normalmente en menos de 24 horas). No es necesario enviar otro
+                comprobante.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Plan actual</CardTitle>
@@ -190,9 +213,11 @@ export function SubscriptionView() {
                         plan && p.price > plan.price ? (
                           <Button
                             className="w-full"
+                            disabled={!!pendingPayment}
+                            title={pendingPayment ? "Ya tienes un pago en revisión" : undefined}
                             onClick={() => setSubscribingPlan(p)}
                           >
-                            Mejorar a este plan
+                            {pendingPayment ? "Pago en revisión" : "Mejorar a este plan"}
                           </Button>
                         ) : (
                           <Button
@@ -226,9 +251,11 @@ export function SubscriptionView() {
                         <Button
                           className="w-full"
                           variant="outline"
+                          disabled={!!pendingPayment}
+                          title={pendingPayment ? "Ya tienes un pago en revisión" : undefined}
                           onClick={() => setSubscribingPlan(p)}
                         >
-                          Suscribirme
+                          {pendingPayment ? "Pago en revisión" : "Suscribirme"}
                         </Button>
                       )}
                     </CardContent>

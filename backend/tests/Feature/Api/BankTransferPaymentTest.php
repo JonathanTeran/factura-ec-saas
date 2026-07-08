@@ -99,6 +99,42 @@ class BankTransferPaymentTest extends TestCase
         ]);
     }
 
+    public function test_cannot_submit_second_transfer_while_one_is_pending(): void
+    {
+        $plan = Plan::factory()->create([
+            'trial_days' => 0,
+            'price_monthly' => 29.99,
+        ]);
+
+        $payload = fn () => [
+            'plan_id' => $plan->id,
+            'billing_cycle' => 'monthly',
+            'transfer_receipt' => UploadedFile::fake()->image('receipt.jpg'),
+            'transfer_reference' => 'REF-20260224-001',
+            'billing_name' => 'Juan Perez',
+            'billing_email' => 'juan@example.com',
+        ];
+
+        $this->postJson('/api/v1/subscription/subscribe-bank-transfer', $payload())
+            ->assertCreated();
+
+        // Segundo envío con el primero aún pendiente: rechazado.
+        $this->postJson('/api/v1/subscription/subscribe-bank-transfer', $payload())
+            ->assertStatus(422);
+
+        $this->assertSame(
+            1,
+            \App\Models\Billing\Payment::where('tenant_id', $this->tenant->id)
+                ->where('status', PaymentStatus::PENDING->value)
+                ->count(),
+        );
+
+        // El estado pendiente se expone en subscription/current para la UI.
+        $this->getJson('/api/v1/subscription/current')
+            ->assertOk()
+            ->assertJsonPath('data.pending_payment.status', 'pending');
+    }
+
     public function test_bank_transfer_requires_receipt(): void
     {
         $plan = Plan::factory()->create([

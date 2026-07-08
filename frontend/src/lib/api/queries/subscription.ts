@@ -113,6 +113,7 @@ export function useCurrentSubscription() {
         ApiSuccess<{
           subscription: (Subscription & { plan?: RawPlan | null }) | null;
           plan: RawPlan | null;
+          pending_payment?: (Payment & { status_label?: string }) | null;
         }>
       >("subscription/current"),
     select: (raw) => {
@@ -123,6 +124,9 @@ export function useCurrentSubscription() {
       return {
         subscription: raw.data.subscription ?? null,
         plan: rawPlan ? normalizePlan(rawPlan) : null,
+        // Transferencia esperando verificación del admin: la vista muestra
+        // "pendiente" y bloquea el envío de otro comprobante.
+        pendingPayment: raw.data.pending_payment ?? null,
       };
     },
   });

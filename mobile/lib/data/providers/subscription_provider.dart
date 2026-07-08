@@ -9,7 +9,8 @@ final plansProvider = FutureProvider<List<ApiPlan>>((ref) async {
   return api.plans();
 });
 
-final currentSubscriptionProvider = FutureProvider<ApiSubscription?>((ref) async {
+final currentSubscriptionProvider =
+    FutureProvider<SubscriptionOverview>((ref) async {
   final api = ref.read(v1ApiServiceProvider);
   return api.currentSubscription();
 });

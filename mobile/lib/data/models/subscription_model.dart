@@ -246,3 +246,43 @@ List<String> _featureListFromJson(
       .where((e) => e.isNotEmpty)
       .toList(growable: false);
 }
+
+/// Pago por transferencia pendiente de verificación del admin. Mientras
+/// exista, la app muestra "pendiente" y bloquea enviar otro comprobante.
+class ApiPendingPayment {
+  final int id;
+  final String status;
+  final String statusLabel;
+  final double totalAmount;
+  final String? transferReference;
+  final DateTime? createdAt;
+
+  const ApiPendingPayment({
+    required this.id,
+    required this.status,
+    required this.statusLabel,
+    required this.totalAmount,
+    this.transferReference,
+    this.createdAt,
+  });
+
+  factory ApiPendingPayment.fromJson(Map<String, dynamic> json) {
+    return ApiPendingPayment(
+      id: intFrom(json['id']),
+      status: stringFrom(json['status'], fallback: 'pending'),
+      statusLabel: stringFrom(json['status_label'], fallback: 'Pendiente'),
+      totalAmount: doubleFrom(json['total_amount'] ?? json['amount']),
+      transferReference: nullableStringFrom(json['transfer_reference']),
+      createdAt: dateFrom(json['created_at']),
+    );
+  }
+}
+
+/// Respuesta de /subscription/current: suscripción activa (si hay) + pago
+/// por transferencia pendiente de verificación (si hay).
+class SubscriptionOverview {
+  final ApiSubscription? subscription;
+  final ApiPendingPayment? pendingPayment;
+
+  const SubscriptionOverview({this.subscription, this.pendingPayment});
+}

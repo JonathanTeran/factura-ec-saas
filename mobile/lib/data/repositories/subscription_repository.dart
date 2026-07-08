@@ -9,8 +9,8 @@ class SubscriptionRepository {
   /// Fetch all available subscription plans.
   Future<List<ApiPlan>> plans() => _api.plans();
 
-  /// Fetch the current user's active subscription, if any.
-  Future<ApiSubscription?> currentSubscription() {
+  /// Fetch the current user's subscription + pending transfer payment.
+  Future<SubscriptionOverview> currentSubscription() {
     return _api.currentSubscription();
   }
 

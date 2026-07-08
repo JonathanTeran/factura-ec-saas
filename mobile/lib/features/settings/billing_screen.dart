@@ -51,6 +51,13 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
   }
 
   Future<void> _submitTransfer() async {
+    // Ya hay un comprobante en revisión: no enviar otro.
+    if (ref.read(currentSubscriptionProvider).valueOrNull?.pendingPayment !=
+        null) {
+      setState(() => _errorText =
+          'Ya tienes un comprobante en revisión. Te avisaremos cuando sea verificado.');
+      return;
+    }
     if (_selectedPlanId == null) {
       setState(() => _errorText = 'Selecciona un plan.');
       return;
@@ -104,6 +111,9 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
     final subscriptionAsync = ref.watch(currentSubscriptionProvider);
     final plansAsync = ref.watch(plansProvider);
     final bankAccountsAsync = ref.watch(bankAccountsProvider);
+    // Transferencia esperando verificación del admin: se muestra "pendiente"
+    // y se bloquea el envío de otro comprobante (el backend también lo rechaza).
+    final pendingPayment = subscriptionAsync.valueOrNull?.pendingPayment;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -160,7 +170,8 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
                   ),
                 ),
               ),
-              data: (subscription) {
+              data: (overview) {
+                final subscription = overview.subscription;
                 if (subscription == null) {
                   return const GlassPanel(
                     child: Column(
@@ -427,7 +438,57 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
               actionText: '',
             ),
             const SizedBox(height: 10),
-            GlassPanel(
+            if (pendingPayment != null)
+              GlassPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.warning.withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.hourglass_top_rounded,
+                            color: AppColors.warning,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Pago en revisión',
+                            style: TextStyle(
+                              fontFamily: 'Avenir Next',
+                              fontWeight: FontWeight.w800,
+                              fontSize: 17,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Recibimos tu comprobante'
+                      '${pendingPayment.createdAt != null ? ' el ${DateFormat('dd/MM/yyyy HH:mm').format(pendingPayment.createdAt!)}' : ''}'
+                      '${pendingPayment.transferReference != null ? ' (ref. ${pendingPayment.transferReference})' : ''}. '
+                      'Estamos verificando el pago: te avisaremos por correo cuando tu plan '
+                      'quede activo, normalmente en menos de 24 horas. '
+                      'No es necesario enviar otro comprobante.',
+                      style: const TextStyle(
+                        fontFamily: 'Avenir Next',
+                        color: AppColors.textSecondary,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              GlassPanel(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

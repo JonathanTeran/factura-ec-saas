@@ -56,10 +56,15 @@ class SubscriptionController extends ApiController
         $tenant = $request->user()->tenant;
         $subscription = $tenant->activeSubscription;
 
+        // Transferencia esperando verificación del admin: la web/app muestran
+        // "pendiente" y bloquean el envío de otro comprobante.
+        $pendingPayment = $this->pendingTransferPayment($tenant->id);
+
         if (!$subscription) {
             return $this->success([
                 'subscription' => null,
                 'plan' => $tenant->currentPlan ? new PlanResource($tenant->currentPlan) : null,
+                'pending_payment' => $pendingPayment ? new PaymentResource($pendingPayment) : null,
             ]);
         }
 
@@ -67,7 +72,21 @@ class SubscriptionController extends ApiController
 
         return $this->success([
             'subscription' => new SubscriptionResource($subscription),
+            'pending_payment' => $pendingPayment ? new PaymentResource($pendingPayment) : null,
         ]);
+    }
+
+    /**
+     * Último pago por transferencia pendiente de verificación del tenant.
+     */
+    private function pendingTransferPayment(int $tenantId): ?Payment
+    {
+        return Payment::where('tenant_id', $tenantId)
+            ->where('status', PaymentStatus::PENDING)
+            ->where('payment_method', PaymentMethod::BANK_TRANSFER)
+            ->with('subscription.plan')
+            ->latest()
+            ->first();
     }
 
     /**
@@ -272,6 +291,17 @@ class SubscriptionController extends ApiController
 
         $tenant = $request->user()->tenant;
         $plan = Plan::findOrFail($request->plan_id);
+
+        // Ya hay una transferencia esperando verificación: no aceptar otra.
+        // Evita suscripciones INCOMPLETE duplicadas y pagos dobles del tenant.
+        if ($pending = $this->pendingTransferPayment($tenant->id)) {
+            return $this->error(
+                'Ya tienes un comprobante de transferencia en revisión. '
+                .'Te avisaremos por correo cuando sea verificado (normalmente en menos de 24 horas).',
+                422,
+                ['pending_payment_id' => $pending->id]
+            );
+        }
 
         try {
             // Cancel previous subscription
