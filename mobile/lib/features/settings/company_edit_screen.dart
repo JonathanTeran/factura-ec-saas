@@ -120,12 +120,20 @@ class _CompanyEditScreenState extends ConsumerState<CompanyEditScreen> {
   Future<void> _pickLogo() async {
     final company = _company;
     if (company == null || _uploadingLogo) return;
-    final picker = ImagePicker();
-    final file = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1024,
-      imageQuality: 85,
-    );
+    // pickImage lanza PlatformException si el permiso de fotos fue denegado.
+    final XFile? file;
+    try {
+      final picker = ImagePicker();
+      file = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        imageQuality: 85,
+      );
+    } catch (_) {
+      _toast(
+          'No se pudo abrir la galería. Revisa el permiso de Fotos en Ajustes.');
+      return;
+    }
     if (file == null) return;
 
     setState(() => _uploadingLogo = true);

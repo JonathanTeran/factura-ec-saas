@@ -38,15 +38,22 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
   }
 
   Future<void> _pickReceipt() async {
-    final picker = ImagePicker();
-    final image = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1200,
-      maxHeight: 1200,
-      imageQuality: 85,
-    );
-    if (image != null) {
-      setState(() => _receiptImage = image);
+    // pickImage lanza PlatformException si el permiso de fotos fue denegado.
+    try {
+      final picker = ImagePicker();
+      final image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 85,
+      );
+      if (image != null) {
+        setState(() => _receiptImage = image);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _errorText =
+          'No se pudo abrir la galería. Revisa el permiso de Fotos en Ajustes.');
     }
   }
 
