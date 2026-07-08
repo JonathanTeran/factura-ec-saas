@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/v1_api_service.dart';
 import '../../core/theme/app_theme.dart';
@@ -965,6 +967,36 @@ class _DocumentActionsState extends ConsumerState<_DocumentActions> {
     }
   }
 
+  /// Comparte el comprobante por WhatsApp con el enlace público del PDF.
+  Future<void> _shareWhatsApp() async {
+    if (_busy != null) return;
+    setState(() => _busy = 'whatsapp');
+    try {
+      final link = await _api.documentRide(_doc.id);
+      if (link.url.isEmpty) {
+        throw const ApiException('No se pudo generar el enlace del PDF.');
+      }
+      final text = Uri.encodeComponent(
+        'Hola, te comparto tu comprobante electrónico '
+        '${_doc.documentNumber} autorizado por el SRI: ${link.url}',
+      );
+      final wa = Uri.parse('https://wa.me/?text=$text');
+      final opened = await launchUrl(wa, mode: LaunchMode.externalApplication);
+      if (!opened) {
+        // Sin WhatsApp instalado: hoja de compartir del sistema.
+        await Share.share(
+          'Comprobante ${_doc.documentNumber}: ${link.url}',
+        );
+      }
+    } on ApiException catch (error) {
+      _snack(error.message);
+    } catch (error) {
+      _snack(error.toString());
+    } finally {
+      if (mounted) setState(() => _busy = null);
+    }
+  }
+
   Future<void> _resendEmail() async {
     final controller = TextEditingController(
       text: _doc.emailSentTo ?? _doc.customerEmail ?? '',
@@ -1144,6 +1176,13 @@ class _DocumentActionsState extends ConsumerState<_DocumentActions> {
             ),
           ],
           if (_isAuthorized) ...[
+            const SizedBox(height: 10),
+            _ActionButton(
+              icon: Icons.chat_rounded,
+              label: 'Compartir por WhatsApp',
+              loading: _busy == 'whatsapp',
+              onTap: _shareWhatsApp,
+            ),
             const SizedBox(height: 10),
             _ActionButton(
               icon: Icons.mail_outline_rounded,

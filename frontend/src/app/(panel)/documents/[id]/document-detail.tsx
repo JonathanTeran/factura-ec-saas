@@ -22,6 +22,7 @@ import {
   Truck,
   CreditCard,
   AlertTriangle,
+  MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,7 @@ import {
   useDeleteDocument,
   downloadDocumentRide,
   downloadDocumentXml,
+  documentRideUrl,
 } from "@/lib/api/queries/documents";
 import { ClientApiError } from "@/lib/api/client";
 import { documentStatusMeta } from "@/lib/status";
@@ -266,6 +268,26 @@ export function DocumentDetail({ id }: { id: number }) {
           >
             <FileCode className="size-4" /> XML
           </Button>
+
+          {isAuthorized && (
+            <Button
+              variant="outline"
+              title="Compartir el PDF por WhatsApp"
+              onClick={async () => {
+                try {
+                  const url = await documentRideUrl(doc.id);
+                  const text = encodeURIComponent(
+                    `Hola, te comparto tu comprobante electrónico ${doc.document_number} autorizado por el SRI: ${url}`,
+                  );
+                  window.open(`https://wa.me/?text=${text}`, "_blank");
+                } catch (e) {
+                  toast.error(errMessage(e));
+                }
+              }}
+            >
+              <MessageCircle className="size-4" /> WhatsApp
+            </Button>
+          )}
 
           <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
             <DialogTrigger asChild>

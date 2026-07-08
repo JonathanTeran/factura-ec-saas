@@ -133,6 +133,14 @@ export async function downloadDocumentRide(id: number, filename?: string) {
   triggerBrowserDownload(res.data.url, filename ?? res.data.filename);
 }
 
+/** URL pública del RIDE (PDF), para compartir por WhatsApp/enlace. */
+export async function documentRideUrl(id: number): Promise<string> {
+  const res = await api.get<ApiSuccess<{ url: string; filename: string }>>(
+    `documents/${id}/ride`,
+  );
+  return res.data.url;
+}
+
 export async function downloadDocumentXml(id: number, filename?: string) {
   const res = await api.get<ApiSuccess<{ url: string; filename: string }>>(
     `documents/${id}/xml`,

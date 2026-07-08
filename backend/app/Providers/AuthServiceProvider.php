@@ -3,13 +3,11 @@
 namespace App\Providers;
 
 use App\Models\SRI\ElectronicDocument;
-use App\Models\Tenant\Certificate;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\EmissionPoint;
 use App\Models\Tenant\Product;
 use App\Models\User;
-use App\Policies\CertificatePolicy;
 use App\Policies\CompanyPolicy;
 use App\Policies\CustomerPolicy;
 use App\Policies\DocumentPolicy;
@@ -31,7 +29,6 @@ class AuthServiceProvider extends ServiceProvider
         Product::class => ProductPolicy::class,
         ElectronicDocument::class => DocumentPolicy::class,
         Company::class => CompanyPolicy::class,
-        Certificate::class => CertificatePolicy::class,
         EmissionPoint::class => EmissionPointPolicy::class,
         User::class => UserPolicy::class,
     ];
