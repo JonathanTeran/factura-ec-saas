@@ -283,6 +283,10 @@ class SRIService
         if ($auth && ($auth->estado ?? null) === 'AUTORIZADO') {
             $update['status'] = DocumentStatus::AUTHORIZED;
             $update['authorization_number'] = $auth->numeroAutorizacion ?? $result['claveAcceso'];
+            // Limpiar residuos de intentos previos (contingencia, errores):
+            // sin esto, la app/web muestran "el SRI aún está procesando" y un
+            // "Detalle del error" sobre un documento ya AUTORIZADO.
+            $update['sri_errors'] = null;
 
             // Convertir fecha de autorización si viene en formato SRI (string)
             $authDate = $auth->fechaAutorizacion ?? now();

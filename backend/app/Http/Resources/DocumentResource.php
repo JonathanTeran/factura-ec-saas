@@ -42,8 +42,13 @@ class DocumentResource extends JsonResource
             'sri_messages' => $this->sri_response['messages'] ?? null,
             'sri_errors' => $this->sri_errors,
             'error_details' => $this->errorDetails(),
-            'contingency_active' => (bool) data_get($this->sri_errors, 'contingency_active', false),
-            'contingency_message' => data_get($this->sri_errors, 'contingency_message'),
+            // Un documento AUTORIZADO nunca está "en contingencia" ni tiene
+            // errores vigentes, aunque queden residuos de intentos previos.
+            'contingency_active' => ! $this->isAuthorized()
+                && (bool) data_get($this->sri_errors, 'contingency_active', false),
+            'contingency_message' => $this->isAuthorized()
+                ? null
+                : data_get($this->sri_errors, 'contingency_message'),
             'additional_info' => $this->additional_info,
             'email_sent' => (bool) $this->email_sent,
             'email_sent_at' => $this->email_sent_at?->toISOString(),
@@ -77,8 +82,20 @@ class DocumentResource extends JsonResource
      *
      * @return array<int, string>
      */
+    /** El documento ya fue autorizado por el SRI (estado final feliz). */
+    protected function isAuthorized(): bool
+    {
+        return ($this->status?->value ?? $this->status) === 'authorized';
+    }
+
     protected function errorDetails(): array
     {
+        // Autorizado = sin errores vigentes; lo que quede en sri_errors son
+        // residuos de intentos previos (contingencia) que no deben mostrarse.
+        if ($this->isAuthorized()) {
+            return [];
+        }
+
         $out = [];
         $errors = $this->sri_errors;
 
@@ -90,7 +107,13 @@ class DocumentResource extends JsonResource
                 $out[] = $this->formatSriMessage($m);
             }
             foreach ($errors as $key => $value) {
-                if (in_array($key, ['fatal', 'messages', 'errors', 'contingency_active', 'contingency_message'], true)) {
+                // Claves internas del flujo de contingencia/reintento: no son
+                // errores para el usuario (entered_at/retry son timestamps).
+                if (in_array($key, [
+                    'fatal', 'messages', 'errors',
+                    'contingency_active', 'contingency_message',
+                    'contingency_entered_at', 'retry_recommended_at',
+                ], true)) {
                     continue;
                 }
                 if (is_string($value) && $value !== '') {

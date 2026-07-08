@@ -351,7 +351,11 @@ class _SriCard extends StatelessWidget {
         children: [
           const _SectionTitle('Estado SRI'),
           const SizedBox(height: 10),
-          if (document.contingencyActive && document.contingencyMessage != null)
+          // Un documento AUTORIZADO nunca muestra contingencia ni errores:
+          // pueden quedar residuos de intentos previos en el backend/caché.
+          if (document.status != 'authorized' &&
+              document.contingencyActive &&
+              document.contingencyMessage != null)
             _Banner(
               color: AppColors.warning,
               icon: Icons.cloud_off_rounded,
@@ -369,7 +373,8 @@ class _SriCard extends StatelessWidget {
                 value: _dateFormat.format(document.authorizationDate!),
               ),
           ],
-          if (document.errorDetails.isNotEmpty) ...[
+          if (document.status != 'authorized' &&
+              document.errorDetails.isNotEmpty) ...[
             const SizedBox(height: 10),
             const Text(
               'Detalle del error',
