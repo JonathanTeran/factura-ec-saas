@@ -16,9 +16,11 @@ class CustomerFactory extends Factory
     public function definition(): array
     {
         $type = fake()->randomElement(['04', '05', '06']);
+        // Cédula/RUC con dígito verificador VÁLIDO: la emisión pre-valida la
+        // identificación (SriPreValidator) antes de enviar al SRI.
         $identification = match ($type) {
-            '04' => fake()->numerify('#########') . '001', // RUC
-            '05' => fake()->numerify('##########'),         // Cedula
+            '04' => self::validCedula() . '001',            // RUC persona natural
+            '05' => self::validCedula(),                    // Cédula
             '06' => fake()->bothify('??######'),            // Pasaporte
         };
 
@@ -49,7 +51,7 @@ class CustomerFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'identification_type' => '04',
-            'identification' => fake()->numerify('#########') . '001',
+            'identification' => self::validCedula() . '001',
         ]);
     }
 
@@ -57,7 +59,7 @@ class CustomerFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'identification_type' => '05',
-            'identification' => fake()->numerify('##########'),
+            'identification' => self::validCedula(),
         ]);
     }
 
@@ -66,5 +68,28 @@ class CustomerFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'is_active' => false,
         ]);
+    }
+
+    /**
+     * Cédula ecuatoriana válida: provincia 01-24, tercer dígito 0-5 (persona
+     * natural, para que también sirva de núcleo de RUC) y verificador módulo 10.
+     */
+    private static function validCedula(): string
+    {
+        $provincia = str_pad((string) fake()->numberBetween(1, 24), 2, '0', STR_PAD_LEFT);
+        $cuerpo = $provincia
+            .fake()->numberBetween(0, 5)
+            .fake()->numerify('######');
+
+        $coeficientes = [2, 1, 2, 1, 2, 1, 2, 1, 2];
+        $suma = 0;
+        for ($i = 0; $i < 9; $i++) {
+            $valor = ((int) $cuerpo[$i]) * $coeficientes[$i];
+            $suma += $valor >= 10 ? $valor - 9 : $valor;
+        }
+        $residuo = $suma % 10;
+        $verificador = $residuo === 0 ? 0 : 10 - $residuo;
+
+        return $cuerpo.$verificador;
     }
 }

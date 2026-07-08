@@ -57,6 +57,16 @@ trait CreatesTestTenant
             'tenant_id' => $this->tenant->id,
         ]);
 
+        // El checklist de emisión verifica que el archivo .p12 EXISTA en
+        // storage (Company::hasSignatureFile), no solo la metadata del factory.
+        \Illuminate\Support\Facades\Storage::fake();
+        if ($this->company->signature_path) {
+            \Illuminate\Support\Facades\Storage::put(
+                $this->company->signature_path,
+                'fake-p12-content'
+            );
+        }
+
         $this->branch = Branch::factory()->main()->create([
             'tenant_id' => $this->tenant->id,
             'company_id' => $this->company->id,
@@ -99,7 +109,7 @@ trait CreatesTestTenant
     {
         $customer = $this->createCustomer();
 
-        return ElectronicDocument::factory()->draft()->create([
+        $document = ElectronicDocument::factory()->draft()->create([
             'tenant_id' => $this->tenant->id,
             'company_id' => $this->company->id,
             'branch_id' => $this->branch->id,
@@ -108,6 +118,16 @@ trait CreatesTestTenant
             'created_by' => $this->user->id,
             ...$attrs,
         ]);
+
+        // Con al menos una línea de detalle: la emisión pre-valida (SriPreValidator)
+        // que el documento tenga items antes de enviarlo al SRI.
+        \App\Models\SRI\DocumentItem::factory()->create([
+            'tenant_id' => $this->tenant->id,
+            'electronic_document_id' => $document->id,
+            'product_id' => $this->createProduct()->id,
+        ]);
+
+        return $document;
     }
 
     protected function createSecondTenant(): array

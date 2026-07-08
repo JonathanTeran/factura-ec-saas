@@ -29,6 +29,46 @@ use Illuminate\Support\Facades\Route;
 Route::get('/terms', fn () => view('pages.terms'))->name('terms');
 Route::get('/privacy', fn () => view('pages.privacy'))->name('privacy');
 
+// Descargas del super admin (Filament → ElectronicDocumentResource): XML
+// autorizado y RIDE de cualquier tenant. Solo super admin; el recurso ya
+// referencia estos nombres de ruta (la página 500-eaba si no existían).
+Route::middleware('auth')->prefix('admin/documents')->name('admin.documents.')->group(function () {
+    $download = function (Request $request, int $document, string $field, string $ext) {
+        abort_unless($request->user()?->isSuperAdmin(), 403);
+
+        $doc = \App\Models\SRI\ElectronicDocument::withoutGlobalScopes()->findOrFail($document);
+        $path = $doc->{$field};
+        abort_unless($path && \Illuminate\Support\Facades\Storage::exists($path), 404);
+
+        $name = str_replace('-', '_', $doc->getDocumentNumber()).'.'.$ext;
+
+        return \Illuminate\Support\Facades\Storage::download($path, $name);
+    };
+
+    Route::get('{document}/xml', fn (Request $request, int $document) => $download($request, $document, 'xml_authorized_path', 'xml'))
+        ->whereNumber('document')
+        ->name('download-xml');
+
+    Route::get('{document}/ride', fn (Request $request, int $document) => $download($request, $document, 'ride_pdf_path', 'pdf'))
+        ->whereNumber('document')
+        ->name('download-ride');
+});
+
+// Impersonación desde Filament (TenantResource → botón "Impersonar"): el super
+// admin entra al panel como el dueño del tenant. Para volver al admin hay que
+// re-loguearse en /admin (la sesión cambia de usuario).
+Route::get('admin/tenants/{tenant}/impersonate', function (Request $request, \App\Models\Tenant\Tenant $tenant) {
+    abort_unless($request->user()?->isSuperAdmin(), 403);
+
+    $target = $tenant->owner ?? $tenant->users()->orderBy('id')->first();
+    abort_unless($target !== null, 404);
+
+    \Illuminate\Support\Facades\Auth::login($target);
+    $request->session()->regenerate();
+
+    return redirect('/dashboard');
+})->middleware('auth')->name('tenant.impersonate');
+
 // Landing page
 Route::get('/', function () {
     try {

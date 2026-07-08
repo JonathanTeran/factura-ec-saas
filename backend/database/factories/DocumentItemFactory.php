@@ -23,7 +23,6 @@ class DocumentItemFactory extends Factory
         $subtotal = ($quantity * $unitPrice) - $discount;
         $taxRate = fake()->randomElement([0, 12, 15]);
         $taxValue = round($subtotal * ($taxRate / 100), 2);
-        $total = $subtotal + $taxValue;
 
         return [
             'tenant_id' => Tenant::factory(),
@@ -35,7 +34,6 @@ class DocumentItemFactory extends Factory
             'quantity' => $quantity,
             'unit_price' => $unitPrice,
             'discount' => $discount,
-            'discount_percentage' => $discount > 0 ? round(($discount / ($quantity * $unitPrice)) * 100, 2) : 0,
             'subtotal' => $subtotal,
             'tax_code' => '2', // IVA
             'tax_percentage_code' => match ($taxRate) {
@@ -45,8 +43,8 @@ class DocumentItemFactory extends Factory
                 default => '2',
             },
             'tax_rate' => $taxRate,
+            'tax_base' => $subtotal,
             'tax_value' => $taxValue,
-            'total' => $total,
         ];
     }
 
