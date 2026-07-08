@@ -95,3 +95,5 @@ flutter_launcher_icons:
   ios: true
   remove_alpha_ios: true
   image_path: "assets/branding/facturon_icon.png"
+  adaptive_icon_background: "assets/branding/facturon_icon_bg.png"
+  adaptive_icon_foreground: "assets/branding/facturon_icon_fg.png"
