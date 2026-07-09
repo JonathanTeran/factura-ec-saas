@@ -28,6 +28,9 @@ use Illuminate\Support\Facades\Route;
 // Legal pages
 Route::get('/terms', fn () => view('pages.terms'))->name('terms');
 Route::get('/privacy', fn () => view('pages.privacy'))->name('privacy');
+// Requisito de Google Play: URL pública con los pasos de eliminación de cuenta.
+Route::get('/delete-account', fn () => view('pages.delete-account'))->name('delete-account');
+Route::get('/eliminar-cuenta', fn () => view('pages.delete-account'));
 
 // Descargas del super admin (Filament → ElectronicDocumentResource): XML
 // autorizado y RIDE de cualquier tenant. Solo super admin; el recurso ya
