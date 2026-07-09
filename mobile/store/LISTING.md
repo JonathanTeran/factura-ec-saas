@@ -95,7 +95,8 @@ https://facturacion.amephia.com/privacy
 |---|---|---|
 | `icon-512.png` | Ícono de la ficha | 512×512 PNG ✓ |
 | `feature-graphic.png` | Gráfico de funciones | 1024×500 PNG ✓ |
-| `../screenshots/*.png` | Capturas de teléfono | mín. 2, formato 9:16 ✓ |
+| `../screenshots-framed/*.png` | **Capturas para subir** (marco + titular, 1080×1920) | mín. 2, 9:16 ✓ |
+| `../screenshots/*.png` | Capturas crudas (respaldo/edición) | 1080×2400 |
 
 ---
 
