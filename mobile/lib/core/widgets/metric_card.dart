@@ -18,6 +18,8 @@ class MetricItem {
   });
 }
 
+/// Tarjeta de métrica COMPACTA (ícono + valor + etiqueta en una fila).
+/// Antes era casi cuadrada con un Spacer que dejaba mucho vacío vertical.
 class MetricCard extends StatelessWidget {
   final MetricItem item;
 
@@ -26,57 +28,52 @@ class MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: AppColors.surface.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  item.title,
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: item.color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(item.icon, size: 20, color: item.color),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.value,
                   style: const TextStyle(
                     fontFamily: 'Avenir Next',
-                    color: AppColors.textMuted,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
+                    fontSize: 20,
+                    height: 1.1,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
                   ),
                 ),
-              ),
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: item.color.withValues(alpha: 0.17),
-                  borderRadius: BorderRadius.circular(10),
+                const SizedBox(height: 1),
+                Text(
+                  item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'Avenir Next',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    color: item.color,
+                  ),
                 ),
-                child: Icon(item.icon, size: 17, color: item.color),
-              ),
-            ],
-          ),
-          const Spacer(),
-          Text(
-            item.value,
-            style: const TextStyle(
-              fontFamily: 'Avenir Next',
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            item.delta,
-            style: TextStyle(
-              fontFamily: 'Avenir Next',
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-              color: item.color,
+              ],
             ),
           ),
         ],

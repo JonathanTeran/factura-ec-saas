@@ -217,18 +217,15 @@ class DashboardScreen extends ConsumerWidget {
               onAction: () => context.go('/documents'),
             ),
             const SizedBox(height: 10),
-            GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: metrics.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: 1.12,
-                  ),
-                  itemBuilder: (context, index) =>
-                      MetricCard(item: metrics[index]),
+            // Chips compactos lado a lado (antes: tarjetas casi cuadradas con
+            // mucho vacío vertical).
+            Row(
+                  children: [
+                    for (var i = 0; i < metrics.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 10),
+                      Expanded(child: MetricCard(item: metrics[i])),
+                    ],
+                  ],
                 )
                 .animate()
                 .fadeIn(duration: 420.ms)
@@ -246,56 +243,60 @@ class DashboardScreen extends ConsumerWidget {
               onAction: () => context.go('/documents'),
             ),
             const SizedBox(height: 10),
-            SizedBox(
-                  height: 214,
-                  child: recentDocs.isEmpty
-                      ? GlassPanel(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.inbox_outlined,
-                                color: AppColors.textMuted,
+            // Lista vertical compacta (antes: carrusel horizontal de tarjetas
+            // grandes donde solo se veía una y media a la vez).
+            (recentDocs.isEmpty
+                    ? GlassPanel(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.inbox_outlined,
+                              color: AppColors.textMuted,
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Emití tu primer documento',
+                              style: TextStyle(
+                                fontFamily: 'Avenir Next',
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w700,
                               ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Emití tu primer documento',
-                                style: TextStyle(
-                                  fontFamily: 'Avenir Next',
-                                  color: AppColors.textPrimary,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Acá vas a ver tus facturas y comprobantes.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontFamily: 'Avenir Next',
+                                color: AppColors.textSecondary,
+                                fontSize: 13,
                               ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'Acá vas a ver tus facturas y comprobantes.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontFamily: 'Avenir Next',
-                                  color: AppColors.textSecondary,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              FilledButton.icon(
-                                onPressed: () => showCreateMenu(context),
-                                icon: const Icon(Icons.add_rounded, size: 18),
-                                label: const Text('Crear documento'),
-                              ),
-                            ],
-                          ),
-                        )
-                      : ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemBuilder: (context, index) =>
-                              _MiniDocumentCard(item: recentDocs[index]),
-                          separatorBuilder: (_, _) => const SizedBox(width: 10),
-                          itemCount: recentDocs.length,
+                            ),
+                            const SizedBox(height: 12),
+                            FilledButton.icon(
+                              onPressed: () => showCreateMenu(context),
+                              icon: const Icon(Icons.add_rounded, size: 18),
+                              label: const Text('Crear documento'),
+                            ),
+                          ],
                         ),
-                )
+                      )
+                    : GlassPanel(
+                        child: Column(
+                          children: [
+                            for (var i = 0;
+                                i < recentDocs.length && i < 5;
+                                i++) ...[
+                              if (i > 0) const Divider(height: 16),
+                              _MiniDocumentRow(item: recentDocs[i]),
+                            ],
+                          ],
+                        ),
+                      ) as Widget)
                 .animate()
                 .fadeIn(duration: 460.ms)
-                .slideX(begin: 0.06, duration: 460.ms),
+                .slideY(begin: 0.06, duration: 460.ms),
             ],
           ),
         ),
@@ -545,109 +546,106 @@ class _MiniDocItem {
   });
 }
 
-class _MiniDocumentCard extends StatelessWidget {
+/// Fila compacta de documento reciente: ícono con color de estado, cliente,
+/// tipo · fecha, y monto + chip de estado a la derecha.
+class _MiniDocumentRow extends StatelessWidget {
   final _MiniDocItem item;
 
-  const _MiniDocumentCard({required this.item});
+  const _MiniDocumentRow({required this.item});
 
   @override
   Widget build(BuildContext context) {
     final normalized = item.status.toUpperCase();
     final isValid =
         normalized.contains('AUTORIZADO') || normalized.contains('VALIDADO');
+    final statusColor = isValid ? AppColors.success : AppColors.warning;
 
-    return SizedBox(
-      width: 244,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: () => context.push('/documents/${item.id}'),
-          child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.surface.withValues(alpha: 0.92),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => context.push('/documents/${item.id}'),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.receipt_long_rounded,
+              size: 19,
+              color: statusColor,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    item.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: 'Avenir Next',
-                      color: AppColors.textMuted,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
-                    ),
+                Text(
+                  item.subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: 'Avenir Next',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(width: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: (isValid ? AppColors.success : AppColors.warning)
-                        .withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    item.status,
-                    style: TextStyle(
-                      fontFamily: 'Avenir Next',
-                      fontWeight: FontWeight.w800,
-                      fontSize: 10,
-                      color: isValid ? AppColors.success : AppColors.warning,
-                    ),
+                const SizedBox(height: 1),
+                Text(
+                  '${item.title} · ${item.date}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: 'Avenir Next',
+                    color: AppColors.textMuted,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 11.5,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              item.subtitle,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontFamily: 'Avenir Next',
-                fontWeight: FontWeight.w700,
-                fontSize: 18,
-                letterSpacing: -0.5,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const Spacer(),
-            Text(
-              item.amount,
-              style: const TextStyle(
-                fontFamily: 'Avenir Next',
-                fontWeight: FontWeight.w800,
-                fontSize: 24,
-                letterSpacing: -0.8,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              item.date,
-              style: const TextStyle(
-                fontFamily: 'Avenir Next',
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
           ),
-        ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                item.amount,
+                style: const TextStyle(
+                  fontFamily: 'Avenir Next',
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                  letterSpacing: -0.3,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 7,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  item.status,
+                  style: TextStyle(
+                    fontFamily: 'Avenir Next',
+                    fontWeight: FontWeight.w800,
+                    fontSize: 9,
+                    color: statusColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

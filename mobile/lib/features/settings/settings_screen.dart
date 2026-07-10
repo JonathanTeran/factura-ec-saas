@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -222,41 +223,45 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               _EnvironmentBanner(company: activeCompany),
               const SizedBox(height: 14),
             ],
-            GlassPanel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Modo de datos',
-                    style: TextStyle(
-                      fontFamily: 'Avenir Next',
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+            // Panel de diagnóstico (Base URL, estado del backend): info de
+            // desarrollo — no se muestra a usuarios finales en release.
+            if (kDebugMode) ...[
+              GlassPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Modo de datos',
+                      style: TextStyle(
+                        fontFamily: 'Avenir Next',
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    backendStatusLabel,
-                    style: const TextStyle(
-                      fontFamily: 'Avenir Next',
-                      color: AppColors.textSecondary,
+                    const SizedBox(height: 6),
+                    Text(
+                      backendStatusLabel,
+                      style: const TextStyle(
+                        fontFamily: 'Avenir Next',
+                        color: AppColors.textSecondary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    ApiConstants.enableBackend
-                        ? 'Base URL: ${ApiConstants.baseUrl}'
-                        : 'Backend desactivado. Usa --dart-define=ENABLE_BACKEND=true',
-                    style: const TextStyle(
-                      fontFamily: 'Avenir Next',
-                      color: AppColors.textMuted,
-                      fontSize: 12,
+                    const SizedBox(height: 8),
+                    Text(
+                      ApiConstants.enableBackend
+                          ? 'Base URL: ${ApiConstants.baseUrl}'
+                          : 'Backend desactivado. Usa --dart-define=ENABLE_BACKEND=true',
+                      style: const TextStyle(
+                        fontFamily: 'Avenir Next',
+                        color: AppColors.textMuted,
+                        fontSize: 12,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 18),
+              const SizedBox(height: 18),
+            ],
             GlassPanel(
               child: Row(
                 children: [
