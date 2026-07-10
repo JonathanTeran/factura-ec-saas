@@ -87,10 +87,50 @@ class ReportsScreen extends ConsumerWidget {
                   .animate()
                   .fadeIn(duration: 500.ms, delay: 160.ms)
                   .slideY(begin: 0.08, curve: Curves.easeOutCubic),
+              if (data.topCustomers.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                _RankingCard(
+                  title: 'Top clientes',
+                  subtitle: 'Últimos 30 días · facturas autorizadas',
+                  icon: Icons.people_alt_rounded,
+                  rows: [
+                    for (final c in data.topCustomers)
+                      _RankRow(
+                        name: c.name,
+                        detail:
+                            '${c.documentCount} ${c.documentCount == 1 ? 'factura' : 'facturas'}',
+                        amount: c.totalAmount,
+                      ),
+                  ],
+                )
+                    .animate()
+                    .fadeIn(duration: 520.ms, delay: 200.ms)
+                    .slideY(begin: 0.08, curve: Curves.easeOutCubic),
+              ],
+              if (data.topProducts.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                _RankingCard(
+                  title: 'Top productos',
+                  subtitle: 'Últimos 30 días · más vendidos',
+                  icon: Icons.storefront_rounded,
+                  rows: [
+                    for (final p in data.topProducts)
+                      _RankRow(
+                        name: p.name,
+                        detail:
+                            '${p.quantitySold.toStringAsFixed(p.quantitySold % 1 == 0 ? 0 : 2)} vendidos',
+                        amount: p.totalAmount,
+                      ),
+                  ],
+                )
+                    .animate()
+                    .fadeIn(duration: 540.ms, delay: 240.ms)
+                    .slideY(begin: 0.08, curve: Curves.easeOutCubic),
+              ],
               const SizedBox(height: 14),
               _ByStatusCard(byStatus: data.byStatus)
                   .animate()
-                  .fadeIn(duration: 540.ms, delay: 240.ms)
+                  .fadeIn(duration: 560.ms, delay: 280.ms)
                   .slideY(begin: 0.08, curve: Curves.easeOutCubic),
             ],
           ),
@@ -923,6 +963,176 @@ class _ReportsSkeleton extends StatelessWidget {
             Skeleton(height: 200, radius: 20),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────── Rankings (top clientes/productos) ───────────────────────
+
+class _RankRow {
+  final String name;
+  final String detail;
+  final double amount;
+
+  const _RankRow({
+    required this.name,
+    required this.detail,
+    required this.amount,
+  });
+}
+
+/// Ranking con barra de progreso relativa al primero: posiciones, nombre,
+/// detalle (facturas/unidades) y monto.
+class _RankingCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final List<_RankRow> rows;
+
+  const _RankingCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.rows,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final maxAmount = rows.fold<double>(
+      0,
+      (m, r) => r.amount > m ? r.amount : m,
+    );
+
+    return GlassPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontFamily: 'Avenir Next',
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              fontFamily: 'Avenir Next',
+              color: AppColors.textMuted,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 14),
+          for (var i = 0; i < rows.length; i++) ...[
+            if (i > 0) const SizedBox(height: 12),
+            Row(
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: i == 0
+                        ? AppColors.primary.withValues(alpha: 0.14)
+                        : AppColors.border.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${i + 1}',
+                    style: TextStyle(
+                      fontFamily: 'Avenir Next',
+                      fontWeight: FontWeight.w800,
+                      fontSize: 11,
+                      color: i == 0
+                          ? AppColors.primary
+                          : AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              rows[i].name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: 'Avenir Next',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13.5,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            currency(rows[i].amount),
+                            style: const TextStyle(
+                              fontFamily: 'Avenir Next',
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13.5,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(999),
+                              child: LinearProgressIndicator(
+                                value: maxAmount <= 0
+                                    ? 0
+                                    : (rows[i].amount / maxAmount)
+                                        .clamp(0.04, 1.0),
+                                minHeight: 5,
+                                backgroundColor:
+                                    AppColors.border.withValues(alpha: 0.45),
+                                valueColor: AlwaysStoppedAnimation(
+                                  AppColors.primary.withValues(
+                                    alpha: i == 0 ? 1.0 : 0.45,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            rows[i].detail,
+                            style: const TextStyle(
+                              fontFamily: 'Avenir Next',
+                              color: AppColors.textMuted,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }

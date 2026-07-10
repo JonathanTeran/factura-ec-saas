@@ -114,13 +114,71 @@ class ReportsViewData {
   final Map<String, int> byStatus;
   final List<ApiChartPoint> daily;
   final List<ApiTypeSummary> byType;
+  final List<ApiTopCustomer> topCustomers;
+  final List<ApiTopProduct> topProducts;
 
   const ReportsViewData({
     required this.dashboard,
     required this.byStatus,
     required this.daily,
     required this.byType,
+    this.topCustomers = const [],
+    this.topProducts = const [],
   });
+}
+
+/// Cliente con mayor facturación autorizada en el período.
+class ApiTopCustomer {
+  final int id;
+  final String name;
+  final String identification;
+  final int documentCount;
+  final double totalAmount;
+
+  const ApiTopCustomer({
+    required this.id,
+    required this.name,
+    required this.identification,
+    required this.documentCount,
+    required this.totalAmount,
+  });
+
+  factory ApiTopCustomer.fromJson(Map<String, dynamic> json) {
+    return ApiTopCustomer(
+      id: intFrom(json['id']),
+      name: stringFrom(json['name'], fallback: 'Cliente'),
+      identification: stringFrom(json['identification']),
+      documentCount: intFrom(json['document_count']),
+      totalAmount: doubleFrom(json['total_amount']),
+    );
+  }
+}
+
+/// Producto más vendido (facturas autorizadas) en el período.
+class ApiTopProduct {
+  final int id;
+  final String name;
+  final String mainCode;
+  final double quantitySold;
+  final double totalAmount;
+
+  const ApiTopProduct({
+    required this.id,
+    required this.name,
+    required this.mainCode,
+    required this.quantitySold,
+    required this.totalAmount,
+  });
+
+  factory ApiTopProduct.fromJson(Map<String, dynamic> json) {
+    return ApiTopProduct(
+      id: intFrom(json['id']),
+      name: stringFrom(json['name'], fallback: 'Producto'),
+      mainCode: stringFrom(json['main_code']),
+      quantitySold: doubleFrom(json['quantity_sold']),
+      totalAmount: doubleFrom(json['total_amount']),
+    );
+  }
 }
 
 /// Aggregated statistics for the reports dashboard.

@@ -1119,6 +1119,52 @@ class V1ApiService {
     });
   }
 
+  /// Clientes con mayor facturación autorizada en el período.
+  Future<List<ApiTopCustomer>> topCustomers({
+    required DateTime from,
+    required DateTime to,
+    int limit = 5,
+  }) async {
+    return _guard(() async {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '${ApiConstants.reports}/top-customers',
+        queryParameters: {
+          'from': dateOnly(from),
+          'to': dateOnly(to),
+          'limit': limit,
+        },
+      );
+      final data = _payloadMapFromResponse(response);
+      return listFrom(data['customers'])
+          .whereType<Map>()
+          .map((e) => ApiTopCustomer.fromJson(mapFrom(e)))
+          .toList(growable: false);
+    });
+  }
+
+  /// Productos más vendidos (facturas autorizadas) en el período.
+  Future<List<ApiTopProduct>> topProducts({
+    required DateTime from,
+    required DateTime to,
+    int limit = 5,
+  }) async {
+    return _guard(() async {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '${ApiConstants.reports}/top-products',
+        queryParameters: {
+          'from': dateOnly(from),
+          'to': dateOnly(to),
+          'limit': limit,
+        },
+      );
+      final data = _payloadMapFromResponse(response);
+      return listFrom(data['products'])
+          .whereType<Map>()
+          .map((e) => ApiTopProduct.fromJson(mapFrom(e)))
+          .toList(growable: false);
+    });
+  }
+
   Future<ApiDocument> createDocument(CreateDocumentInput input) async {
     return _guard(() async {
       final quantity = input.quantity <= 0 ? 1.0 : input.quantity;

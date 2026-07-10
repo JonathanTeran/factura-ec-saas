@@ -159,7 +159,9 @@ class ReportService
                 'products.name',
                 'products.main_code',
                 DB::raw('SUM(document_items.quantity) as quantity_sold'),
-                DB::raw('SUM(document_items.subtotal + document_items.tax_value + document_items.ice_value) as total_amount')
+                // COALESCE: ice_value es NULL sin ICE y en MySQL x + NULL = NULL,
+                // lo que anulaba el total de casi todos los productos.
+                DB::raw('SUM(document_items.subtotal + document_items.tax_value + COALESCE(document_items.ice_value, 0)) as total_amount')
             )
             ->groupBy('products.id', 'products.name', 'products.main_code')
             ->orderByDesc('total_amount')
