@@ -62,8 +62,8 @@ TODO TU NEGOCIO EN UNA APP
   electrónica (.p12) y plantillas de correo — sin necesidad de la web.
 
 PENSADA PARA ECUADOR
-• Validaciones del SRI antes de enviar (cédula/RUC, montos de consumidor
-  final) para que tus comprobantes no sean rechazados.
+• Validaciones antes de enviar (cédula/RUC, montos de consumidor final) para
+  que tus comprobantes no sean rechazados.
 • Ambiente de pruebas para aprender sin riesgo y migración guiada a
   producción.
 • Notificaciones y reenvío de comprobantes a tus clientes.
@@ -71,6 +71,14 @@ PENSADA PARA ECUADOR
 Facturón EC es un producto de AmePhia. Requiere una cuenta (prueba gratuita
 disponible en facturacion.amephia.com) y tu certificado de firma electrónica
 para emitir comprobantes con validez tributaria.
+
+AVISO IMPORTANTE: Facturón EC es una aplicación privada e independiente. NO
+es una aplicación oficial del Servicio de Rentas Internas (SRI) del Ecuador
+ni de ningún otro organismo gubernamental, y no tiene afiliación, respaldo
+ni autorización de dichas entidades. La aplicación se limita a generar y
+enviar comprobantes electrónicos a los servidores oficiales del SRI
+mediante sus webservices públicos. Para trámites, normativa y consultas
+directamente con la entidad, visita el sitio oficial: https://www.sri.gob.ec
 
 Soporte: jo.teran3@gmail.com · https://facturacion.amephia.com
 ```
