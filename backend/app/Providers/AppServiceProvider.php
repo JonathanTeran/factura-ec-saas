@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -29,6 +30,14 @@ class AppServiceProvider extends ServiceProvider
 
             return 'Database\\Factories\\' . $modelBaseName . 'Factory';
         });
+
+        // Política de contraseñas (registro, cambio y reseteo): mínimo 8
+        // caracteres, letras con al menos una mayúscula y una minúscula, y un
+        // carácter especial.
+        Password::defaults(fn () => Password::min(8)
+            ->letters()
+            ->mixedCase()
+            ->symbols());
 
         $this->configureRateLimiting();
         $this->ensureStorageBucket();

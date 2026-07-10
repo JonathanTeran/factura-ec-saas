@@ -10,6 +10,20 @@ import { Input } from "@/components/ui/input";
 import { useUpdatePassword } from "@/lib/api/queries/profile";
 import { ClientApiError } from "@/lib/api/client";
 
+const PASSWORD_HINT =
+  "Mínimo 8 caracteres, con mayúscula, minúscula y un carácter especial.";
+
+function passwordPolicyError(pw: string): string | null {
+  if (pw.length < 8) return "La contraseña debe tener al menos 8 caracteres.";
+  if (!/[A-ZÁÉÍÓÚÑ]/.test(pw))
+    return "La contraseña debe incluir al menos una letra mayúscula.";
+  if (!/[a-záéíóúñ]/.test(pw))
+    return "La contraseña debe incluir al menos una letra minúscula.";
+  if (!/[^A-Za-z0-9áéíóúÁÉÍÓÚñÑ]/.test(pw))
+    return "La contraseña debe incluir al menos un carácter especial (ej. !@#$%).";
+  return null;
+}
+
 export function SecurityForm() {
   const update = useUpdatePassword();
   const [form, setForm] = useState({
@@ -24,8 +38,9 @@ export function SecurityForm() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (form.password.length < 8) {
-      setError("La nueva contraseña debe tener al menos 8 caracteres.");
+    const policyError = passwordPolicyError(form.password);
+    if (policyError) {
+      setError(policyError);
       return;
     }
     if (form.password !== form.password_confirmation) {
@@ -64,7 +79,7 @@ export function SecurityForm() {
                 onChange={(e) => set("current_password", e.target.value)}
               />
             </Field>
-            <Field label="Nueva contraseña" required htmlFor="new" hint="Mínimo 8 caracteres.">
+            <Field label="Nueva contraseña" required htmlFor="new" hint={PASSWORD_HINT}>
               <Input
                 id="new"
                 type="password"

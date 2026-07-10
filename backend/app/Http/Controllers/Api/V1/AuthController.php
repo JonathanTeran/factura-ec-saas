@@ -287,7 +287,9 @@ class AuthController extends ApiController
         $request->validate([
             'token' => ['required'],
             'email' => ['required', 'email'],
-            'password' => ['required', 'min:8', 'confirmed'],
+            // Misma política central que registro/cambio. El import Password
+            // de este archivo es la FACHADA de reseteo; la regla va calificada.
+            'password' => ['required', 'confirmed', \Illuminate\Validation\Rules\Password::defaults()],
         ]);
 
         $status = Password::reset(

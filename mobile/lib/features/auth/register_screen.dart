@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/password_policy.dart';
 import '../../core/widgets/aurora_background.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../data/providers/auth_provider.dart';
@@ -37,6 +38,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
+
+    // Validación local con mensaje claro antes de llamar a la API.
+    final policyError = validatePassword(_passwordCtrl.text);
+    if (policyError != null) {
+      setState(() => _errorText = policyError);
+      return;
+    }
+    if (_passwordCtrl.text != _confirmCtrl.text) {
+      setState(() => _errorText = 'Las contraseñas no coinciden.');
+      return;
+    }
+
     setState(() {
       _submitting = true;
       _errorText = null;
@@ -122,6 +135,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           textInputAction: TextInputAction.next,
                           decoration: const InputDecoration(
                             labelText: 'Contraseña',
+                            helperText: passwordPolicyHint,
+                            helperMaxLines: 2,
                           ),
                         ),
                         const SizedBox(height: 10),

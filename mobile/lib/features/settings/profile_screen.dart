@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/api/v1_api_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/password_policy.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../core/widgets/page_header.dart';
 import '../../data/providers/auth_provider.dart';
@@ -88,8 +89,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       _notify('Completa los tres campos de contraseña.');
       return;
     }
-    if (next.length < 8) {
-      _notify('La nueva contraseña debe tener al menos 8 caracteres.');
+    final policyError = validatePassword(next);
+    if (policyError != null) {
+      _notify(policyError);
       return;
     }
     if (next != confirm) {
@@ -230,7 +232,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           ),
                           const SizedBox(height: 6),
                           const Text(
-                            'Mínimo 8 caracteres. Cerrará la sesión en otros dispositivos.',
+                            '$passwordPolicyHint '
+                            'Cerrará la sesión en otros dispositivos.',
                             style: TextStyle(
                               fontFamily: 'Avenir Next',
                               color: AppColors.textMuted,

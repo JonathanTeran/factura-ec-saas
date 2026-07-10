@@ -56,6 +56,10 @@ export function RegisterForm() {
             required
             autoComplete="new-password"
           />
+          <p className="text-xs text-muted-foreground">
+            Mínimo 8 caracteres, con mayúscula, minúscula y un carácter
+            especial.
+          </p>
           <FieldError errors={state?.fieldErrors?.password} />
         </div>
         <div className="space-y-2">
