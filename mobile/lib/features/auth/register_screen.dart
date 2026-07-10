@@ -1,7 +1,9 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/password_policy.dart';
@@ -24,7 +26,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _passwordCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
   bool _submitting = false;
+  bool _acceptedTerms = false;
   String? _errorText;
+
+  Future<void> _openLegal(String path) async {
+    try {
+      await launchUrl(
+        Uri.parse('https://facturacion.amephia.com$path'),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
+      // Sin navegador disponible: no bloquea el registro.
+    }
+  }
 
   @override
   void dispose() {
@@ -47,6 +61,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     }
     if (_passwordCtrl.text != _confirmCtrl.text) {
       setState(() => _errorText = 'Las contraseñas no coinciden.');
+      return;
+    }
+    if (!_acceptedTerms) {
+      setState(() => _errorText =
+          'Debes aceptar los Términos y Condiciones y la Política de Privacidad.');
       return;
     }
 
@@ -147,6 +166,68 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           decoration: const InputDecoration(
                             labelText: 'Confirmar contraseña',
                           ),
+                        ),
+                        const SizedBox(height: 12),
+                        // Aceptación de Términos + Privacidad (obligatoria;
+                        // el backend también la exige y guarda constancia).
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: 28,
+                              height: 28,
+                              child: Checkbox(
+                                value: _acceptedTerms,
+                                onChanged: (v) => setState(
+                                    () => _acceptedTerms = v ?? false),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text.rich(
+                                  TextSpan(
+                                    text: 'Acepto los ',
+                                    style: const TextStyle(
+                                      fontFamily: 'Avenir Next',
+                                      fontSize: 12.5,
+                                      color: AppColors.textSecondary,
+                                      height: 1.4,
+                                    ),
+                                    children: [
+                                      TextSpan(
+                                        text: 'Términos y Condiciones',
+                                        style: const TextStyle(
+                                          color: AppColors.primary,
+                                          fontWeight: FontWeight.w700,
+                                          decoration:
+                                              TextDecoration.underline,
+                                        ),
+                                        recognizer: TapGestureRecognizer()
+                                          ..onTap = () => _openLegal('/terms'),
+                                      ),
+                                      const TextSpan(text: ' y la '),
+                                      TextSpan(
+                                        text: 'Política de Privacidad',
+                                        style: const TextStyle(
+                                          color: AppColors.primary,
+                                          fontWeight: FontWeight.w700,
+                                          decoration:
+                                              TextDecoration.underline,
+                                        ),
+                                        recognizer: TapGestureRecognizer()
+                                          ..onTap = () =>
+                                              _openLegal('/privacy'),
+                                      ),
+                                      const TextSpan(
+                                          text: ' de Facturón EC.'),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         if (_errorText != null) ...[
                           const SizedBox(height: 10),

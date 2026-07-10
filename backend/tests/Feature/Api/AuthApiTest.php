@@ -29,6 +29,7 @@ class AuthApiTest extends TestCase
             'password' => 'Password123!',
             'password_confirmation' => 'Password123!',
             'company_name' => 'ACME Corp',
+            'terms' => true,
         ]);
 
         $response->assertCreated()
@@ -62,6 +63,7 @@ class AuthApiTest extends TestCase
             'password' => 'Password123!',
             'password_confirmation' => 'Password123!',
             'company_name' => 'Nueva Empresa',
+            'terms' => true,
         ])->assertCreated();
 
         $user = User::where('email', 'nuevo@example.com')->first();
@@ -87,6 +89,7 @@ class AuthApiTest extends TestCase
             'password' => 'Password123!',
             'password_confirmation' => 'Password123!',
             'company_name' => 'Another Co',
+            'terms' => true,
         ]);
 
         $response->assertUnprocessable()

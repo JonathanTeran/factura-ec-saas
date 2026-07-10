@@ -17,6 +17,9 @@ const RegisterSchema = z.object({
   email: z.email("Correo inválido"),
   password: z.string().min(8, "Mínimo 8 caracteres"),
   password_confirmation: z.string(),
+  terms: z.literal("on", {
+    error: "Debes aceptar los Términos y Condiciones y la Política de Privacidad",
+  }),
 }).refine((d) => d.password === d.password_confirmation, {
   message: "Las contraseñas no coinciden",
   path: ["password_confirmation"],
@@ -84,6 +87,7 @@ export async function registerAction(
     email: formData.get("email"),
     password: formData.get("password"),
     password_confirmation: formData.get("password_confirmation"),
+    terms: formData.get("terms"),
   });
 
   if (!parsed.success) {
@@ -96,7 +100,7 @@ export async function registerAction(
   try {
     const res = await apiFetch<ApiSuccess<LoginPayload>>("/api/v1/auth/register", {
       method: "POST",
-      json: { ...parsed.data, device_name: "web-spa" },
+      json: { ...parsed.data, terms: true, device_name: "web-spa" },
       withAuth: false,
     });
 

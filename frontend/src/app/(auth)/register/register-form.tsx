@@ -74,6 +74,37 @@ export function RegisterForm() {
           <FieldError errors={state?.fieldErrors?.password_confirmation} />
         </div>
       </div>
+      <div className="space-y-1">
+        <label className="flex items-start gap-2 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            name="terms"
+            className="mt-0.5 size-4 shrink-0 accent-primary"
+          />
+          <span>
+            Acepto los{" "}
+            <a
+              href="/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-primary underline"
+            >
+              Términos y Condiciones
+            </a>{" "}
+            y la{" "}
+            <a
+              href="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-primary underline"
+            >
+              Política de Privacidad
+            </a>{" "}
+            de Facturón EC.
+          </span>
+        </label>
+        <FieldError errors={state?.fieldErrors?.terms} />
+      </div>
       {state?.message && !state.ok && (
         <p className="text-sm text-destructive">{state.message}</p>
       )}

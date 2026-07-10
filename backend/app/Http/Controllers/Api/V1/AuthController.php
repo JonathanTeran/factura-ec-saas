@@ -115,6 +115,8 @@ class AuthController extends ApiController
                 'password' => Hash::make($request->password),
                 'role' => UserRole::TENANT_OWNER,
                 'is_active' => true,
+                // Constancia de aceptación de Términos + Privacidad.
+                'terms_accepted_at' => now(),
             ]);
 
             $tenant->update(['owner_id' => $user->id]);

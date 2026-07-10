@@ -448,6 +448,8 @@ class V1ApiService {
           'password_confirmation': passwordConfirmation,
           'company_name': companyName.trim(),
           'device_name': deviceName,
+          // La UI solo llama register() tras marcar el checkbox de aceptación.
+          'terms': true,
         },
       );
 

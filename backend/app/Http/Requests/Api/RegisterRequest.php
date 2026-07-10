@@ -20,6 +20,9 @@ class RegisterRequest extends FormRequest
             'password' => ['required', 'confirmed', Password::defaults()],
             'company_name' => ['required', 'string', 'max:255'],
             'device_name' => ['nullable', 'string', 'max:255'],
+            // Aceptación explícita de Términos y Condiciones + Política de
+            // Privacidad (se guarda constancia en users.terms_accepted_at).
+            'terms' => ['required', 'accepted'],
         ];
     }
 
@@ -33,6 +36,8 @@ class RegisterRequest extends FormRequest
             'password.required' => 'La contraseña es requerida.',
             'password.confirmed' => 'Las contraseñas no coinciden.',
             'company_name.required' => 'El nombre de la empresa es requerido.',
+            'terms.required' => 'Debes aceptar los Términos y Condiciones y la Política de Privacidad.',
+            'terms.accepted' => 'Debes aceptar los Términos y Condiciones y la Política de Privacidad.',
         ];
     }
 }
