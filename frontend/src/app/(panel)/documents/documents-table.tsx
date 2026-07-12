@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useDocuments } from "@/lib/api/queries/documents";
+import { useDocuments, isPendingSriStatus } from "@/lib/api/queries/documents";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { TablePagination } from "@/components/panel/table-pagination";
 import { documentStatusMeta, documentTypeLabel } from "@/lib/status";
@@ -49,13 +49,23 @@ export function DocumentsTable({
   const [status, setStatus] = useState("all");
   const debouncedSearch = useDebouncedValue(search);
 
-  const { data, isLoading, isFetching, error } = useDocuments({
-    page,
-    per_page: perPage,
-    search: debouncedSearch || undefined,
-    status: status === "all" ? undefined : status,
-    document_type: documentType,
-  });
+  const { data, isLoading, isFetching, error } = useDocuments(
+    {
+      page,
+      per_page: perPage,
+      search: debouncedSearch || undefined,
+      status: status === "all" ? undefined : status,
+      document_type: documentType,
+    },
+    {
+      // Si hay documentos esperando respuesta del SRI, la lista se refresca
+      // sola hasta que todos lleguen a un estado final.
+      refetchInterval: (q) =>
+        q.state.data?.data.some((d) => isPendingSriStatus(d.status))
+          ? 6000
+          : false,
+    },
+  );
 
   const docs = data?.data ?? [];
   const meta = data?.meta;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -54,6 +54,8 @@ import {
   useResendEmail,
   useCheckStatus,
   useDeleteDocument,
+  useDocumentSriPolling,
+  isPendingSriStatus,
   downloadDocumentRide,
   downloadDocumentXml,
   documentRideUrl,
@@ -107,6 +109,28 @@ export function DocumentDetail({ id }: { id: number }) {
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailValue, setEmailValue] = useState("");
   const [copied, setCopied] = useState(false);
+
+  // Mientras el SRI procesa, consultamos su estado en vivo cada pocos
+  // segundos; al llegar a un estado final la página se actualiza sola.
+  const status = data?.data.document?.status;
+  const isSriPending = isPendingSriStatus(status);
+  useDocumentSriPolling(id, status);
+
+  const prevStatus = useRef(status);
+  useEffect(() => {
+    const prev = prevStatus.current;
+    prevStatus.current = status;
+    if (!prev || !status || prev === status || !isPendingSriStatus(prev)) {
+      return;
+    }
+    if (status === "authorized") {
+      toast.success("Documento autorizado por el SRI");
+    } else if (status === "rejected") {
+      toast.error("El SRI rechazó el documento. Revisá el detalle del error.");
+    } else if (status === "failed") {
+      toast.error("El envío al SRI falló. Podés reintentar el envío.");
+    }
+  }, [status]);
 
   if (isLoading) {
     return (
@@ -185,6 +209,12 @@ export function DocumentDetail({ id }: { id: number }) {
               <Badge variant="outline" className={meta.className}>
                 {doc.status_label ?? meta.label}
               </Badge>
+              {isSriPending && (
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Loader2 className="size-3 animate-spin" />
+                  Consultando al SRI…
+                </span>
+              )}
             </div>
             <p className="mt-0.5 font-mono text-sm text-muted-foreground">
               {doc.document_number ?? `#${doc.id}`}

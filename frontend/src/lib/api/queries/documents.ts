@@ -3,6 +3,7 @@ import {
   useQuery,
   useQueryClient,
   keepPreviousData,
+  type UseQueryOptions,
 } from "@tanstack/react-query";
 import { api, type ApiPaginated, type ApiSuccess } from "@/lib/api/client";
 import type { Document } from "@/lib/api/types";
@@ -19,13 +20,30 @@ export const documentKeys = {
   all: ["documents"] as const,
   list: (q: DocumentsQuery) => [...documentKeys.all, "list", q] as const,
   detail: (id: number) => [...documentKeys.all, "detail", id] as const,
+  sriStatus: (id: number) => [...documentKeys.detail(id), "sri-status"] as const,
 };
 
-export function useDocuments(query: DocumentsQuery = {}) {
+/** Estados no finales: el SRI todavía no respondió y hay que seguir consultando. */
+const PENDING_SRI_STATUSES = new Set(["processing", "signed", "sent"]);
+
+export function isPendingSriStatus(status: string | null | undefined): boolean {
+  return !!status && PENDING_SRI_STATUSES.has(status);
+}
+
+type DocumentsQueryOptions = Pick<
+  UseQueryOptions<ApiPaginated<Document>>,
+  "refetchInterval"
+>;
+
+export function useDocuments(
+  query: DocumentsQuery = {},
+  options: DocumentsQueryOptions = {},
+) {
   return useQuery({
     queryKey: documentKeys.list(query),
     queryFn: () => api.get<ApiPaginated<Document>>("documents", { query }),
     placeholderData: keepPreviousData,
+    refetchInterval: options.refetchInterval,
   });
 }
 
@@ -34,6 +52,41 @@ export function useDocument(id: number) {
     queryKey: documentKeys.detail(id),
     queryFn: () =>
       api.get<ApiSuccess<{ document: Document }>>(`documents/${id}`),
+  });
+}
+
+export type DocumentLiveStatus = {
+  status: string;
+  status_label?: string | null;
+  authorization_number?: string | null;
+  authorization_date?: string | null;
+};
+
+/**
+ * Polling del estado SRI mientras el documento sigue en proceso.
+ * GET /documents/{id}/status re-consulta al SRI en vivo; cuando el estado
+ * cambia se refrescan detalle y listados, y al llegar a un estado final el
+ * polling se apaga solo (enabled=false).
+ */
+export function useDocumentSriPolling(
+  id: number,
+  status: string | null | undefined,
+) {
+  const qc = useQueryClient();
+  return useQuery({
+    queryKey: documentKeys.sriStatus(id),
+    queryFn: async () => {
+      const res = await api.get<ApiSuccess<DocumentLiveStatus>>(
+        `documents/${id}/status`,
+      );
+      if (res.data.status !== status) {
+        qc.invalidateQueries({ queryKey: documentKeys.all });
+      }
+      return res;
+    },
+    enabled: isPendingSriStatus(status),
+    refetchInterval: 4000,
+    refetchIntervalInBackground: false,
   });
 }
 
