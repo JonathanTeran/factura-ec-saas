@@ -189,7 +189,9 @@ Route::prefix('v1')->group(function () {
             Route::middleware('plan.feature:advanced_reports')->group(function () {
                 Route::get('dashboard', [ReportController::class, 'dashboard']);
                 Route::get('sales', [ReportController::class, 'sales']);
+                Route::get('sales/export', [ReportController::class, 'salesExport']);
                 Route::get('taxes', [ReportController::class, 'taxes']);
+                Route::get('tax-summary', [ReportController::class, 'taxSummary']);
                 Route::get('top-customers', [ReportController::class, 'topCustomers']);
                 Route::get('top-products', [ReportController::class, 'topProducts']);
                 Route::get('documents-by-status', [ReportController::class, 'documentsByStatus']);

@@ -221,12 +221,30 @@ class DocumentBuilder
             ];
         }
 
+        if ($doc->subtotal_8 > 0) {
+            $taxes[] = [
+                'codigo' => '2',
+                'codigoPorcentaje' => '8',
+                'baseImponible' => $this->fmt($doc->subtotal_8),
+                'valor' => $this->fmt($doc->subtotal_8 * 0.08),
+            ];
+        }
+
         if ($doc->subtotal_12 > 0) {
             $taxes[] = [
                 'codigo' => '2',
                 'codigoPorcentaje' => '2',
                 'baseImponible' => $this->fmt($doc->subtotal_12),
                 'valor' => $this->fmt($doc->subtotal_12 * 0.12),
+            ];
+        }
+
+        if ($doc->subtotal_13 > 0) {
+            $taxes[] = [
+                'codigo' => '2',
+                'codigoPorcentaje' => '10',
+                'baseImponible' => $this->fmt($doc->subtotal_13),
+                'valor' => $this->fmt($doc->subtotal_13 * 0.13),
             ];
         }
 

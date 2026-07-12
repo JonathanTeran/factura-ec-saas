@@ -29,11 +29,12 @@ import {
   useUpdateProduct,
   type ProductInput,
 } from "@/lib/api/queries/products";
+import { useCategories } from "@/lib/api/queries/categories";
 import { ClientApiError } from "@/lib/api/client";
 import type { Product } from "@/lib/api/types";
+import { TAX_OPTIONS } from "@/lib/document-calc";
 import { StockAdjustDialog } from "./stock-adjust-dialog";
 
-const TAX_RATES = [0, 5, 12, 15];
 
 const CODE_LENGTH = 20;
 const CODE_STOPWORDS = new Set([
@@ -104,9 +105,11 @@ const blankProduct: ProductInput = {
   name: "",
   description: "",
   type: "product",
+  category_id: null,
   unit_price: 0,
   cost: 0,
   tax_rate: 15,
+  tax_percentage_code: "4",
   track_inventory: true,
   stock: 0,
   min_stock: 0,
@@ -120,9 +123,11 @@ function fromProduct(p: Product): ProductInput {
     name: p.name,
     description: p.description ?? "",
     type: p.type,
+    category_id: p.category_id ?? null,
     unit_price: p.unit_price,
     cost: p.cost ?? 0,
     tax_rate: p.tax_rate,
+    tax_percentage_code: p.tax_percentage_code ?? undefined,
     track_inventory: p.track_inventory,
     stock: p.stock ?? 0,
     min_stock: p.min_stock ?? 0,
@@ -191,6 +196,8 @@ function ProductFormInner({
   const create = useCreateProduct();
   const update = useUpdateProduct(id ?? 0);
   const mutation = isEdit ? update : create;
+  const categoriesQ = useCategories();
+  const categories = categoriesQ.data?.data ?? [];
 
   const [form, setForm] = useState<ProductInput>(initial);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
@@ -321,18 +328,43 @@ function ProductFormInner({
             </Select>
           </Field>
 
+          <Field label="Categoría" hint="Organiza tu catálogo (opcional).">
+            <Select
+              value={form.category_id ? String(form.category_id) : "none"}
+              onValueChange={(v) =>
+                set("category_id", v === "none" ? null : Number(v))
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Sin categoría" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sin categoría</SelectItem>
+                {categories.map((c) => (
+                  <SelectItem key={c.id} value={String(c.id)}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
           <Field label="IVA" required hint="Tarifa aplicada al emitir.">
             <Select
-              value={String(form.tax_rate ?? 15)}
-              onValueChange={(v) => set("tax_rate", Number(v))}
+              value={form.tax_percentage_code ?? "4"}
+              onValueChange={(v) => {
+                const opt = TAX_OPTIONS.find((o) => o.code === v);
+                set("tax_percentage_code", v);
+                set("tax_rate", opt?.rate ?? 0);
+              }}
             >
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {TAX_RATES.map((r) => (
-                  <SelectItem key={r} value={String(r)}>
-                    {r}%
+                {TAX_OPTIONS.map((o) => (
+                  <SelectItem key={o.code} value={o.code}>
+                    {o.label}
                   </SelectItem>
                 ))}
               </SelectContent>

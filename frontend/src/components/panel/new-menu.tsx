@@ -13,7 +13,6 @@ import {
   ClipboardList,
   UserPlus,
   Package,
-  Briefcase,
   Settings2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -39,7 +38,6 @@ const DOCUMENTS = [
 const ENTITIES = [
   { label: "Cliente", href: "/customers/new", icon: UserPlus },
   { label: "Producto", href: "/products/new", icon: Package },
-  { label: "Proveedor", href: "/suppliers/new", icon: Briefcase },
 ];
 
 export function NewMenu() {

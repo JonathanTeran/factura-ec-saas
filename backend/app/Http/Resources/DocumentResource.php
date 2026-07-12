@@ -29,6 +29,8 @@ class DocumentResource extends JsonResource
             'subtotal_5' => (float) $this->subtotal_5,
             'subtotal_12' => (float) $this->subtotal_12,
             'subtotal_15' => (float) $this->subtotal_15,
+            'subtotal_8' => (float) $this->subtotal_8,
+            'subtotal_13' => (float) $this->subtotal_13,
             'total_discount' => (float) $this->total_discount,
             'total_tax' => (float) $this->total_tax,
             'tip' => (float) $this->tip,

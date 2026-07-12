@@ -52,12 +52,11 @@ import {
   buildItemPayload,
   calcItem,
   calcTotals,
+  TAX_OPTIONS,
   type DraftItem,
 } from "@/lib/document-calc";
 import { formatMoney, formatDate } from "@/lib/format";
 import type { Document, Customer } from "@/lib/api/types";
-
-const TAX_RATES = [0, 5, 12, 15];
 
 const PAYMENT_METHODS = [
   { code: "01", label: "Sin uso del sistema financiero" },
@@ -86,6 +85,7 @@ function emptyItem(): DraftItem {
     unit_price: 0,
     discount: 0,
     tax_rate: 15,
+    tax_percentage_code: "4",
   };
 }
 
@@ -155,6 +155,7 @@ function fromDocument(doc: Document): FormState {
         unit_price: Number(it.unit_price),
         discount: Number(it.discount ?? 0),
         tax_rate: Number(it.tax_rate ?? 15),
+        tax_percentage_code: it.tax_percentage_code ?? undefined,
       })) ?? [emptyItem()],
     additionalInfo: [{ key: "", value: "" }],
     referenceDocId: null,
@@ -316,7 +317,9 @@ export function NewInvoiceForm({
         subtotal_no_tax: totals.subtotal_no_tax,
         subtotal_0: totals.subtotal_0,
         subtotal_5: totals.subtotal_5,
+        subtotal_8: totals.subtotal_8,
         subtotal_12: totals.subtotal_12,
+        subtotal_13: totals.subtotal_13,
         subtotal_15: totals.subtotal_15,
         total_discount: totals.total_discount,
         total_tax: totals.total_tax,
@@ -689,18 +692,22 @@ export function NewInvoiceForm({
                       </TableCell>
                       <TableCell>
                         <Select
-                          value={String(item.tax_rate)}
-                          onValueChange={(v) =>
-                            updateItem(idx, { tax_rate: Number(v) })
-                          }
+                          value={item.tax_percentage_code ?? "4"}
+                          onValueChange={(v) => {
+                            const opt = TAX_OPTIONS.find((o) => o.code === v);
+                            updateItem(idx, {
+                              tax_percentage_code: v,
+                              tax_rate: opt?.rate ?? 0,
+                            });
+                          }}
                         >
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {TAX_RATES.map((r) => (
-                              <SelectItem key={r} value={String(r)}>
-                                {r}%
+                            {TAX_OPTIONS.map((o) => (
+                              <SelectItem key={o.code} value={o.code}>
+                                {o.label}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -763,6 +770,7 @@ export function NewInvoiceForm({
                                 name: string;
                                 unit_price: number;
                                 tax_rate: number;
+                                tax_percentage_code?: string | null;
                               }
                             | undefined;
                           if (p) {
@@ -772,6 +780,8 @@ export function NewInvoiceForm({
                               description: p.name,
                               unit_price: p.unit_price,
                               tax_rate: p.tax_rate ?? 15,
+                              tax_percentage_code:
+                                p.tax_percentage_code ?? undefined,
                             });
                           } else {
                             updateItem(idx, { product_id: null });
@@ -836,18 +846,22 @@ export function NewInvoiceForm({
                     </TableCell>
                     <TableCell>
                       <Select
-                        value={String(item.tax_rate)}
-                        onValueChange={(v) =>
-                          updateItem(idx, { tax_rate: Number(v) })
-                        }
+                        value={item.tax_percentage_code ?? "4"}
+                        onValueChange={(v) => {
+                          const opt = TAX_OPTIONS.find((o) => o.code === v);
+                          updateItem(idx, {
+                            tax_percentage_code: v,
+                            tax_rate: opt?.rate ?? 0,
+                          });
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {TAX_RATES.map((r) => (
-                            <SelectItem key={r} value={String(r)}>
-                              {r}%
+                          {TAX_OPTIONS.map((o) => (
+                            <SelectItem key={o.code} value={o.code}>
+                              {o.label}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -1019,8 +1033,14 @@ export function NewInvoiceForm({
             {!!totals.subtotal_5 && (
               <Row label="Subtotal 5%" value={totals.subtotal_5} />
             )}
+            {!!totals.subtotal_8 && (
+              <Row label="Subtotal 8%" value={totals.subtotal_8} />
+            )}
             {!!totals.subtotal_12 && (
               <Row label="Subtotal 12%" value={totals.subtotal_12} />
+            )}
+            {!!totals.subtotal_13 && (
+              <Row label="Subtotal 13%" value={totals.subtotal_13} />
             )}
             {!!totals.subtotal_15 && (
               <Row label="Subtotal 15%" value={totals.subtotal_15} />

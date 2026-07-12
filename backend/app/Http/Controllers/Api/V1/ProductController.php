@@ -27,12 +27,13 @@ class ProductController extends ApiController
     public function index(Request $request): JsonResponse
     {
         $query = Product::select([
-                'id', 'tenant_id', 'main_code', 'aux_code', 'name',
+                'id', 'tenant_id', 'category_id', 'main_code', 'aux_code', 'name',
                 'description', 'type', 'unit_price', 'cost_price',
                 'tax_code', 'tax_percentage_code', 'tax_rate',
                 'track_inventory', 'current_stock', 'min_stock',
                 'is_active', 'created_at', 'updated_at',
             ])
+            ->with('category')
             ->where('tenant_id', $request->user()->tenant_id)
             ->orderBy('name');
 
@@ -106,7 +107,7 @@ class ProductController extends ApiController
         $this->authorizeProduct($request, $product);
 
         return $this->success([
-            'product' => new ProductResource($product),
+            'product' => new ProductResource($product->load('category')),
         ]);
     }
 

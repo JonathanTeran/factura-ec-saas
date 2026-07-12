@@ -28,8 +28,19 @@ class _ProductCreateScreenState extends ConsumerState<ProductCreateScreen> {
   final _priceCtrl = TextEditingController();
 
   String _type = 'product';
-  // SRI tax rate options: 0%, 15% (current Ecuador IVA).
-  double _taxRate = 15;
+  // Tarifas de IVA por codigoPorcentaje del SRI. El código es la fuente
+  // autoritativa: distingue 0% / no objeto / exento (todos tarifa 0).
+  static const List<(String code, String label, double rate)> _taxOptions = [
+    ('4', '15%', 15.0),
+    ('10', '13%', 13.0),
+    ('2', '12%', 12.0),
+    ('8', '8%', 8.0),
+    ('5', '5%', 5.0),
+    ('0', '0%', 0.0),
+    ('6', 'No objeto de impuesto', 0.0),
+    ('7', 'Exento de IVA', 0.0),
+  ];
+  String _taxCode = '4';
   bool _trackInventory = false;
   bool _isActive = true;
   bool _submitting = false;
@@ -46,7 +57,8 @@ class _ProductCreateScreenState extends ConsumerState<ProductCreateScreen> {
       _nameCtrl.text = p.name;
       _priceCtrl.text = p.unitPrice.toStringAsFixed(2);
       _type = p.type == 'service' ? 'service' : 'product';
-      _taxRate = p.taxRate <= 0 ? 0 : 15;
+      final code = p.taxPercentageCode;
+      _taxCode = _taxOptions.any((o) => o.$1 == code) ? code : '4';
       _trackInventory = p.trackInventory;
       _isActive = p.isActive;
     }
@@ -60,12 +72,9 @@ class _ProductCreateScreenState extends ConsumerState<ProductCreateScreen> {
     super.dispose();
   }
 
-  /// Maps an IVA rate to the SRI tax percentage code.
-  String _taxPercentageCode(double rate) {
-    if (rate <= 0) return '0';
-    if (rate <= 12.5) return '2';
-    return '4';
-  }
+  /// Tarifa numérica para el código seleccionado.
+  double _rateForCode(String code) =>
+      _taxOptions.firstWhere((o) => o.$1 == code, orElse: () => _taxOptions.first).$3;
 
   Future<void> _submit() async {
     if (_submitting) return;
@@ -91,8 +100,8 @@ class _ProductCreateScreenState extends ConsumerState<ProductCreateScreen> {
         'type': _type,
         'unit_price': price,
         'tax_code': '2',
-        'tax_percentage_code': _taxPercentageCode(_taxRate),
-        'tax_rate': _taxRate,
+        'tax_percentage_code': _taxCode,
+        'tax_rate': _rateForCode(_taxCode),
         'track_inventory': _trackInventory,
         'is_active': _isActive,
       };
@@ -255,15 +264,20 @@ class _ProductCreateScreenState extends ConsumerState<ProductCreateScreen> {
                               : null,
                         ),
                         const SizedBox(height: 10),
-                        DropdownButtonFormField<double>(
-                          initialValue: _taxRate,
+                        DropdownButtonFormField<String>(
+                          initialValue: _taxCode,
+                          isExpanded: true,
                           decoration: const InputDecoration(labelText: 'IVA'),
-                          items: const [
-                            DropdownMenuItem(value: 0, child: Text('0%')),
-                            DropdownMenuItem(value: 15, child: Text('15%')),
-                          ],
+                          items: _taxOptions
+                              .map(
+                                (o) => DropdownMenuItem(
+                                  value: o.$1,
+                                  child: Text(o.$2),
+                                ),
+                              )
+                              .toList(),
                           onChanged: (value) =>
-                              setState(() => _taxRate = value ?? 15),
+                              setState(() => _taxCode = value ?? '4'),
                         ),
                         const SizedBox(height: 4),
                         SwitchListTile.adaptive(

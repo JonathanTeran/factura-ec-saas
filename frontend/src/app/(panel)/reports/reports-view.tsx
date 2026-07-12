@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -36,10 +37,13 @@ import {
   useDocumentsByStatus,
   useSalesReport,
   useTaxReport,
+  useTaxSummary,
   useTopCustomers,
   useTopProducts,
+  downloadSalesExcel,
   type SalesReport,
   type TaxReport,
+  type TaxSummary,
   type TopRow,
 } from "@/lib/api/queries/reports";
 import { formatMoney, formatNumber } from "@/lib/format";
@@ -114,6 +118,7 @@ export function ReportsView() {
         <TabsList>
           <TabsTrigger value="sales">Ventas</TabsTrigger>
           <TabsTrigger value="taxes">IVA</TabsTrigger>
+          <TabsTrigger value="declaracion">Declaración IVA</TabsTrigger>
           <TabsTrigger value="customers">Top clientes</TabsTrigger>
           <TabsTrigger value="products">Top productos</TabsTrigger>
           <TabsTrigger value="status">Por estado</TabsTrigger>
@@ -125,6 +130,10 @@ export function ReportsView() {
 
         <TabsContent value="taxes" className="mt-4">
           <TaxPanel data={taxes.data} isLoading={taxes.isLoading} error={taxes.error} />
+        </TabsContent>
+
+        <TabsContent value="declaracion" className="mt-4">
+          <MonthlyTaxPanel />
         </TabsContent>
 
         <TabsContent value="customers" className="mt-4">
@@ -154,6 +163,152 @@ export function ReportsView() {
           />
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+const MONTHS = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+];
+
+function MonthlyTaxPanel() {
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const summary = useTaxSummary(year, month);
+  const years = Array.from({ length: 6 }, (_, i) => now.getFullYear() - i);
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="p-4 flex flex-wrap items-end gap-4">
+          <div className="space-y-2">
+            <Label>Año</Label>
+            <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {years.map((y) => (
+                  <SelectItem key={y} value={String(y)}>
+                    {y}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Mes</Label>
+            <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MONTHS.map((m, i) => (
+                  <SelectItem key={m} value={String(i + 1)}>
+                    {m}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            variant="outline"
+            className="ml-auto"
+            onClick={() => downloadSalesExcel(year, month)}
+          >
+            <Download className="size-4" />
+            Exportar ventas (Excel)
+          </Button>
+        </CardContent>
+      </Card>
+
+      {summary.isLoading ? (
+        <Loading />
+      ) : summary.error ? (
+        <Err error={summary.error} />
+      ) : summary.data ? (
+        <TaxSummaryCards data={summary.data} />
+      ) : null}
+    </div>
+  );
+}
+
+function TaxSummaryCards({ data }: { data: TaxSummary }) {
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Kpi
+          label={`IVA en ventas (${data.ventas.count} fact.)`}
+          value={formatMoney(data.ventas.iva)}
+          primary
+        />
+        <Kpi
+          label={`IVA notas de crédito (${data.notas_credito.count})`}
+          value={`− ${formatMoney(data.notas_credito.iva)}`}
+        />
+        <Kpi
+          label="IVA crédito compras (RUC)"
+          value={`− ${formatMoney(data.iva_credito_compras)}`}
+        />
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Compras del período</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tipo de proveedor</TableHead>
+                <TableHead className="text-right">Comprob.</TableHead>
+                <TableHead className="text-right">Base</TableHead>
+                <TableHead className="text-right">IVA</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow>
+                <TableCell>
+                  Con RUC{" "}
+                  <span className="text-xs text-muted-foreground">
+                    (genera crédito tributario)
+                  </span>
+                </TableCell>
+                <TableCell className="text-right">{data.compras.con_ruc.count}</TableCell>
+                <TableCell className="text-right">{formatMoney(data.compras.con_ruc.base)}</TableCell>
+                <TableCell className="text-right font-medium">{formatMoney(data.compras.con_ruc.iva)}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell>
+                  Con cédula{" "}
+                  <span className="text-xs text-muted-foreground">
+                    (no deduce en declaración)
+                  </span>
+                </TableCell>
+                <TableCell className="text-right">{data.compras.con_cedula.count}</TableCell>
+                <TableCell className="text-right">{formatMoney(data.compras.con_cedula.base)}</TableCell>
+                <TableCell className="text-right font-medium">{formatMoney(data.compras.con_cedula.iva)}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Card className="border-primary/30">
+        <CardContent className="p-4 flex items-center justify-between">
+          <div>
+            <p className="font-medium">IVA a pagar (estimado)</p>
+            <p className="text-xs text-muted-foreground">
+              IVA ventas − notas de crédito − crédito de compras con RUC. Referencial, no reemplaza el formulario del SRI.
+            </p>
+          </div>
+          <span className="text-2xl font-semibold tabular-nums">
+            {formatMoney(data.iva_a_pagar)}
+          </span>
+        </CardContent>
+      </Card>
     </div>
   );
 }

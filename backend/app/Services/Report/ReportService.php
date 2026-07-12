@@ -182,7 +182,9 @@ class ReportService
             ->select(
                 DB::raw('SUM(subtotal_0) as subtotal_0'),
                 DB::raw('SUM(subtotal_5) as subtotal_5'),
+                DB::raw('SUM(subtotal_8) as subtotal_8'),
                 DB::raw('SUM(subtotal_12) as subtotal_12'),
+                DB::raw('SUM(subtotal_13) as subtotal_13'),
                 DB::raw('SUM(subtotal_15) as subtotal_15'),
                 DB::raw('SUM(subtotal_no_tax) as subtotal_no_tax'),
                 DB::raw('SUM(total_tax) as total_tax'),
@@ -194,12 +196,92 @@ class ReportService
             'subtotals' => [
                 '0%' => (float) $invoices->subtotal_0,
                 '5%' => (float) $invoices->subtotal_5,
+                '8%' => (float) $invoices->subtotal_8,
                 '12%' => (float) $invoices->subtotal_12,
+                '13%' => (float) $invoices->subtotal_13,
                 '15%' => (float) $invoices->subtotal_15,
                 'no_objeto' => (float) $invoices->subtotal_no_tax,
             ],
             'total_tax' => (float) $invoices->total_tax,
             'total' => (float) $invoices->total,
+        ];
+    }
+
+    /**
+     * Resumen mensual de IVA para la declaración: IVA en ventas (facturas),
+     * menos notas de crédito, y el crédito tributario de compras separado por
+     * proveedores con RUC vs. cédula (los gastos con cédula no deducen en la
+     * declaración personal). Pensado como "plus" para el usuario, no reemplaza
+     * el formulario oficial del SRI.
+     */
+    public function getMonthlyTaxSummary(Carbon $from, Carbon $to): array
+    {
+        $sumDoc = function (DocumentType $type) use ($from, $to) {
+            $row = ElectronicDocument::where('tenant_id', $this->tenant->id)
+                ->where('document_type', $type)
+                ->where('status', DocumentStatus::AUTHORIZED)
+                ->whereBetween('issue_date', [$from, $to])
+                ->selectRaw('COUNT(*) as count')
+                ->selectRaw('COALESCE(SUM(total - total_tax), 0) as base')
+                ->selectRaw('COALESCE(SUM(total_tax), 0) as iva')
+                ->first();
+
+            return [
+                'count' => (int) $row->count,
+                'base' => round((float) $row->base, 2),
+                'iva' => round((float) $row->iva, 2),
+            ];
+        };
+
+        $ventas = $sumDoc(DocumentType::FACTURA);
+        $notasCredito = $sumDoc(DocumentType::NOTA_CREDITO);
+
+        // Compras registradas, separadas por tipo de identificación del proveedor.
+        $comprasRow = function (?string $idType) use ($from, $to) {
+            $q = \App\Models\Tenant\Purchase::where('tenant_id', $this->tenant->id)
+                ->whereBetween('issue_date', [$from, $to]);
+
+            if ($idType === 'ruc') {
+                $q->whereHas('supplier', fn ($s) => $s->where('identification_type', '04'));
+            } elseif ($idType === 'cedula') {
+                $q->whereHas('supplier', fn ($s) => $s->where('identification_type', '05'));
+            }
+
+            $row = $q->selectRaw('COUNT(*) as count')
+                ->selectRaw('COALESCE(SUM(total - total_tax), 0) as base')
+                ->selectRaw('COALESCE(SUM(total_tax), 0) as iva')
+                ->first();
+
+            return [
+                'count' => (int) $row->count,
+                'base' => round((float) $row->base, 2),
+                'iva' => round((float) $row->iva, 2),
+            ];
+        };
+
+        $comprasRuc = $comprasRow('ruc');
+        $comprasCedula = $comprasRow('cedula');
+        $comprasTotal = $comprasRow(null);
+
+        // IVA a pagar (aproximado): débito de ventas menos NC, menos el crédito
+        // de compras. Solo compras con RUC generan crédito tributario válido.
+        $ivaAPagar = round(
+            $ventas['iva'] - $notasCredito['iva'] - $comprasRuc['iva'],
+            2
+        );
+
+        return [
+            'period' => ['from' => $from->toDateString(), 'to' => $to->toDateString()],
+            'ventas' => $ventas,
+            'notas_credito' => $notasCredito,
+            'compras' => [
+                'con_ruc' => $comprasRuc,
+                'con_cedula' => $comprasCedula,
+                'total' => $comprasTotal,
+            ],
+            'iva_ventas_neto' => round($ventas['iva'] - $notasCredito['iva'], 2),
+            'iva_credito_compras' => $comprasRuc['iva'],
+            'iva_a_pagar' => $ivaAPagar,
         ];
     }
 

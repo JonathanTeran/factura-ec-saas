@@ -44,7 +44,9 @@ class SRICatalogSeeder extends Seeder
         $this->seedCatalog('tax_rate', [
             ['code' => '0', 'name' => '0%', 'description' => 'Tarifa 0% de IVA', 'percentage' => 0.00],
             ['code' => '5', 'name' => '5%', 'description' => 'Tarifa 5% de IVA', 'percentage' => 5.00],
+            ['code' => '8', 'name' => '8%', 'description' => 'Tarifa 8% de IVA (diferenciado)', 'percentage' => 8.00],
             ['code' => '2', 'name' => '12%', 'description' => 'Tarifa 12% de IVA', 'percentage' => 12.00],
+            ['code' => '10', 'name' => '13%', 'description' => 'Tarifa 13% de IVA', 'percentage' => 13.00],
             ['code' => '3', 'name' => '14%', 'description' => 'Tarifa 14% de IVA', 'percentage' => 14.00],
             ['code' => '4', 'name' => '15%', 'description' => 'Tarifa 15% de IVA (vigente)', 'percentage' => 15.00],
             ['code' => '6', 'name' => 'No Objeto de Impuesto', 'description' => 'No Objeto de Impuesto', 'percentage' => 0.00],

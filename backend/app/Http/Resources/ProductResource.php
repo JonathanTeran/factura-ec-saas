@@ -17,6 +17,8 @@ class ProductResource extends JsonResource
             'description' => $this->description,
             'type' => $this->type,
             'type_label' => $this->type === 'service' ? 'Servicio' : 'Bien',
+            'category_id' => $this->category_id,
+            'category' => $this->whenLoaded('category', fn () => $this->category?->name),
             'unit_price' => (float) $this->unit_price,
             'cost' => (float) $this->cost_price,
             'tax_code' => $this->tax_code,

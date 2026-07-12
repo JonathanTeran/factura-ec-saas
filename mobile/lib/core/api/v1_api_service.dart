@@ -1165,6 +1165,47 @@ class V1ApiService {
     });
   }
 
+  /// Clave de subtotal para una línea, agrupando por codigoPorcentaje del SRI
+  /// (fuente autoritativa que distingue 0% / no objeto / exento aunque
+  /// compartan tarifa 0). Si no hay código, cae a la tarifa numérica.
+  static String _subtotalKeyFor(String? code, double rate) {
+    switch (code) {
+      case '0':
+        return 'subtotal_0';
+      case '5':
+        return 'subtotal_5';
+      case '8':
+        return 'subtotal_8';
+      case '2':
+        return 'subtotal_12';
+      case '10':
+        return 'subtotal_13';
+      case '4':
+        return 'subtotal_15';
+      case '6':
+      case '7':
+        return 'subtotal_no_tax';
+    }
+    if (rate <= 0) return 'subtotal_0';
+    if (rate <= 5) return 'subtotal_5';
+    if (rate <= 8) return 'subtotal_8';
+    if (rate <= 12.5) return 'subtotal_12';
+    if (rate <= 13.5) return 'subtotal_13';
+    return 'subtotal_15';
+  }
+
+  /// Mapa de subtotales por tarifa inicializado en 0 (todas las claves que el
+  /// backend acepta).
+  static Map<String, double> _emptySubtotals() => {
+        'subtotal_no_tax': 0,
+        'subtotal_0': 0,
+        'subtotal_5': 0,
+        'subtotal_8': 0,
+        'subtotal_12': 0,
+        'subtotal_13': 0,
+        'subtotal_15': 0,
+      };
+
   Future<ApiDocument> createDocument(CreateDocumentInput input) async {
     return _guard(() async {
       final quantity = input.quantity <= 0 ? 1.0 : input.quantity;
@@ -1173,9 +1214,10 @@ class V1ApiService {
       final taxRate = input.product.taxRate;
       final taxValue = subtotal * taxRate / 100;
       final total = subtotal + taxValue;
-      final isNoTax = taxRate <= 0;
-      final is12 = taxRate > 0 && taxRate <= 12.5;
-      final is15 = taxRate > 12.5;
+
+      final subtotals = _emptySubtotals();
+      final key = _subtotalKeyFor(input.product.taxPercentageCode, taxRate);
+      subtotals[key] = (subtotals[key] ?? 0) + subtotal;
 
       final payload = <String, dynamic>{
         'company_id': input.companyId,
@@ -1183,12 +1225,8 @@ class V1ApiService {
         'emission_point_id': input.emissionPointId,
         'document_type': input.documentType,
         'issue_date': dateOnly(DateTime.now()),
-        'subtotal_no_tax': 0,
-        'subtotal_0': isNoTax ? subtotal : 0,
-        'subtotal_12': is12 ? subtotal : 0,
-        'subtotal_15': is15 ? subtotal : 0,
-        'tax_12': is12 ? taxValue : 0,
-        'tax_15': is15 ? taxValue : 0,
+        ...subtotals,
+        'total_tax': taxValue,
         'discount': 0,
         'tip': 0,
         'total': total,
@@ -1231,27 +1269,18 @@ class V1ApiService {
   /// backend ya soporta (items[], payment_methods[], additional_info[]).
   /// Arma el payload de una factura (y tipos con ítems) a partir del input.
   Map<String, dynamic> _invoicePayload(CreateInvoiceInput input) {
-    double subtotal0 = 0, subtotal12 = 0, subtotal15 = 0;
-    double tax12 = 0, tax15 = 0, totalDiscount = 0;
+    final subtotals = _emptySubtotals();
+    double totalTax = 0, totalDiscount = 0;
     final items = <Map<String, dynamic>>[];
 
     for (final line in input.lines) {
       final rate = line.taxRate;
       final base = line.base;
       final taxValue = line.taxValue;
-      final isNoTax = rate <= 0;
-      final is12 = rate > 0 && rate <= 12.5;
-      final is15 = rate > 12.5;
 
-      if (isNoTax) subtotal0 += base;
-      if (is12) {
-        subtotal12 += base;
-        tax12 += taxValue;
-      }
-      if (is15) {
-        subtotal15 += base;
-        tax15 += taxValue;
-      }
+      final key = _subtotalKeyFor(line.product.taxPercentageCode, rate);
+      subtotals[key] = (subtotals[key] ?? 0) + base;
+      totalTax += taxValue;
       totalDiscount += line.lineDiscount;
 
       items.add({
@@ -1271,9 +1300,9 @@ class V1ApiService {
       });
     }
 
-    final totalTax = tax12 + tax15;
     final tip = input.tip < 0 ? 0.0 : input.tip;
-    final total = subtotal0 + subtotal12 + subtotal15 + totalTax + tip;
+    final subtotalsSum = subtotals.values.fold(0.0, (s, v) => s + v);
+    final total = subtotalsSum + totalTax + tip;
 
     final payments = input.payments.isEmpty
         ? [
@@ -1289,14 +1318,9 @@ class V1ApiService {
       'emission_point_id': input.emissionPointId,
       'document_type': input.documentType,
       'issue_date': dateOnly(DateTime.now()),
-      'subtotal_no_tax': 0,
-      'subtotal_0': subtotal0,
-      'subtotal_12': subtotal12,
-      'subtotal_15': subtotal15,
+      ...subtotals,
       'total_tax': totalTax,
       'total_discount': totalDiscount,
-      'tax_12': tax12,
-      'tax_15': tax15,
       'discount': totalDiscount,
       'tip': tip,
       'total': total,

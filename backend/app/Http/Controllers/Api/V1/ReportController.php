@@ -59,6 +59,74 @@ class ReportController extends ApiController
         return $this->success($report);
     }
 
+    /**
+     * Resumen mensual de IVA (ventas, notas de crédito y compras RUC/cédula).
+     * Acepta year+month o el rango from/to.
+     */
+    public function taxSummary(Request $request): JsonResponse
+    {
+        $request->validate([
+            'year' => 'nullable|integer|min:2000|max:2100',
+            'month' => 'nullable|integer|min:1|max:12',
+            'from' => 'nullable|date',
+            'to' => 'nullable|date|after_or_equal:from',
+        ]);
+
+        [$from, $to] = $this->resolvePeriod($request);
+
+        $summary = $this->reportService
+            ->forTenant($request->user()->tenant)
+            ->getMonthlyTaxSummary($from, $to);
+
+        return $this->success($summary);
+    }
+
+    /**
+     * Exporta el reporte de ventas a Excel para el período dado.
+     */
+    public function salesExport(Request $request)
+    {
+        $request->validate([
+            'year' => 'nullable|integer|min:2000|max:2100',
+            'month' => 'nullable|integer|min:1|max:12',
+            'from' => 'nullable|date',
+            'to' => 'nullable|date|after_or_equal:from',
+        ]);
+
+        [$from, $to] = $this->resolvePeriod($request);
+
+        $data = $this->reportService
+            ->forTenant($request->user()->tenant)
+            ->getSalesReport($from, $to, 'month');
+
+        $filename = 'ventas_'.$from->format('Y-m-d').'_'.$to->format('Y-m-d').'.xlsx';
+
+        return \Maatwebsite\Excel\Facades\Excel::download(
+            new \App\Exports\ReportExport('sales', $data, $from->toDateString(), $to->toDateString()),
+            $filename,
+        );
+    }
+
+    /**
+     * Resuelve el período: prioriza year+month; si no, usa from/to; si no, el
+     * mes en curso.
+     */
+    private function resolvePeriod(Request $request): array
+    {
+        if ($request->filled('year') && $request->filled('month')) {
+            $from = Carbon::create((int) $request->year, (int) $request->month, 1)->startOfMonth();
+            $to = $from->copy()->endOfMonth();
+        } elseif ($request->filled('from') && $request->filled('to')) {
+            $from = Carbon::parse($request->from)->startOfDay();
+            $to = Carbon::parse($request->to)->endOfDay();
+        } else {
+            $from = now()->startOfMonth();
+            $to = now()->endOfMonth();
+        }
+
+        return [$from, $to];
+    }
+
     public function topCustomers(Request $request): JsonResponse
     {
         $request->validate([

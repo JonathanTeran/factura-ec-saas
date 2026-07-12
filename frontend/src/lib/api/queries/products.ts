@@ -20,9 +20,11 @@ export type ProductInput = {
   name: string;
   description?: string;
   type: "product" | "service";
+  category_id?: number | null;
   unit_price: number;
   cost?: number;
   tax_rate?: number;
+  tax_percentage_code?: string;
   track_inventory?: boolean;
   stock?: number;
   min_stock?: number;

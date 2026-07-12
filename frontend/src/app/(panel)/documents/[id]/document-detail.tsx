@@ -581,8 +581,14 @@ export function DocumentDetail({ id }: { id: number }) {
                       {!!doc.subtotal_5 && (
                         <Row label="Subtotal 5%" value={doc.subtotal_5} />
                       )}
+                      {!!doc.subtotal_8 && (
+                        <Row label="Subtotal 8%" value={doc.subtotal_8} />
+                      )}
                       {!!doc.subtotal_12 && (
                         <Row label="Subtotal 12%" value={doc.subtotal_12} />
+                      )}
+                      {!!doc.subtotal_13 && (
+                        <Row label="Subtotal 13%" value={doc.subtotal_13} />
                       )}
                       {!!doc.subtotal_15 && (
                         <Row label="Subtotal 15%" value={doc.subtotal_15} />

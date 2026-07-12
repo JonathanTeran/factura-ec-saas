@@ -138,7 +138,9 @@ class Product extends Model implements HasMedia
         return match ($this->tax_percentage_code) {
             '0' => 0.00,
             '5' => 5.00,
+            '8' => 8.00,  // Diferenciado (turismo/feriados)
             '2' => 12.00,
+            '10' => 13.00,
             '3' => 14.00,
             '4' => 15.00,
             '6' => 0.00, // No objeto de IVA

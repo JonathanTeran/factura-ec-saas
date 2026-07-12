@@ -499,13 +499,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                   const Divider(height: 20),
                   _MenuTile(
-                    icon: Icons.point_of_sale_rounded,
-                    title: 'Punto de venta (POS)',
-                    subtitle: 'Abre caja y registra ventas rápidas.',
-                    onTap: () => context.go('/pos'),
-                  ),
-                  const Divider(height: 20),
-                  _MenuTile(
                     icon: Icons.storefront_outlined,
                     title: 'Productos',
                     subtitle: 'Gestiona tu catálogo y precios.',

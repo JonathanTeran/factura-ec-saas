@@ -517,6 +517,8 @@ export type Product = {
   description?: string | null;
   type: "product" | "service";
   type_label?: string;
+  category_id?: number | null;
+  category?: string | null;
   unit_price: number;
   cost?: number;
   tax_code?: string | null;
@@ -539,6 +541,7 @@ export type DocumentItem = {
   discount: number;
   subtotal: number;
   tax_rate: number;
+  tax_percentage_code?: string | null;
   tax_value: number;
 };
 
@@ -578,7 +581,9 @@ export type Document = {
   subtotal_no_tax?: number;
   subtotal_0?: number;
   subtotal_5?: number;
+  subtotal_8?: number;
   subtotal_12?: number;
+  subtotal_13?: number;
   subtotal_15?: number;
   total_discount?: number;
   total_tax?: number;

@@ -29,6 +29,11 @@ class ProductRequest extends FormRequest
             'name' => ['required', 'string', 'max:300'],
             'description' => ['nullable', 'string', 'max:500'],
             'type' => ['required', Rule::in(['product', 'service'])],
+            'category_id' => [
+                'nullable',
+                Rule::exists('categories', 'id')
+                    ->where('tenant_id', $this->user()->tenant_id),
+            ],
             'unit_price' => ['required', 'numeric', 'min:0'],
             'cost' => ['nullable', 'numeric', 'min:0'],
             'tax_code' => ['nullable', 'string', 'max:5'],

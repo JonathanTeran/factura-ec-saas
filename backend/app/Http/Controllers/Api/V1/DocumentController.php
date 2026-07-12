@@ -220,6 +220,8 @@ class DocumentController extends ApiController
             'subtotal_5' => $request->subtotal_5 ?? 0,
             'subtotal_12' => $request->subtotal_12 ?? 0,
             'subtotal_15' => $request->subtotal_15 ?? 0,
+            'subtotal_8' => $request->subtotal_8 ?? 0,
+            'subtotal_13' => $request->subtotal_13 ?? 0,
             'total_discount' => $totalDiscount,
             'total_tax' => $totalTax,
             'tip' => $request->tip ?? 0,
