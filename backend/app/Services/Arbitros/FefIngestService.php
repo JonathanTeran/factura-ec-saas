@@ -112,8 +112,8 @@ class FefIngestService
                 continue;
             }
 
-            $homeClub = $this->club($home, $clubCache, $stats);
-            $awayClub = $this->club($away, $clubCache, $stats);
+            $homeClub = $this->club($home, $ch, $clubCache, $stats);
+            $awayClub = $this->club($away, $ch, $clubCache, $stats);
 
             $officials = $this->officialsFrom($m);
 
@@ -139,8 +139,13 @@ class FefIngestService
         }
     }
 
-    /** Club por nombre oficial completo (cacheado por corrida). */
-    private function club(string $name, array &$cache, array &$stats): Club
+    /**
+     * Club por nombre oficial completo (cacheado por corrida). Si el club aún
+     * no tiene ciudad y el campeonato es provincial, se rellena best-effort
+     * con la provincia ("CAMPEONATO PROVINCIAL - PICHINCHA" → "Pichincha").
+     * Nunca pisa una ciudad ya definida (editable por el super admin).
+     */
+    private function club(string $name, ?Championship $championship, array &$cache, array &$stats): Club
     {
         if (isset($cache[$name])) {
             return $cache[$name];
@@ -152,7 +157,26 @@ class FefIngestService
             $stats['clubs']++;
         }
 
+        if (empty($club->city) && $championship) {
+            $city = $this->cityFromChampionship($championship->name);
+            if ($city !== null) {
+                $club->update(['city' => $city]);
+            }
+        }
+
         return $cache[$name] = $club;
+    }
+
+    /** "2026 - CAMPEONATO PROVINCIAL - EL ORO" → "El Oro" (null si no es provincial). */
+    private function cityFromChampionship(string $championshipName): ?string
+    {
+        if (! preg_match('/CAMPEONATO PROVINCIAL\s*-\s*(.+)$/iu', $championshipName, $m)) {
+            return null;
+        }
+
+        $province = trim($m[1]);
+
+        return $province === '' ? null : mb_convert_case(mb_strtolower($province), MB_CASE_TITLE, 'UTF-8');
     }
 
     private function championshipByName(string $tournament, bool $dryRun): ?Championship

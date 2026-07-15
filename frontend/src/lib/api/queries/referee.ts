@@ -33,7 +33,9 @@ export type RefereeMatch = {
   championship_id: number | null;
   championship: string | null;
   home_club: string;
+  home_club_city: string | null;
   away_club: string;
+  away_club_city: string | null;
   role: RefereeRole;
   fee: number | string;
   status: RefereeMatchStatus;
@@ -68,7 +70,7 @@ export type RefereeChampionship = {
   season: string | null;
 };
 
-export type RefereeClub = { id: number; name: string };
+export type RefereeClub = { id: number; name: string; city: string | null };
 
 export type CreateMatchInput = {
   championship_id: number;

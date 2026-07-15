@@ -89,7 +89,7 @@ class RefereeController extends ApiController
         ]);
 
         $query = OfficiatedMatch::query()
-            ->with(['championship:id,name', 'homeClub:id,name', 'awayClub:id,name', 'document:id,status,sequential,series,access_key'])
+            ->with(['championship:id,name', 'homeClub:id,name,city', 'awayClub:id,name,city', 'document:id,status,sequential,series,access_key'])
             ->orderByDesc('match_date')
             ->orderByDesc('id');
 
@@ -120,7 +120,9 @@ class RefereeController extends ApiController
                 'championship_id' => $m->championship_id,
                 'championship' => $m->championship?->name,
                 'home_club' => $m->homeClub?->name,
+                'home_club_city' => $m->homeClub?->city,
                 'away_club' => $m->awayClub?->name,
+                'away_club_city' => $m->awayClub?->city,
                 'role' => $m->role,
                 'fee' => (float) $m->fee,
                 'status' => $m->status,
@@ -292,7 +294,7 @@ class RefereeController extends ApiController
                 ->when($search !== '', fn ($q) => $q->where('name', 'like', "%{$search}%"))
                 ->orderBy('name')
                 ->limit(30)
-                ->get(['id', 'name']),
+                ->get(['id', 'name', 'city']),
         ]);
     }
 }

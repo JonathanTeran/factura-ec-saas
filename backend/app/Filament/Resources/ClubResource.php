@@ -41,6 +41,10 @@ class ClubResource extends Resource
                         Forms\Components\TextInput::make('short_name')
                             ->label('Nombre corto')
                             ->maxLength(100),
+                        Forms\Components\TextInput::make('city')
+                            ->label('Ciudad')
+                            ->maxLength(100)
+                            ->helperText('Se muestra entre paréntesis junto al club. La sincronización la rellena con la provincia si está vacía.'),
                         Forms\Components\Select::make('category')
                             ->label('Categoría')
                             ->options(ChampionshipResource::CATEGORIES),
@@ -60,6 +64,10 @@ class ClubResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('short_name')
                     ->label('Nombre corto'),
+                Tables\Columns\TextColumn::make('city')
+                    ->label('Ciudad')
+                    ->searchable()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('category')
                     ->label('Categoría')
                     ->badge(),

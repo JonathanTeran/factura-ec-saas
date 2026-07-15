@@ -480,9 +480,15 @@ function MatchRow({
         {formatMatchDate(m.match_date)}
       </TableCell>
       <TableCell className="text-sm">
-        <span className="font-semibold">{m.home_club}</span>{" "}
+        <span className="font-semibold">{m.home_club}</span>
+        {m.home_club_city && (
+          <span className="text-xs text-muted-foreground"> ({m.home_club_city})</span>
+        )}{" "}
         <span className="text-muted-foreground">vs</span>{" "}
         <span className="font-semibold">{m.away_club}</span>
+        {m.away_club_city && (
+          <span className="text-xs text-muted-foreground"> ({m.away_club_city})</span>
+        )}
       </TableCell>
       <TableCell className="max-w-[180px]">
         <span className="block truncate text-sm text-muted-foreground">
@@ -752,6 +758,9 @@ function ClubCombobox({
                   }}
                 >
                   {c.name}
+                  {c.city && (
+                    <span className="text-muted-foreground"> ({c.city})</span>
+                  )}
                 </button>
               ))
             )}
