@@ -151,7 +151,9 @@ class FefIngestService
             return $cache[$name];
         }
 
-        $club = Club::firstOrCreate(['name' => $name]);
+        // Solo catálogo OFICIAL (tenant_id null): un club personal homónimo no
+        // debe emparejar con el sync.
+        $club = Club::whereNull('tenant_id')->firstOrCreate(['name' => $name, 'tenant_id' => null]);
 
         if ($club->wasRecentlyCreated) {
             $stats['clubs']++;
@@ -188,11 +190,11 @@ class FefIngestService
         }
 
         if ($dryRun) {
-            return Championship::where('name', $tournament)->first();
+            return Championship::whereNull('tenant_id')->where('name', $tournament)->first();
         }
 
-        $ch = Championship::firstOrCreate(
-            ['name' => $tournament],
+        $ch = Championship::whereNull('tenant_id')->firstOrCreate(
+            ['name' => $tournament, 'tenant_id' => null],
             [
                 'season' => $this->seasonFromName($tournament),
                 'category' => $this->categoryFromName($tournament),

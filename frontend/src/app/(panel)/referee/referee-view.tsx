@@ -54,6 +54,8 @@ import {
   useInvoiceRefereeMatches,
   useRefereeChampionships,
   useRefereeClubs,
+  useCreateRefereeChampionship,
+  useCreateRefereeClub,
   useCreateCatalogRequest,
   useRefereeMatches,
   useRefereeProfile,
@@ -720,6 +722,25 @@ function ClubCombobox({
   const debounced = useDebouncedValue(text);
   const clubsQuery = useRefereeClubs(debounced, open);
   const clubs = clubsQuery.data ?? [];
+  const createClub = useCreateRefereeClub();
+
+  const typed = text.trim();
+  const exactMatch = clubs.some(
+    (c) => c.name.toLowerCase() === typed.toLowerCase(),
+  );
+  const canCreate = typed.length >= 2 && !exactMatch && !clubsQuery.isLoading;
+
+  const create = async () => {
+    try {
+      const res = await createClub.mutateAsync({ name: typed });
+      onChange({ id: res.data.id, name: res.data.name, city: res.data.city, is_personal: true });
+      setText("");
+      setOpen(false);
+      toast.success("Club creado para tu cuenta.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo crear el club.");
+    }
+  };
 
   return (
     <Field label={label} required error={error}>
@@ -736,34 +757,57 @@ function ClubCombobox({
           }}
         />
         {open && !value && (
-          <div className="absolute inset-x-0 top-full z-20 mt-1 max-h-44 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-md">
+          <div className="absolute inset-x-0 top-full z-20 mt-1 max-h-52 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-md">
             {clubsQuery.isLoading ? (
               <div className="flex justify-center py-3">
                 <Loader2 className="size-4 animate-spin text-muted-foreground" />
               </div>
-            ) : clubs.length === 0 ? (
-              <p className="px-2 py-2 text-xs text-muted-foreground">
-                Sin resultados.
-              </p>
             ) : (
-              clubs.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  className="block w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    onChange(c);
-                    setText("");
-                    setOpen(false);
-                  }}
-                >
-                  {c.name}
-                  {c.city && (
-                    <span className="text-muted-foreground"> ({c.city})</span>
-                  )}
-                </button>
-              ))
+              <>
+                {clubs.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className="block w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      onChange(c);
+                      setText("");
+                      setOpen(false);
+                    }}
+                  >
+                    {c.name}
+                    {c.city && (
+                      <span className="text-muted-foreground"> ({c.city})</span>
+                    )}
+                    {c.is_personal && (
+                      <span className="text-[10px] text-primary"> · tuyo</span>
+                    )}
+                  </button>
+                ))}
+                {clubs.length === 0 && !canCreate && (
+                  <p className="px-2 py-2 text-xs text-muted-foreground">
+                    Escribe al menos 2 letras para buscar o crear.
+                  </p>
+                )}
+                {canCreate && (
+                  <button
+                    type="button"
+                    className="mt-0.5 flex w-full items-center gap-1.5 rounded-md border-t border-border px-2 py-2 text-left text-sm text-primary hover:bg-accent"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      void create();
+                    }}
+                  >
+                    {createClub.isPending ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Plus className="size-3.5" />
+                    )}
+                    Crear club «{typed}»
+                  </button>
+                )}
+              </>
             )}
           </div>
         )}
@@ -784,16 +828,33 @@ function RegisterMatchDialog({
   const create = useCreateRefereeMatch();
   const championshipsQuery = useRefereeChampionships();
   const championships = championshipsQuery.data ?? [];
+  const createChampionship = useCreateRefereeChampionship();
 
   // El padre remonta este dialog con key al abrir/cerrar: estado inicial
   // limpio en cada apertura, sin efectos.
   const [championshipId, setChampionshipId] = useState("");
+  const [champCreateOpen, setChampCreateOpen] = useState(false);
+  const [champName, setChampName] = useState("");
   const [home, setHome] = useState<RefereeClub | null>(null);
   const [away, setAway] = useState<RefereeClub | null>(null);
   const [date, setDate] = useState("");
   const [role, setRole] = useState<RefereeRole>("arbitro");
   const [fee, setFee] = useState(() => (defaultFee > 0 ? String(defaultFee) : ""));
   const [notes, setNotes] = useState("");
+
+  const onCreateChampionship = async () => {
+    const name = champName.trim();
+    if (name.length < 3) return;
+    try {
+      const res = await createChampionship.mutateAsync({ name });
+      setChampionshipId(String(res.data.id));
+      setChampCreateOpen(false);
+      setChampName("");
+      toast.success("Campeonato creado para tu cuenta.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo crear el campeonato.");
+    }
+  };
 
   const sameClub = !!home && !!away && home.id === away.id;
   const feeValue = Number(fee);
@@ -854,10 +915,59 @@ function RegisterMatchDialog({
                   <SelectItem key={c.id} value={String(c.id)}>
                     {c.name}
                     {c.season ? ` · ${c.season}` : ""}
+                    {c.is_personal ? " · tuyo" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {champCreateOpen ? (
+              <div className="mt-2 flex gap-2">
+                <Input
+                  autoFocus
+                  value={champName}
+                  placeholder="Nombre del campeonato"
+                  onChange={(e) => setChampName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void onCreateChampionship();
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={champName.trim().length < 3 || createChampionship.isPending}
+                  onClick={() => void onCreateChampionship()}
+                >
+                  {createChampionship.isPending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    "Crear"
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setChampCreateOpen(false);
+                    setChampName("");
+                  }}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setChampCreateOpen(true)}
+                className="mt-1.5 flex items-center gap-1 text-xs text-primary underline-offset-4 hover:underline"
+              >
+                <Plus className="size-3" />
+                ¿No está? Créalo para tu cuenta
+              </button>
+            )}
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <ClubCombobox

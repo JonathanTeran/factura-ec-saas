@@ -39,12 +39,12 @@ class CatalogRequest extends Model
     public function approve(?string $note = null): void
     {
         if ($this->type === self::TYPE_CHAMPIONSHIP) {
-            Championship::firstOrCreate(
-                ['name' => $this->name],
+            Championship::whereNull('tenant_id')->firstOrCreate(
+                ['name' => $this->name, 'tenant_id' => null],
                 ['is_active' => true]
             );
         } else {
-            Club::firstOrCreate(['name' => $this->name]);
+            Club::whereNull('tenant_id')->firstOrCreate(['name' => $this->name, 'tenant_id' => null]);
         }
 
         $this->update([

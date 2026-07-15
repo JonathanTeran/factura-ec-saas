@@ -71,6 +71,11 @@ class ClubResource extends Resource
                 Tables\Columns\TextColumn::make('category')
                     ->label('Categoría')
                     ->badge(),
+                Tables\Columns\TextColumn::make('tenant.name')
+                    ->label('Ámbito')
+                    ->badge()
+                    ->formatStateUsing(fn ($state, $record) => $record->tenant_id ? 'Personal · ' . ($state ?? 'árbitro') : 'Oficial')
+                    ->color(fn ($record) => $record->tenant_id ? 'warning' : 'success'),
                 Tables\Columns\TextColumn::make('updated_at')
                     ->label('Actualizado')
                     ->dateTime('d/m/Y H:i')
@@ -80,8 +85,30 @@ class ClubResource extends Resource
                 Tables\Filters\SelectFilter::make('category')
                     ->label('Categoría')
                     ->options(ChampionshipResource::CATEGORIES),
+                Tables\Filters\TernaryFilter::make('personal')
+                    ->label('Ámbito')
+                    ->placeholder('Todos')
+                    ->trueLabel('Personales (de árbitros)')
+                    ->falseLabel('Oficiales')
+                    ->queries(
+                        true: fn ($q) => $q->whereNotNull('tenant_id'),
+                        false: fn ($q) => $q->whereNull('tenant_id'),
+                        blank: fn ($q) => $q,
+                    ),
             ])
             ->actions([
+                Tables\Actions\Action::make('promote')
+                    ->label('Promover a oficial')
+                    ->icon('heroicon-o-arrow-up-circle')
+                    ->color('success')
+                    ->visible(fn ($record) => $record->tenant_id !== null)
+                    ->requiresConfirmation()
+                    ->modalDescription('El club pasará a ser oficial y quedará visible para todos los árbitros.')
+                    ->action(function ($record) {
+                        $record->update(['tenant_id' => null]);
+                        \Filament\Notifications\Notification::make()
+                            ->title('Promovido a oficial')->success()->send();
+                    }),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])

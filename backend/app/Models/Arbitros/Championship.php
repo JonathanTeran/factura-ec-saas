@@ -2,18 +2,22 @@
 
 namespace App\Models\Arbitros;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Campeonato (catálogo público global). Ver docs/arbitros-vertical-spec.md §3.1.
+ * Campeonato. Catálogo compartido: tenant_id NULL = oficial (visible para
+ * todos); con tenant_id = personal de ese árbitro. Ver docs/arbitros-vertical-spec.md §3.1.
  */
 class Championship extends Model
 {
     use HasFactory;
 
     protected $fillable = [
+        'tenant_id',
         'name',
         'category',
         'season',
@@ -32,6 +36,25 @@ class Championship extends Model
     public function matches(): HasMany
     {
         return $this->hasMany(FootballMatch::class);
+    }
+
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Tenant\Tenant::class);
+    }
+
+    public function isPersonal(): bool
+    {
+        return $this->tenant_id !== null;
+    }
+
+    /** Oficiales activos (para todos) + los personales del árbitro dado. */
+    public function scopeVisibleTo(Builder $query, int $tenantId): Builder
+    {
+        return $query->where(function (Builder $q) use ($tenantId) {
+            $q->where(fn (Builder $g) => $g->whereNull('tenant_id')->where('is_active', true))
+                ->orWhere('tenant_id', $tenantId);
+        });
     }
 
     /** Ventana de recepción efectiva (override del campeonato o default de config). */

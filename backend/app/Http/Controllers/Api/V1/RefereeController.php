@@ -162,11 +162,18 @@ class RefereeController extends ApiController
             return $this->error('El módulo de árbitros no está activo para esta cuenta.', 403);
         }
 
+        $tenantId = $tenant->id;
+        // Campeonato/clubes del catálogo VISIBLE: oficiales activos + los
+        // personales del propio árbitro (§5.5).
+        $visibleChampionship = fn ($q) => $q
+            ->where(fn ($g) => $g->whereNull('tenant_id')->where('is_active', true))
+            ->orWhere('tenant_id', $tenantId);
+        $visibleClub = fn ($q) => $q->whereNull('tenant_id')->orWhere('tenant_id', $tenantId);
+
         $data = $request->validate([
-            // Campeonato SIEMPRE del catálogo (§5.5).
-            'championship_id' => ['required', Rule::exists('championships', 'id')->where('is_active', true)],
-            'home_club_id' => ['required', 'different:away_club_id', Rule::exists('clubs', 'id')],
-            'away_club_id' => ['required', Rule::exists('clubs', 'id')],
+            'championship_id' => ['required', Rule::exists('championships', 'id')->where($visibleChampionship)],
+            'home_club_id' => ['required', 'different:away_club_id', Rule::exists('clubs', 'id')->where($visibleClub)],
+            'away_club_id' => ['required', Rule::exists('clubs', 'id')->where($visibleClub)],
             'match_date' => ['required', 'date', 'before_or_equal:today'],
             'role' => ['required', Rule::in([
                 OfficiatedMatch::ROLE_ARBITRO,
@@ -347,27 +354,121 @@ class RefereeController extends ApiController
         );
     }
 
-    /** GET referee/championships — catálogo para el selector (solo activos). */
-    public function championships(): JsonResponse
+    /** GET referee/championships — oficiales activos + los personales del árbitro. */
+    public function championships(Request $request): JsonResponse
     {
+        $tenant = $request->user()->tenant;
+
         return $this->success([
-            'championships' => Championship::where('is_active', true)
+            'championships' => Championship::visibleTo($tenant->id)
                 ->orderBy('name')
-                ->get(['id', 'name', 'category', 'season']),
+                ->get(['id', 'name', 'category', 'season', 'tenant_id'])
+                ->map(fn ($c) => [
+                    'id' => $c->id,
+                    'name' => $c->name,
+                    'category' => $c->category,
+                    'season' => $c->season,
+                    'is_personal' => $c->tenant_id !== null,
+                ]),
         ]);
     }
 
-    /** GET referee/clubs?search= — catálogo para el selector. */
+    /** GET referee/clubs?search= — oficiales + los personales del árbitro. */
     public function clubs(Request $request): JsonResponse
     {
+        $tenant = $request->user()->tenant;
         $search = trim($request->string('search')->toString());
 
         return $this->success([
-            'clubs' => Club::query()
+            'clubs' => Club::visibleTo($tenant->id)
                 ->when($search !== '', fn ($q) => $q->where('name', 'like', "%{$search}%"))
                 ->orderBy('name')
                 ->limit(30)
-                ->get(['id', 'name', 'city']),
+                ->get(['id', 'name', 'city', 'tenant_id'])
+                ->map(fn ($c) => [
+                    'id' => $c->id,
+                    'name' => $c->name,
+                    'city' => $c->city,
+                    'is_personal' => $c->tenant_id !== null,
+                ]),
         ]);
+    }
+
+    /** POST referee/championships — el árbitro crea un campeonato PARA SÍ MISMO. */
+    public function storeChampionship(Request $request): JsonResponse
+    {
+        $tenant = $request->user()->tenant;
+
+        if (! $tenant->isReferee()) {
+            return $this->error('El módulo de árbitros no está activo para esta cuenta.', 403);
+        }
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'min:3', 'max:150'],
+            'category' => ['nullable', 'string', 'max:50'],
+            'season' => ['nullable', 'string', 'max:20'],
+        ]);
+
+        $name = trim($data['name']);
+
+        // Si ya lo ve (oficial o personal propio), reutilizarlo en vez de duplicar.
+        $existing = Championship::visibleTo($tenant->id)->where('name', 'like', $name)->first();
+        if ($existing) {
+            return $this->success(
+                ['id' => $existing->id, 'name' => $existing->name, 'is_personal' => $existing->tenant_id !== null, 'reused' => true],
+                'Ya existía en tu catálogo; lo seleccionamos.'
+            );
+        }
+
+        $ch = Championship::create([
+            'tenant_id' => $tenant->id,
+            'name' => $name,
+            'category' => $data['category'] ?? null,
+            'season' => $data['season'] ?? null,
+            'is_active' => true,
+        ]);
+
+        return $this->success(
+            ['id' => $ch->id, 'name' => $ch->name, 'is_personal' => true],
+            'Campeonato creado para tu cuenta.',
+            201
+        );
+    }
+
+    /** POST referee/clubs — el árbitro crea un club PARA SÍ MISMO. */
+    public function storeClub(Request $request): JsonResponse
+    {
+        $tenant = $request->user()->tenant;
+
+        if (! $tenant->isReferee()) {
+            return $this->error('El módulo de árbitros no está activo para esta cuenta.', 403);
+        }
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'min:2', 'max:150'],
+            'city' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $name = trim($data['name']);
+
+        $existing = Club::visibleTo($tenant->id)->where('name', 'like', $name)->first();
+        if ($existing) {
+            return $this->success(
+                ['id' => $existing->id, 'name' => $existing->name, 'city' => $existing->city, 'is_personal' => $existing->tenant_id !== null, 'reused' => true],
+                'Ya existía en tu catálogo; lo seleccionamos.'
+            );
+        }
+
+        $club = Club::create([
+            'tenant_id' => $tenant->id,
+            'name' => $name,
+            'city' => $data['city'] ?? null,
+        ]);
+
+        return $this->success(
+            ['id' => $club->id, 'name' => $club->name, 'city' => $club->city, 'is_personal' => true],
+            'Club creado para tu cuenta.',
+            201
+        );
     }
 }

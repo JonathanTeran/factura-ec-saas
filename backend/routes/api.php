@@ -109,7 +109,9 @@ Route::prefix('v1')->group(function () {
             Route::put('matches/{officiatedMatch}', [\App\Http\Controllers\Api\V1\RefereeController::class, 'updateMatch']);
             Route::delete('matches/{officiatedMatch}', [\App\Http\Controllers\Api\V1\RefereeController::class, 'destroyMatch']);
             Route::get('championships', [\App\Http\Controllers\Api\V1\RefereeController::class, 'championships']);
+            Route::post('championships', [\App\Http\Controllers\Api\V1\RefereeController::class, 'storeChampionship']);
             Route::get('clubs', [\App\Http\Controllers\Api\V1\RefereeController::class, 'clubs']);
+            Route::post('clubs', [\App\Http\Controllers\Api\V1\RefereeController::class, 'storeClub']);
             Route::get('catalog-requests', [\App\Http\Controllers\Api\V1\RefereeController::class, 'catalogRequests']);
             Route::post('catalog-requests', [\App\Http\Controllers\Api\V1\RefereeController::class, 'storeCatalogRequest']);
         });

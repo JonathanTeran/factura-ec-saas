@@ -68,9 +68,15 @@ export type RefereeChampionship = {
   name: string;
   category: string | null;
   season: string | null;
+  is_personal?: boolean;
 };
 
-export type RefereeClub = { id: number; name: string; city: string | null };
+export type RefereeClub = {
+  id: number;
+  name: string;
+  city: string | null;
+  is_personal?: boolean;
+};
 
 export type CreateMatchInput = {
   championship_id: number;
@@ -207,6 +213,32 @@ export function useRefereeChampionships() {
         "referee/championships",
       ),
     select: (raw) => raw.data.championships,
+  });
+}
+
+/** El árbitro crea un campeonato PARA SÍ MISMO (uso inmediato). */
+export function useCreateRefereeChampionship() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { name: string; category?: string; season?: string }) =>
+      api.post<ApiSuccess<{ id: number; name: string; is_personal: boolean }>>(
+        "referee/championships",
+        input,
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: refereeKeys.championships }),
+  });
+}
+
+/** El árbitro crea un club PARA SÍ MISMO (uso inmediato). */
+export function useCreateRefereeClub() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { name: string; city?: string }) =>
+      api.post<ApiSuccess<{ id: number; name: string; city: string | null; is_personal: boolean }>>(
+        "referee/clubs",
+        input,
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: refereeKeys.all }),
   });
 }
 
