@@ -210,6 +210,14 @@ export function useRefereeChampionships() {
   });
 }
 
+/** Solicitar un campeonato/club que falta en el catálogo (§5.5). */
+export function useCreateCatalogRequest() {
+  return useMutation({
+    mutationFn: (input: { type: "championship" | "club"; name: string; comment?: string }) =>
+      api.post<ApiSuccess<{ id: number }>>("referee/catalog-requests", input),
+  });
+}
+
 export function useRefereeClubs(search: string, enabled = true) {
   return useQuery({
     queryKey: refereeKeys.clubs(search),

@@ -54,6 +54,7 @@ import {
   useInvoiceRefereeMatches,
   useRefereeChampionships,
   useRefereeClubs,
+  useCreateCatalogRequest,
   useRefereeMatches,
   useRefereeProfile,
   useUpdateRefereeMatch,
@@ -918,6 +919,7 @@ function RegisterMatchDialog({
             </Field>
           </div>
         </div>
+        <CatalogRequestLink />
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
@@ -929,6 +931,119 @@ function RegisterMatchDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Enlace + mini-formulario para pedir un campeonato o club que no está en el
+ * catálogo (el super admin lo aprueba y se crea). Ver spec §5.5.
+ */
+function CatalogRequestLink() {
+  const [open, setOpen] = useState(false);
+  const [type, setType] = useState<"championship" | "club">("championship");
+  const [name, setName] = useState("");
+  const [comment, setComment] = useState("");
+  const request = useCreateCatalogRequest();
+
+  const reset = () => {
+    setType("championship");
+    setName("");
+    setComment("");
+  };
+
+  const onSubmit = async () => {
+    try {
+      await request.mutateAsync({
+        type,
+        name: name.trim(),
+        comment: comment.trim() || undefined,
+      });
+      toast.success(
+        "Solicitud enviada. Te avisaremos cuando esté disponible en el catálogo.",
+      );
+      setOpen(false);
+      reset();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo enviar la solicitud.");
+    }
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-left text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+      >
+        ¿No encuentras el campeonato o club? Solicítalo aquí
+      </button>
+
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          setOpen(v);
+          if (!v) reset();
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Solicitar al catálogo</DialogTitle>
+            <DialogDescription>
+              Cuéntanos qué falta. Lo revisamos, lo agregamos al catálogo y
+              podrás registrar tu partido.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Field label="¿Qué falta?" required>
+              <Select
+                value={type}
+                onValueChange={(v) => setType(v as "championship" | "club")}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="championship">Un campeonato</SelectItem>
+                  <SelectItem value="club">Un club</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Nombre completo" required htmlFor="cr-name">
+              <Input
+                id="cr-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={
+                  type === "championship"
+                    ? "Ej. Campeonato Interparroquial Quito 2026"
+                    : "Ej. CLUB DEPORTIVO EJEMPLO"
+                }
+              />
+            </Field>
+            <Field label="Comentario" htmlFor="cr-comment">
+              <Input
+                id="cr-comment"
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Opcional: categoría, provincia, referencia…"
+              />
+            </Field>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={name.trim().length < 3 || request.isPending}
+              onClick={onSubmit}
+            >
+              {request.isPending && <Loader2 className="size-4 animate-spin" />}
+              Enviar solicitud
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

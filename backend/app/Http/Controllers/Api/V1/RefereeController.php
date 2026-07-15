@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Models\Arbitros\CatalogRequest;
 use App\Models\Arbitros\Championship;
 use App\Models\Arbitros\Club;
 use App\Models\Arbitros\OfficiatedMatch;
@@ -272,6 +273,78 @@ class RefereeController extends ApiController
                 'error' => (int) ($summary['error'] ?? 0),
             ],
         ], 'Proceso de facturación completado.');
+    }
+
+    /** GET referee/catalog-requests — mis solicitudes (para mostrar estado). */
+    public function catalogRequests(Request $request): JsonResponse
+    {
+        $tenant = $request->user()->tenant;
+
+        if (! $tenant->isReferee()) {
+            return $this->error('El módulo de árbitros no está activo para esta cuenta.', 403);
+        }
+
+        return $this->success([
+            'requests' => CatalogRequest::query()
+                ->orderByDesc('id')
+                ->limit(20)
+                ->get(['id', 'type', 'name', 'status', 'resolution_note', 'created_at']),
+        ]);
+    }
+
+    /** POST referee/catalog-requests — pedir un campeonato/club faltante (§5.5). */
+    public function storeCatalogRequest(Request $request): JsonResponse
+    {
+        $tenant = $request->user()->tenant;
+
+        if (! $tenant->isReferee()) {
+            return $this->error('El módulo de árbitros no está activo para esta cuenta.', 403);
+        }
+
+        $data = $request->validate([
+            'type' => ['required', Rule::in([CatalogRequest::TYPE_CHAMPIONSHIP, CatalogRequest::TYPE_CLUB])],
+            'name' => ['required', 'string', 'min:3', 'max:150'],
+            'comment' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $name = trim($data['name']);
+
+        // Si ya existe en el catálogo, avisar en lugar de crear la solicitud.
+        $exists = $data['type'] === CatalogRequest::TYPE_CHAMPIONSHIP
+            ? Championship::where('is_active', true)->where('name', 'like', $name)->exists()
+            : Club::where('name', 'like', $name)->exists();
+
+        if ($exists) {
+            return $this->error('Ya existe en el catálogo con ese nombre exacto. Búscalo en el selector.', 422);
+        }
+
+        // Evitar duplicados y spam de solicitudes.
+        $duplicate = CatalogRequest::where('type', $data['type'])
+            ->where('name', 'like', $name)
+            ->where('status', CatalogRequest::STATUS_PENDING)
+            ->exists();
+
+        if ($duplicate) {
+            return $this->error('Ya tienes una solicitud pendiente con ese nombre.', 422);
+        }
+
+        if (CatalogRequest::where('status', CatalogRequest::STATUS_PENDING)->count() >= 10) {
+            return $this->error('Tienes demasiadas solicitudes pendientes. Espera a que se procesen.', 422);
+        }
+
+        $req = CatalogRequest::create([
+            'tenant_id' => $tenant->id,
+            'type' => $data['type'],
+            'name' => $name,
+            'comment' => $data['comment'] ?? null,
+            'status' => CatalogRequest::STATUS_PENDING,
+        ]);
+
+        return $this->success(
+            ['id' => $req->id],
+            'Solicitud enviada. Te avisaremos cuando esté disponible en el catálogo.',
+            201
+        );
     }
 
     /** GET referee/championships — catálogo para el selector (solo activos). */

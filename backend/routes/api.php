@@ -110,6 +110,8 @@ Route::prefix('v1')->group(function () {
             Route::delete('matches/{officiatedMatch}', [\App\Http\Controllers\Api\V1\RefereeController::class, 'destroyMatch']);
             Route::get('championships', [\App\Http\Controllers\Api\V1\RefereeController::class, 'championships']);
             Route::get('clubs', [\App\Http\Controllers\Api\V1\RefereeController::class, 'clubs']);
+            Route::get('catalog-requests', [\App\Http\Controllers\Api\V1\RefereeController::class, 'catalogRequests']);
+            Route::post('catalog-requests', [\App\Http\Controllers\Api\V1\RefereeController::class, 'storeCatalogRequest']);
         });
 
         // Consulta pública del catastro del SRI (autocompletar datos por RUC/cédula)
