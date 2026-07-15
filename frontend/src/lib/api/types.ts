@@ -27,10 +27,13 @@ export type ApiPaginated<T> = {
   };
 };
 
+export type BusinessType = "generic" | "referee";
+
 export type Tenant = {
   id: number;
   name: string;
   slug: string;
+  business_type?: BusinessType;
   email: string | null;
   status: string;
   trial_ends_at: string | null;

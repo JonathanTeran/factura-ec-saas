@@ -68,6 +68,14 @@ Schedule::job(new ProcessRecurringInvoicesJob)
     ->withoutOverlapping()
     ->onOneServer();
 
+// Vertical árbitros: catálogo FEF + auto-matching (no hace nada si no hay
+// tenants árbitro). Ver docs/arbitros-vertical-spec.md §6.
+Schedule::job(new \App\Jobs\Arbitros\SyncFefMatchesJob)
+    ->hourly()
+    ->name('arbitros-sync-fef')
+    ->withoutOverlapping()
+    ->onOneServer();
+
 // Clean expired portal tokens and sessions - daily at 3 AM
 Schedule::command('portal:cleanup')
     ->dailyAt('03:00')

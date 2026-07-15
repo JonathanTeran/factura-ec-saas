@@ -21,7 +21,9 @@ import {
   BadgeCheck,
   RotateCcw,
   LogOut,
+  Flag,
 } from "lucide-react";
+import type { BusinessType } from "@/lib/api/types";
 import { formatDate } from "@/lib/format";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -42,6 +44,7 @@ import {
   useSaveSequentials,
   useCompleteOnboarding,
   useRucLookup,
+  useSetBusinessType,
   type CompanyInput,
   type CertificateInfo,
 } from "@/lib/api/queries/onboarding";
@@ -136,9 +139,12 @@ export function OnboardingWizard() {
   const [migrated, setMigrated] = useState<boolean | null>(null);
   const [seq, setSeq] = useState<Record<string, string>>({});
 
+  const [businessType, setBusinessType] = useState<BusinessType>("generic");
+
   const saveCompany = useSaveCompany();
   const rucLookup = useRucLookup();
   const uploadCert = useUploadCertificate();
+  const setBizType = useSetBusinessType();
 
   const [sriLookupDone, setSriLookupDone] = useState(false);
 
@@ -194,6 +200,7 @@ export function OnboardingWizard() {
 
   const busy =
     saveCompany.isPending ||
+    setBizType.isPending ||
     uploadCert.isPending ||
     saveEst.isPending ||
     saveSeq.isPending ||
@@ -207,6 +214,7 @@ export function OnboardingWizard() {
           return;
         }
         await saveCompany.mutateAsync(company);
+        await setBizType.mutateAsync(businessType);
       } else if (step === 1) {
         if (!certInfo) {
           if (!certFile || !certPassword) {
@@ -450,6 +458,47 @@ export function OnboardingWizard() {
           <div className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
             {step === 0 && (
               <div className="grid gap-4 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <p className="mb-2 text-sm font-medium text-foreground">
+                    ¿Qué tipo de negocio eres?
+                  </p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => setBusinessType("generic")}
+                      className={`flex items-start gap-3 rounded-xl border p-4 text-left transition ${
+                        businessType === "generic"
+                          ? "border-primary bg-accent ring-1 ring-primary/30"
+                          : "border-border hover:border-primary/40"
+                      }`}
+                    >
+                      <Store className="mt-0.5 size-5 shrink-0 text-primary" />
+                      <span>
+                        <span className="block text-sm font-medium">Facturador</span>
+                        <span className="mt-0.5 block text-xs text-muted-foreground">
+                          Negocio, profesional o servicio en general.
+                        </span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBusinessType("referee")}
+                      className={`flex items-start gap-3 rounded-xl border p-4 text-left transition ${
+                        businessType === "referee"
+                          ? "border-primary bg-accent ring-1 ring-primary/30"
+                          : "border-border hover:border-primary/40"
+                      }`}
+                    >
+                      <Flag className="mt-0.5 size-5 shrink-0 text-primary" />
+                      <span>
+                        <span className="block text-sm font-medium">Árbitro</span>
+                        <span className="mt-0.5 block text-xs text-muted-foreground">
+                          Control de partidos y facturación a la FEF.
+                        </span>
+                      </span>
+                    </button>
+                  </div>
+                </div>
                 <Field label="RUC" required htmlFor="ruc">
                   <div className="flex gap-2">
                     <IconInput

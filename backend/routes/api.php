@@ -87,6 +87,7 @@ Route::prefix('v1')->group(function () {
         // Onboarding (setup wizard for Next.js frontend)
         Route::prefix('onboarding')->group(function () {
             Route::get('status', [OnboardingController::class, 'status']);
+            Route::post('business-type', [OnboardingController::class, 'businessType']);
             Route::post('company', [OnboardingController::class, 'company']);
             Route::post('certificate', [OnboardingController::class, 'certificate']);
             Route::post('establishment', [OnboardingController::class, 'establishment']);
@@ -97,6 +98,12 @@ Route::prefix('v1')->group(function () {
 
         // Estado de la firma electrónica (avisos de caducidad en el panel)
         Route::get('signature-status', [OnboardingController::class, 'signatureStatus']);
+
+        // Vertical árbitros: perfil (nombre oficial para el auto-matching)
+        Route::prefix('referee')->group(function () {
+            Route::get('profile', [\App\Http\Controllers\Api\V1\RefereeController::class, 'profile']);
+            Route::put('profile', [\App\Http\Controllers\Api\V1\RefereeController::class, 'updateProfile']);
+        });
 
         // Consulta pública del catastro del SRI (autocompletar datos por RUC/cédula)
         Route::get('sri/ruc/{ruc}', [SriLookupController::class, 'ruc']);

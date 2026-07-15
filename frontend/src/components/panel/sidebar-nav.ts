@@ -16,8 +16,10 @@ import {
   HelpCircle,
   RefreshCw,
   Coins,
+  Flag,
   type LucideIcon,
 } from "lucide-react";
+import type { BusinessType } from "@/lib/api/types";
 
 export type NavItem = {
   label: string;
@@ -84,3 +86,24 @@ export const navGroups: NavGroup[] = [
     ],
   },
 ];
+
+/**
+ * Grupo del vertical de árbitros. Solo se muestra cuando el tenant es de tipo
+ * "referee". Ver docs/arbitros-vertical-spec.md §8.
+ */
+const refereeGroup: NavGroup = {
+  label: "Árbitro",
+  items: [{ label: "Partidos", href: "/referee", icon: Flag }],
+};
+
+/**
+ * Devuelve los grupos de navegación según el tipo de negocio del tenant.
+ * El facturador normal ve `navGroups`; el árbitro suma su grupo especializado.
+ */
+export function buildNavGroups(businessType?: BusinessType): NavGroup[] {
+  if (businessType === "referee") {
+    // Insertar "Árbitro" justo después de "Principal".
+    return [navGroups[0], refereeGroup, ...navGroups.slice(1)];
+  }
+  return navGroups;
+}

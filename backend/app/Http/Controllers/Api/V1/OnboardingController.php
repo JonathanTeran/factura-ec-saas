@@ -7,6 +7,8 @@ use App\Models\SRI\SequentialNumber;
 use App\Models\Tenant\Branch;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\EmissionPoint;
+use App\Models\Tenant\Tenant;
+use App\Services\Arbitros\RefereeModuleActivator;
 use App\Services\SRI\SignatureManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -58,11 +60,37 @@ class OnboardingController extends ApiController
 
         return $this->success([
             'completed' => (bool) data_get($tenant->settings, 'onboarding_completed', false),
+            'business_type' => $tenant->business_type ?? Tenant::BUSINESS_TYPE_GENERIC,
             'has_company' => $hasCompany,
             'has_certificate' => $hasCertificate,
             'has_establishment' => $hasEstablishment,
             'has_sequentials' => $hasSequentials,
         ]);
+    }
+
+    /**
+     * POST onboarding/business-type
+     *
+     * Define el tipo de negocio del tenant. Si es "referee", activa el vertical
+     * de árbitros (asegura el cliente FEF). Ver docs/arbitros-vertical-spec.md §2.
+     */
+    public function businessType(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'business_type' => ['required', Rule::in(Tenant::BUSINESS_TYPES)],
+        ]);
+
+        $tenant = $request->user()->tenant;
+
+        if ($data['business_type'] === Tenant::BUSINESS_TYPE_REFEREE) {
+            app(RefereeModuleActivator::class)->activate($tenant);
+        } else {
+            $tenant->update(['business_type' => $data['business_type']]);
+        }
+
+        return $this->success([
+            'business_type' => $tenant->fresh()->business_type,
+        ], 'Tipo de negocio actualizado.');
     }
 
     /**

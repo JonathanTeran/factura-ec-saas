@@ -20,10 +20,20 @@ class Tenant extends Model
 {
     use HasFactory, SoftDeletes;
 
+    /** Tipos de negocio (verticales). 'generic' = facturador normal. */
+    public const BUSINESS_TYPE_GENERIC = 'generic';
+    public const BUSINESS_TYPE_REFEREE = 'referee';
+
+    public const BUSINESS_TYPES = [
+        self::BUSINESS_TYPE_GENERIC,
+        self::BUSINESS_TYPE_REFEREE,
+    ];
+
     protected $fillable = [
         'uuid',
         'name',
         'slug',
+        'business_type',
         'owner_email',
         'status',
         'trial_ends_at',
@@ -268,6 +278,12 @@ class Tenant extends Model
         }
 
         return now()->diffInDays($this->trial_ends_at);
+    }
+
+    /** Vertical de árbitros activo para este tenant. */
+    public function isReferee(): bool
+    {
+        return $this->business_type === self::BUSINESS_TYPE_REFEREE;
     }
 
     public function hasFeature(string $feature): bool

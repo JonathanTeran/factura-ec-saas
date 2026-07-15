@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Plus, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { navGroups } from "./sidebar-nav";
+import { buildNavGroups } from "./sidebar-nav";
+import { useProfile } from "@/lib/api/queries/profile";
 
 function isActive(currentPath: string, href: string) {
   if (href === "/") return currentPath === "/";
@@ -13,6 +14,8 @@ function isActive(currentPath: string, href: string) {
 
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const { data: user } = useProfile();
+  const navGroups = buildNavGroups(user?.tenant?.business_type);
 
   return (
     <div className="flex h-full flex-col bg-sidebar">

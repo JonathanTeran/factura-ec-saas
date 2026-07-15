@@ -48,6 +48,9 @@ class AdminPanelProvider extends PanelProvider
                     ->label('Facturación')
                     ->icon('heroicon-o-banknotes'),
                 NavigationGroup::make()
+                    ->label('Árbitros')
+                    ->icon('heroicon-o-flag'),
+                NavigationGroup::make()
                     ->label('Monitoreo')
                     ->icon('heroicon-o-chart-bar'),
                 NavigationGroup::make()

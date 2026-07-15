@@ -1,8 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type ApiSuccess } from "@/lib/api/client";
+import type { BusinessType } from "@/lib/api/types";
+import { profileKeys } from "./profile";
 
 export type OnboardingStatus = {
   completed: boolean;
+  business_type?: BusinessType;
   has_company: boolean;
   has_certificate: boolean;
   has_establishment: boolean;
@@ -92,6 +95,22 @@ export function useRucLookup() {
   return useMutation({
     mutationFn: (ruc: string) =>
       api.get<ApiSuccess<RucLookupResult>>(`sri/ruc/${ruc}`),
+  });
+}
+
+/** Define el tipo de negocio (activa el vertical de árbitros si aplica). */
+export function useSetBusinessType() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (business_type: BusinessType) =>
+      api.post<ApiSuccess<{ business_type: BusinessType }>>(
+        "onboarding/business-type",
+        { business_type },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: onboardingKeys.status });
+      qc.invalidateQueries({ queryKey: profileKeys.all });
+    },
   });
 }
 
