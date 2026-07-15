@@ -99,10 +99,17 @@ Route::prefix('v1')->group(function () {
         // Estado de la firma electrónica (avisos de caducidad en el panel)
         Route::get('signature-status', [OnboardingController::class, 'signatureStatus']);
 
-        // Vertical árbitros: perfil (nombre oficial para el auto-matching)
+        // Vertical árbitros: perfil, partidos pitados y facturación 1×1
         Route::prefix('referee')->group(function () {
             Route::get('profile', [\App\Http\Controllers\Api\V1\RefereeController::class, 'profile']);
             Route::put('profile', [\App\Http\Controllers\Api\V1\RefereeController::class, 'updateProfile']);
+            Route::get('matches', [\App\Http\Controllers\Api\V1\RefereeController::class, 'matches']);
+            Route::post('matches', [\App\Http\Controllers\Api\V1\RefereeController::class, 'storeMatch']);
+            Route::post('matches/invoice', [\App\Http\Controllers\Api\V1\RefereeController::class, 'invoice']);
+            Route::put('matches/{officiatedMatch}', [\App\Http\Controllers\Api\V1\RefereeController::class, 'updateMatch']);
+            Route::delete('matches/{officiatedMatch}', [\App\Http\Controllers\Api\V1\RefereeController::class, 'destroyMatch']);
+            Route::get('championships', [\App\Http\Controllers\Api\V1\RefereeController::class, 'championships']);
+            Route::get('clubs', [\App\Http\Controllers\Api\V1\RefereeController::class, 'clubs']);
         });
 
         // Consulta pública del catastro del SRI (autocompletar datos por RUC/cédula)

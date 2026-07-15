@@ -39,6 +39,12 @@ class AppServiceProvider extends ServiceProvider
             ->mixedCase()
             ->symbols());
 
+        // Vertical árbitros: sincroniza el estado del partido pitado con el
+        // ciclo de vida de su factura (autorizada/anulada/rechazada).
+        \App\Models\SRI\ElectronicDocument::observe(
+            \App\Observers\Arbitros\DocumentStatusObserver::class
+        );
+
         $this->configureRateLimiting();
         $this->ensureStorageBucket();
     }
