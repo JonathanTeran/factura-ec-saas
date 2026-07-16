@@ -17,6 +17,13 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { data: user } = useProfile();
   const navGroups = buildNavGroups(user?.tenant?.business_type);
 
+  // Resalta solo el destino MÁS específico que coincide (evita que un padre
+  // como /referee quede activo a la vez que /referee/reports).
+  const activeHref = navGroups
+    .flatMap((g) => g.items.map((i) => i.href))
+    .filter((href) => isActive(pathname, href))
+    .sort((a, b) => b.length - a.length)[0];
+
   return (
     <div className="flex h-full flex-col bg-sidebar">
       {/* Brand */}
@@ -50,7 +57,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             </h3>
             <ul className="space-y-0.5">
               {group.items.map((item) => {
-                const active = isActive(pathname, item.href);
+                const active = item.href === activeHref;
                 const Icon = item.icon;
                 return (
                   <li key={item.href}>

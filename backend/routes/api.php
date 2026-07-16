@@ -115,6 +115,8 @@ Route::prefix('v1')->group(function () {
             Route::post('clubs', [\App\Http\Controllers\Api\V1\RefereeController::class, 'storeClub']);
             Route::get('catalog-requests', [\App\Http\Controllers\Api\V1\RefereeController::class, 'catalogRequests']);
             Route::post('catalog-requests', [\App\Http\Controllers\Api\V1\RefereeController::class, 'storeCatalogRequest']);
+            Route::get('report', [\App\Http\Controllers\Api\V1\RefereeController::class, 'report']);
+            Route::get('report/export', [\App\Http\Controllers\Api\V1\RefereeController::class, 'reportExport']);
         });
 
         // Consulta pública del catastro del SRI (autocompletar datos por RUC/cédula)

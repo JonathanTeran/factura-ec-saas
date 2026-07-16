@@ -93,7 +93,10 @@ export const navGroups: NavGroup[] = [
  */
 const refereeGroup: NavGroup = {
   label: "Árbitro",
-  items: [{ label: "Partidos", href: "/referee", icon: Flag }],
+  items: [
+    { label: "Partidos", href: "/referee", icon: Flag },
+    { label: "Reportes", href: "/referee/reports", icon: BarChart3 },
+  ],
 };
 
 /**

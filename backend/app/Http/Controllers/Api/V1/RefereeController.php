@@ -22,6 +22,23 @@ use Illuminate\Validation\Rule;
  */
 class RefereeController extends ApiController
 {
+    public const ROLE_LABELS = [
+        'arbitro' => 'Árbitro central',
+        'asistente_1' => 'Asistente 1',
+        'asistente_2' => 'Asistente 2',
+        'cuarto' => 'Cuarto árbitro',
+        'var' => 'VAR',
+        'comisario' => 'Comisario',
+        'delegado' => 'Delegado',
+    ];
+
+    public const STATUS_LABELS = [
+        'pending' => 'Pendiente',
+        'queued' => 'En proceso',
+        'invoiced' => 'Facturado',
+        'blocked_window' => 'Fuera de ventana',
+    ];
+
     /** GET referee/profile */
     public function profile(Request $request): JsonResponse
     {
@@ -532,6 +549,113 @@ class RefereeController extends ApiController
             ['id' => $club->id, 'name' => $club->name, 'city' => $club->city, 'is_personal' => true],
             'Club creado para tu cuenta.',
             201
+        );
+    }
+
+    /**
+     * GET referee/report?year= — resumen de control del árbitro: pendiente por
+     * facturar, facturado, por campeonato y por mes. Ver docs/arbitros-vertical-spec.md.
+     */
+    public function report(Request $request): JsonResponse
+    {
+        $tenant = $request->user()->tenant;
+
+        if (! $tenant->isReferee()) {
+            return $this->error('El módulo de árbitros no está activo para esta cuenta.', 403);
+        }
+
+        $request->validate(['year' => 'nullable|integer|min:2000|max:2100']);
+        $year = $request->integer('year') ?: (int) now()->year;
+
+        $rows = OfficiatedMatch::with('championship:id,name')
+            ->whereYear('match_date', $year)
+            ->get(['id', 'championship_id', 'match_date', 'role', 'fee', 'status']);
+
+        $sum = fn (string $status) => [
+            'count' => $rows->where('status', $status)->count(),
+            'amount' => round((float) $rows->where('status', $status)->sum('fee'), 2),
+        ];
+        $pendingAmount = fn ($g) => round((float) $g->whereIn('status', ['pending', 'queued'])->sum('fee'), 2);
+        $invoicedAmount = fn ($g) => round((float) $g->where('status', 'invoiced')->sum('fee'), 2);
+
+        $byChampionship = $rows
+            ->groupBy(fn ($m) => $m->championship?->name ?? '—')
+            ->map(fn ($g, $name) => [
+                'championship' => $name,
+                'count' => $g->count(),
+                'invoiced_amount' => $invoicedAmount($g),
+                'pending_amount' => $pendingAmount($g),
+            ])
+            ->sortByDesc(fn ($r) => $r['invoiced_amount'] + $r['pending_amount'])
+            ->values();
+
+        $byMonth = $rows
+            ->groupBy(fn ($m) => $m->match_date->format('Y-m'))
+            ->map(fn ($g, $ym) => [
+                'month' => $ym,
+                'label' => \Illuminate\Support\Carbon::parse($ym . '-01')->locale('es')->translatedFormat('M'),
+                'count' => $g->count(),
+                'invoiced_amount' => $invoicedAmount($g),
+                'pending_amount' => $pendingAmount($g),
+            ])
+            ->sortKeys()
+            ->values();
+
+        $years = OfficiatedMatch::get(['match_date'])
+            ->map(fn ($m) => (int) $m->match_date->year)
+            ->unique()
+            ->sortDesc()
+            ->values();
+        if ($years->isEmpty()) {
+            $years = collect([(int) now()->year]);
+        }
+
+        return $this->success([
+            'year' => $year,
+            'summary' => [
+                'pending' => $sum('pending'),
+                'queued' => $sum('queued'),
+                'invoiced' => $sum('invoiced'),
+                'total_matches' => $rows->count(),
+                'total_billed' => $invoicedAmount($rows),
+                'total_pending' => $pendingAmount($rows),
+            ],
+            'by_championship' => $byChampionship,
+            'by_month' => $byMonth,
+            'available_years' => $years,
+        ]);
+    }
+
+    /** GET referee/report/export?year= — detalle de partidos del año a Excel. */
+    public function reportExport(Request $request)
+    {
+        $tenant = $request->user()->tenant;
+
+        if (! $tenant->isReferee()) {
+            return $this->error('El módulo de árbitros no está activo para esta cuenta.', 403);
+        }
+
+        $request->validate(['year' => 'nullable|integer|min:2000|max:2100']);
+        $year = $request->integer('year') ?: (int) now()->year;
+
+        $rows = OfficiatedMatch::with(['championship:id,name', 'homeClub:id,name', 'awayClub:id,name', 'document:id,series,sequential'])
+            ->whereYear('match_date', $year)
+            ->orderBy('match_date')
+            ->get()
+            ->map(fn (OfficiatedMatch $m) => [
+                $m->match_date->format('d/m/Y'),
+                ($m->homeClub?->name ?? '—') . ' vs ' . ($m->awayClub?->name ?? '—'),
+                $m->championship?->name ?? '—',
+                self::ROLE_LABELS[$m->role] ?? $m->role,
+                number_format((float) $m->fee, 2),
+                self::STATUS_LABELS[$m->status] ?? $m->status,
+                $m->document ? ($m->document->series . '-' . $m->document->sequential) : '',
+            ])
+            ->all();
+
+        return \Maatwebsite\Excel\Facades\Excel::download(
+            new \App\Exports\RefereeReportExport($rows),
+            "arbitro_partidos_{$year}.xlsx"
         );
     }
 

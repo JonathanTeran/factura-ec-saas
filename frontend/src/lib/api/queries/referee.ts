@@ -110,6 +110,37 @@ export type InvoiceMatchesResult = {
   };
 };
 
+export type RefereeReportBucket = {
+  count: number;
+  amount: number;
+};
+
+export type RefereeReport = {
+  year: number;
+  summary: {
+    pending: RefereeReportBucket;
+    queued: RefereeReportBucket;
+    invoiced: RefereeReportBucket;
+    total_matches: number;
+    total_billed: number;
+    total_pending: number;
+  };
+  by_championship: Array<{
+    championship: string;
+    count: number;
+    invoiced_amount: number;
+    pending_amount: number;
+  }>;
+  by_month: Array<{
+    month: string;
+    label: string;
+    count: number;
+    invoiced_amount: number;
+    pending_amount: number;
+  }>;
+  available_years: number[];
+};
+
 export const refereeKeys = {
   all: ["referee"] as const,
   profile: ["referee", "profile"] as const,
@@ -118,6 +149,7 @@ export const refereeKeys = {
     ["referee", "matches", { status: status ?? "all" }] as const,
   championships: ["referee", "championships"] as const,
   clubs: (search: string) => ["referee", "clubs", search] as const,
+  report: (year: number) => ["referee", "report", year] as const,
 };
 
 export function useRefereeProfile() {
@@ -253,6 +285,28 @@ export function useCreateRefereeClub() {
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: refereeKeys.all }),
   });
+}
+
+/** Reporte de control del árbitro (por año). */
+export function useRefereeReport(year: number) {
+  return useQuery({
+    queryKey: refereeKeys.report(year),
+    queryFn: () =>
+      api.get<ApiSuccess<RefereeReport>>("referee/report", { query: { year } }),
+    select: (raw) => raw.data,
+  });
+}
+
+/** Descarga el detalle de partidos del año a Excel. */
+export function downloadRefereeReportExcel(year: number) {
+  if (typeof window === "undefined") return;
+  const a = window.document.createElement("a");
+  a.href = `/api/proxy/referee/report/export?year=${year}`;
+  a.download = `arbitro_partidos_${year}.xlsx`;
+  a.target = "_blank";
+  window.document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 /** Solicitar un campeonato/club que falta en el catálogo (§5.5). */
