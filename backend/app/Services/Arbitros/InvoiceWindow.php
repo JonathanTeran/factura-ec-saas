@@ -37,6 +37,13 @@ class InvoiceWindow
         $end = $match?->championship?->windowEndDay()
             ?? (int) config('arbitros.invoice_window.end_day', 20);
 
+        // Guard: un override inválido (p.ej. start > end) dejaría un campeonato
+        // imposible de facturar. Se cae al default global de config.
+        if ($start < 1 || $end < 1 || $end > 31 || $start > $end) {
+            $start = (int) config('arbitros.invoice_window.start_day', 1);
+            $end = (int) config('arbitros.invoice_window.end_day', 20);
+        }
+
         $day = (int) $today->day;
 
         if ($day < $start || $day > $end) {

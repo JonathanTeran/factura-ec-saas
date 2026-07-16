@@ -105,6 +105,18 @@ class RefereeInvoiceService
         }
 
         $document = DB::transaction(function () use ($tenant, $match, $customer, $creator, $company, $branch, $emissionPoint) {
+            // Re-cargar el partido con lock y re-verificar dentro de la
+            // transacción: evita que un doble-submit facture el mismo partido
+            // dos veces (dos facturas reales al SRI).
+            $locked = OfficiatedMatch::withoutTenantScope()
+                ->where('id', $match->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $locked || ! in_array($locked->status, [OfficiatedMatch::STATUS_PENDING, OfficiatedMatch::STATUS_BLOCKED_WINDOW], true)) {
+                return null; // otro request ya lo facturó
+            }
+
             $document = ElectronicDocument::create([
                 'tenant_id' => $tenant->id,
                 'company_id' => $company->id,
@@ -115,41 +127,52 @@ class RefereeInvoiceService
                 'document_type' => DocumentType::FACTURA->value,
                 'environment' => $company->sri_environment ?? '1',
                 'series' => sprintf('%s-%s', $branch->code ?? '001', $emissionPoint->code ?? '001'),
-                'sequential' => $this->nextSequential($tenant, $company->id, $emissionPoint->id),
+                // Asignador atómico compartido con el flujo normal (lockForUpdate
+                // + avanza el contador persistente): evita secuenciales duplicados.
+                'sequential' => str_pad(
+                    (string) $emissionPoint->getNextSequential(DocumentType::FACTURA->value),
+                    9,
+                    '0',
+                    STR_PAD_LEFT
+                ),
                 'status' => 'draft',
                 'issue_date' => now()->toDateString(),
                 'currency' => 'USD',
-                'payment_methods' => [['code' => '01', 'amount' => (float) $match->fee]],
+                'payment_methods' => [['code' => '01', 'amount' => (float) $locked->fee]],
             ]);
 
             $taxCode = (string) data_get($tenant->settings, 'referee_tax_percentage_code', '0');
 
             DocumentItem::create([
                 'electronic_document_id' => $document->id,
-                'main_code' => 'ARB-' . $match->id,
-                'description' => $this->concept($match),
+                'main_code' => 'ARB-' . $locked->id,
+                'description' => $this->concept($locked),
                 'quantity' => 1,
-                'unit_price' => (float) $match->fee,
+                'unit_price' => (float) $locked->fee,
                 'discount' => 0,
-                'subtotal' => (float) $match->fee,
+                'subtotal' => (float) $locked->fee,
                 'tax_code' => '2',
                 'tax_percentage_code' => $taxCode,
                 'tax_rate' => $this->rateFor($taxCode),
-                'tax_base' => (float) $match->fee,
-                'tax_value' => round((float) $match->fee * $this->rateFor($taxCode) / 100, 2),
+                'tax_base' => (float) $locked->fee,
+                'tax_value' => round((float) $locked->fee * $this->rateFor($taxCode) / 100, 2),
             ]);
 
             $document->load('items');
             $document->calculateTotals();
             $document->update(['access_key' => app(AccessKeyService::class)->generate($document->fresh())]);
 
-            $match->update([
+            $locked->update([
                 'status' => OfficiatedMatch::STATUS_QUEUED,
                 'electronic_document_id' => $document->id,
             ]);
 
             return $document;
         });
+
+        if (! $document) {
+            return $base + ['status' => 'skipped', 'message' => 'El partido ya estaba en proceso de facturación.'];
+        }
 
         if ($canSend) {
             ProcessDocumentJob::dispatch($document);
@@ -203,18 +226,6 @@ class RefereeInvoiceService
             '4' => 15.0,
             default => 0.0,
         };
-    }
-
-    private function nextSequential(Tenant $tenant, int $companyId, int $emissionPointId): string
-    {
-        $last = ElectronicDocument::withoutTenantScope()
-            ->where('tenant_id', $tenant->id)
-            ->where('company_id', $companyId)
-            ->where('emission_point_id', $emissionPointId)
-            ->where('document_type', DocumentType::FACTURA->value)
-            ->max('sequential');
-
-        return str_pad($last ? (int) $last + 1 : 1, 9, '0', STR_PAD_LEFT);
     }
 
     private function defaultEmissionPoint(Tenant $tenant): ?EmissionPoint

@@ -208,6 +208,10 @@ class RefereeController extends ApiController
     /** PUT referee/matches/{officiatedMatch} — editar valor/rol/notas (solo pendientes). */
     public function updateMatch(Request $request, OfficiatedMatch $officiatedMatch): JsonResponse
     {
+        if (! $request->user()->tenant->isReferee()) {
+            return $this->error('El módulo de árbitros no está activo para esta cuenta.', 403);
+        }
+
         if (! in_array($officiatedMatch->status, [OfficiatedMatch::STATUS_PENDING, OfficiatedMatch::STATUS_BLOCKED_WINDOW], true)) {
             return $this->error('Solo se pueden editar partidos pendientes por facturar.', 400);
         }
@@ -234,6 +238,10 @@ class RefereeController extends ApiController
     /** DELETE referee/matches/{officiatedMatch} — descartar propuesta (solo pendientes). */
     public function destroyMatch(Request $request, OfficiatedMatch $officiatedMatch): JsonResponse
     {
+        if (! $request->user()->tenant->isReferee()) {
+            return $this->error('El módulo de árbitros no está activo para esta cuenta.', 403);
+        }
+
         if (! in_array($officiatedMatch->status, [OfficiatedMatch::STATUS_PENDING, OfficiatedMatch::STATUS_BLOCKED_WINDOW], true)) {
             return $this->error('Solo se pueden eliminar partidos pendientes por facturar.', 400);
         }
@@ -367,11 +375,14 @@ class RefereeController extends ApiController
         ]);
 
         $name = trim($data['name']);
+        $likeName = self::escapeLike($name);
 
-        // Si ya existe en el catálogo, avisar en lugar de crear la solicitud.
+        // ¿Ya existe en el catálogo VISIBLE (oficial + personal propio)? Scoping
+        // por tenant: no consultamos (ni filtramos por) entradas personales de
+        // otros árbitros.
         $exists = $data['type'] === CatalogRequest::TYPE_CHAMPIONSHIP
-            ? Championship::where('is_active', true)->where('name', 'like', $name)->exists()
-            : Club::where('name', 'like', $name)->exists();
+            ? Championship::visibleTo($tenant->id)->where('name', 'like', $likeName)->exists()
+            : Club::visibleTo($tenant->id)->where('name', 'like', $likeName)->exists();
 
         if ($exists) {
             return $this->error('Ya existe en el catálogo con ese nombre exacto. Búscalo en el selector.', 422);
@@ -379,7 +390,7 @@ class RefereeController extends ApiController
 
         // Evitar duplicados y spam de solicitudes.
         $duplicate = CatalogRequest::where('type', $data['type'])
-            ->where('name', 'like', $name)
+            ->where('name', 'like', $likeName)
             ->where('status', CatalogRequest::STATUS_PENDING)
             ->exists();
 
@@ -464,7 +475,7 @@ class RefereeController extends ApiController
         $name = trim($data['name']);
 
         // Si ya lo ve (oficial o personal propio), reutilizarlo en vez de duplicar.
-        $existing = Championship::visibleTo($tenant->id)->where('name', 'like', $name)->first();
+        $existing = Championship::visibleTo($tenant->id)->where('name', 'like', self::escapeLike($name))->first();
         if ($existing) {
             return $this->success(
                 ['id' => $existing->id, 'name' => $existing->name, 'is_personal' => $existing->tenant_id !== null, 'reused' => true],
@@ -503,7 +514,7 @@ class RefereeController extends ApiController
 
         $name = trim($data['name']);
 
-        $existing = Club::visibleTo($tenant->id)->where('name', 'like', $name)->first();
+        $existing = Club::visibleTo($tenant->id)->where('name', 'like', self::escapeLike($name))->first();
         if ($existing) {
             return $this->success(
                 ['id' => $existing->id, 'name' => $existing->name, 'city' => $existing->city, 'is_personal' => $existing->tenant_id !== null, 'reused' => true],
@@ -522,5 +533,11 @@ class RefereeController extends ApiController
             'Club creado para tu cuenta.',
             201
         );
+    }
+
+    /** Escapa comodines de LIKE (%, _, \) para que el nombre se compare literal. */
+    private static function escapeLike(string $value): string
+    {
+        return addcslashes($value, '%_\\');
     }
 }
