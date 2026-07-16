@@ -93,11 +93,10 @@ class RefereeInvoiceService
             return $base + ['status' => 'error', 'message' => 'El partido no tiene valor configurado.'];
         }
 
-        // Ventana FEF (§5.2): fuera de fecha queda bloqueado, nunca se pierde.
+        // Ventana FEF (§5.2): si hoy la FEF no recibe, se salta pero NO se muta
+        // el estado (queda pendiente para el próximo periodo; nunca se pierde).
         $window = $this->window->evaluate($match);
         if (! $window['open']) {
-            $match->update(['status' => OfficiatedMatch::STATUS_BLOCKED_WINDOW]);
-
             return $base + ['status' => 'blocked_window', 'message' => $window['reason']];
         }
 

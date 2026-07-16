@@ -190,6 +190,19 @@ export function useDeleteRefereeMatch() {
   });
 }
 
+/** Anula la factura del partido (o libera un intento fallido) y lo reactiva. */
+export function useReactivateRefereeMatch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      api.post<ApiSuccess<unknown>>(`referee/matches/${id}/reactivate`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: refereeKeys.all });
+      qc.invalidateQueries({ queryKey: ["documents"] });
+    },
+  });
+}
+
 export function useInvoiceRefereeMatches() {
   const qc = useQueryClient();
   return useMutation({

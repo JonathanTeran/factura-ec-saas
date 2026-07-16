@@ -106,6 +106,7 @@ Route::prefix('v1')->group(function () {
             Route::get('matches', [\App\Http\Controllers\Api\V1\RefereeController::class, 'matches']);
             Route::post('matches', [\App\Http\Controllers\Api\V1\RefereeController::class, 'storeMatch']);
             Route::post('matches/invoice', [\App\Http\Controllers\Api\V1\RefereeController::class, 'invoice']);
+            Route::post('matches/{officiatedMatch}/reactivate', [\App\Http\Controllers\Api\V1\RefereeController::class, 'reactivate']);
             Route::put('matches/{officiatedMatch}', [\App\Http\Controllers\Api\V1\RefereeController::class, 'updateMatch']);
             Route::delete('matches/{officiatedMatch}', [\App\Http\Controllers\Api\V1\RefereeController::class, 'destroyMatch']);
             Route::get('championships', [\App\Http\Controllers\Api\V1\RefereeController::class, 'championships']);

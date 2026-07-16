@@ -9,6 +9,7 @@ import {
   Pencil,
   Plus,
   Receipt,
+  RotateCcw,
   UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -51,6 +52,7 @@ import type { Customer } from "@/lib/api/types";
 import {
   useCreateRefereeMatch,
   useDeleteRefereeMatch,
+  useReactivateRefereeMatch,
   useInvoiceRefereeMatches,
   useRefereeChampionships,
   useRefereeClubs,
@@ -126,9 +128,14 @@ function normalizeName(name: string): string {
 }
 
 function isSelectable(m: RefereeMatch): boolean {
-  return (
-    m.status === "pending" || (m.status === "blocked_window" && m.window.open)
-  );
+  // Facturable hoy = pendiente y la FEF está recibiendo (ventana abierta).
+  return m.status === "pending" && m.window.open;
+}
+
+/** Estado a mostrar: un pendiente fuera de ventana se ve como "Fuera de ventana". */
+function displayStatusKey(m: RefereeMatch): keyof typeof STATUS_META {
+  if (m.status === "pending" && !m.window.open) return "blocked_window";
+  return m.status;
 }
 
 export function RefereeView() {
@@ -308,8 +315,8 @@ export function RefereeView() {
             <CalendarCheck className="mt-0.5 size-4 shrink-0" />
             <p>
               La FEF recibe facturas del {windowInfo.start_day} al{" "}
-              {windowInfo.end_day} de cada mes. Hoy puedes facturar los
-              partidos de meses anteriores.
+              {windowInfo.end_day} de cada mes. Hoy la ventana está abierta:
+              puedes facturar tus partidos pendientes.
             </p>
           </div>
         ) : (
@@ -463,9 +470,12 @@ function MatchRow({
   onEdit: () => void;
 }) {
   const del = useDeleteRefereeMatch();
+  const reactivate = useReactivateRefereeMatch();
   const selectable = isSelectable(m);
-  const status = STATUS_META[m.status];
-  const editable = m.status === "pending" || m.status === "blocked_window";
+  const displayKey = displayStatusKey(m);
+  const status = STATUS_META[displayKey];
+  const editable = m.status === "pending";
+  const invoiced = m.status === "queued" || m.status === "invoiced";
 
   return (
     <TableRow className="hover:bg-muted/50">
@@ -507,11 +517,7 @@ function MatchRow({
       <TableCell>
         <Badge
           className={status.className}
-          title={
-            m.status === "blocked_window"
-              ? (m.window.reason ?? undefined)
-              : undefined
-          }
+          title={displayKey === "blocked_window" ? (m.window.reason ?? undefined) : undefined}
         >
           {status.label}
         </Badge>
@@ -536,13 +542,27 @@ function MatchRow({
               iconOnly
             />
           </div>
-        ) : m.document ? (
-          <Link
-            href={`/documents/${m.document.id}`}
-            className="whitespace-nowrap font-mono text-xs text-primary hover:underline"
-          >
-            {m.document.number}
-          </Link>
+        ) : invoiced ? (
+          <div className="flex items-center justify-end gap-2">
+            {m.document && (
+              <Link
+                href={`/documents/${m.document.id}`}
+                className="whitespace-nowrap font-mono text-xs text-primary hover:underline"
+              >
+                {m.document.number}
+              </Link>
+            )}
+            <DeleteConfirmButton
+              onConfirm={() => reactivate.mutateAsync(m.id)}
+              isPending={reactivate.isPending}
+              title={`¿Anular la factura de ${m.home_club} vs ${m.away_club}?`}
+              description="Se anula la factura y el partido vuelve a pendiente para volver a facturarlo."
+              successMessage="Partido reactivado"
+              confirmLabel="Anular y reactivar"
+              icon={RotateCcw}
+              iconOnly
+            />
+          </div>
         ) : null}
       </TableCell>
     </TableRow>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\DocumentStatus;
 use App\Models\Arbitros\CatalogRequest;
 use App\Models\Arbitros\Championship;
 use App\Models\Arbitros\Club;
@@ -35,14 +36,21 @@ class RefereeController extends ApiController
             ->groupBy('status')
             ->pluck('total', 'status');
 
+        $pending = (int) ($counts[OfficiatedMatch::STATUS_PENDING] ?? 0)
+            + (int) ($counts[OfficiatedMatch::STATUS_BLOCKED_WINDOW] ?? 0);
+
+        // "Fuera de ventana" es una condición viva: si HOY la FEF no recibe,
+        // todos los pendientes están esperando el próximo periodo.
+        $windowOpenToday = app(InvoiceWindow::class)->canInvoice();
+
         return $this->success([
             'referee_name' => data_get($tenant->settings, 'referee_name'),
             'referee_default_fee' => (float) data_get($tenant->settings, 'referee_default_fee', 0),
             'counts' => [
-                'pending' => (int) ($counts[OfficiatedMatch::STATUS_PENDING] ?? 0),
+                'pending' => $pending,
                 'queued' => (int) ($counts[OfficiatedMatch::STATUS_QUEUED] ?? 0),
                 'invoiced' => (int) ($counts[OfficiatedMatch::STATUS_INVOICED] ?? 0),
-                'blocked_window' => (int) ($counts[OfficiatedMatch::STATUS_BLOCKED_WINDOW] ?? 0),
+                'blocked_window' => $windowOpenToday ? 0 : $pending,
             ],
         ]);
     }
@@ -233,6 +241,50 @@ class RefereeController extends ApiController
         $officiatedMatch->delete();
 
         return $this->success(null, 'Partido eliminado.');
+    }
+
+    /**
+     * POST referee/matches/{match}/reactivate — anula la factura del partido y
+     * lo devuelve a pendiente para volver a facturarlo (§4.5).
+     *
+     * Si la factura está AUTORIZADA, se anula (el observer reactiva el partido).
+     * Si quedó en borrador/en cola/rechazada, se libera directamente. Nunca deja
+     * el partido atascado.
+     */
+    public function reactivate(Request $request, OfficiatedMatch $officiatedMatch): JsonResponse
+    {
+        $tenant = $request->user()->tenant;
+
+        if (! $tenant->isReferee()) {
+            return $this->error('El módulo de árbitros no está activo para esta cuenta.', 403);
+        }
+
+        if (! in_array($officiatedMatch->status, [OfficiatedMatch::STATUS_QUEUED, OfficiatedMatch::STATUS_INVOICED], true)) {
+            return $this->error('Solo se puede anular un partido que está facturado o en proceso.', 400);
+        }
+
+        $document = $officiatedMatch->document;
+
+        if ($document && $document->status === DocumentStatus::AUTHORIZED) {
+            // Anular la factura autorizada → el DocumentStatusObserver reactiva.
+            $document->update([
+                'status' => DocumentStatus::VOIDED,
+                'voided_at' => now(),
+                'void_reason' => 'Anulada por el árbitro.',
+            ]);
+        } else {
+            // Borrador / en cola / rechazada / sin doc: liberar directamente.
+            $officiatedMatch->update([
+                'status' => OfficiatedMatch::STATUS_PENDING,
+                'electronic_document_id' => null,
+                'invoiced_at' => null,
+            ]);
+        }
+
+        return $this->success(
+            ['id' => $officiatedMatch->id],
+            'Partido reactivado. Ya puedes volver a facturarlo.'
+        );
     }
 
     /** POST referee/matches/invoice — factura 1×1 los seleccionados (§4.4). */

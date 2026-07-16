@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +24,8 @@ export function DeleteConfirmButton({
   triggerVariant = "ghost",
   triggerSize = "icon",
   iconOnly = false,
+  icon: Icon = Trash2,
+  confirmLabel = "Eliminar",
 }: {
   onConfirm: () => Promise<unknown>;
   isPending: boolean;
@@ -40,6 +42,8 @@ export function DeleteConfirmButton({
     | "link";
   triggerSize?: "default" | "sm" | "lg" | "icon";
   iconOnly?: boolean;
+  icon?: LucideIcon;
+  confirmLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -50,9 +54,9 @@ export function DeleteConfirmButton({
           type="button"
           variant={triggerVariant}
           size={triggerSize}
-          aria-label="Eliminar"
+          aria-label={confirmLabel}
         >
-          <Trash2 className="size-4" />
+          <Icon className="size-4" />
           {!iconOnly && triggerLabel ? <span>{triggerLabel}</span> : null}
         </Button>
       </DialogTrigger>
@@ -81,7 +85,7 @@ export function DeleteConfirmButton({
             }}
           >
             {isPending && <Loader2 className="size-4 animate-spin" />}
-            Eliminar
+            {confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>
