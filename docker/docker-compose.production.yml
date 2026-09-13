@@ -1,5 +1,3 @@
-version: '3.8'
-
 # ===========================================
 # Factura EC SaaS - Production (1 CPU / small VPS)
 # ===========================================
@@ -42,6 +40,10 @@ services:
       args:
         NEXT_PUBLIC_APP_URL: ${FRONTEND_URL:-https://facturacion.amephia.com}
         NEXT_PUBLIC_APP_NAME: "AmePhia Facturación"
+        NEXT_PUBLIC_WHATSAPP: ${LANDING_WHATSAPP:-13347324056}
+        NEXT_PUBLIC_CONTACT_EMAIL: ${LANDING_CONTACT_EMAIL:-info@amephia.com}
+        NEXT_PUBLIC_STORE_PLAY_URL: ${STORE_PLAY_URL:-}
+        NEXT_PUBLIC_STORE_APPSTORE_URL: ${STORE_APPSTORE_URL:-}
     container_name: factura-ec-frontend
     restart: always
     environment:

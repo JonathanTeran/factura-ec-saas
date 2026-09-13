@@ -293,3 +293,22 @@ El job `deploy` usa el environment `production`. En
 `Settings → Environments → production` activa **Required reviewers** para exigir
 aprobación humana antes de cada despliegue. Sin esa protección, el deploy es
 automático en cuanto CI pasa en `main`.
+
+## Frontend (Next.js) y landing
+
+La landing pública (`/`) y el panel viven en el contenedor `frontend`. `deploy.sh update`
+solo reconstruye Laravel; para publicar cambios del frontend:
+
+    cd /opt/factura-ec-saas && git pull --ff-only
+    docker compose -f docker/docker-compose.production.yml build frontend
+    docker compose -f docker/docker-compose.production.yml up -d frontend
+    docker compose -f docker/docker-compose.production.yml up -d --force-recreate nginx
+
+Variables de la landing (en `backend/.env`, leídas por compose como build args):
+`LANDING_WHATSAPP`, `LANDING_CONTACT_EMAIL`, `STORE_PLAY_URL`, `STORE_APPSTORE_URL`.
+Cambiarlas requiere reconstruir la imagen del frontend. Los planes y los textos de la
+sección de precios se editan en Filament y se reflejan en ≤ 5 minutos sin redeploy.
+
+Verificación tras desplegar: `curl -sI https://<dominio>/` (200, HTML de la landing),
+`/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/api/v1/public/landing` (200 JSON) y
+login → `/dashboard`.

@@ -73,29 +73,6 @@ Route::get('admin/tenants/{tenant}/impersonate', function (Request $request, \Ap
 })->middleware('auth')->name('tenant.impersonate');
 
 // Landing page
-Route::get('/', function () {
-    try {
-        $plans = \App\Models\Billing\Plan::active()
-            ->where('price_monthly', '>', 0)
-            ->ordered()
-            ->get();
-    } catch (\Throwable) {
-        $plans = collect();
-    }
-
-    // Textos editoriales de precios, administrables desde el super admin.
-    try {
-        $pricingContent = app(\App\Services\Settings\PricingContentSettings::class)->all();
-    } catch (\Throwable) {
-        $pricingContent = array_map(
-            fn ($d) => $d['default'],
-            \App\Services\Settings\PricingContentSettings::definitions(),
-        );
-    }
-
-    return view('welcome', compact('plans', 'pricingContent'));
-});
-
 // ─── Helpers ────────────────────────────────────────────────────
 
 $frontendUrl = static function (): ?string {
