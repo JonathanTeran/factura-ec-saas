@@ -173,7 +173,8 @@ return [
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
                 'tries' => 3,
-                'timeout' => 120,
+                // Las recurrentes (ProcessRecurringInvoicesJob, timeout 600) corren aquí.
+                'timeout' => 600,
             ],
             'supervisor-default' => [
                 'connection' => 'redis',
@@ -185,7 +186,9 @@ return [
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
                 'tries' => 3,
-                'timeout' => 60,
+                // La sincronización FEF (SyncFefMatchesJob, ~1-2 min) corre en default:
+                // con 60 s el worker la mataba y fallaba cada hora (MaxAttemptsExceeded).
+                'timeout' => 300,
             ],
         ],
 
