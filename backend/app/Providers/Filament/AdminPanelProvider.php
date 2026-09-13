@@ -6,12 +6,12 @@ use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationGroup;
 use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Widgets;
-use Filament\Navigation\NavigationGroup;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -28,6 +28,10 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            // "Olvidé mi contraseña" (enlace firmado por correo) y página de perfil
+            // para cambiar nombre, correo y contraseña sin tocar la base de datos.
+            ->passwordReset()
+            ->profile()
             ->brandName('AmePhia Admin')
             ->brandLogo(fn () => view('filament.admin.logo'))
             ->favicon(asset('favicon.png'))

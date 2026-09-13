@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Enums\UserRole;
 use App\Models\Tenant\Tenant;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -12,12 +14,10 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
-use Filament\Models\Contracts\FilamentUser;
-use Filament\Panel;
 
 class User extends Authenticatable implements FilamentUser
 {
-    use HasFactory, Notifiable, SoftDeletes, HasApiTokens, TwoFactorAuthenticatable, HasRoles;
+    use HasApiTokens, HasFactory, HasRoles, Notifiable, SoftDeletes, TwoFactorAuthenticatable;
 
     protected $fillable = [
         'tenant_id',
@@ -67,7 +67,7 @@ class User extends Authenticatable implements FilamentUser
         static::addGlobalScope('tenant', function ($query) {
             if (auth()->hasUser()) {
                 $user = auth()->user();
-                if ($user->tenant_id && !$user->isSuperAdmin()) {
+                if ($user->tenant_id && ! $user->isSuperAdmin()) {
                     $query->where('tenant_id', $user->tenant_id);
                 }
             }
@@ -126,7 +126,7 @@ class User extends Authenticatable implements FilamentUser
     public function canAccessPanel(Panel $panel): bool
     {
         if ($panel->getId() === 'admin') {
-            return $this->isSuperAdmin();
+            return $this->isSuperAdmin() && $this->is_active;
         }
 
         return $this->is_active;
@@ -155,7 +155,7 @@ class User extends Authenticatable implements FilamentUser
     public function getAvatarUrlAttribute(): ?string
     {
         if ($this->avatar_path) {
-            return asset('storage/' . $this->avatar_path);
+            return asset('storage/'.$this->avatar_path);
         }
 
         return null;
@@ -261,7 +261,7 @@ class User extends Authenticatable implements FilamentUser
     public function hasAllPermissions(array $permissions): bool
     {
         foreach ($permissions as $permission) {
-            if (!$this->hasPermission($permission)) {
+            if (! $this->hasPermission($permission)) {
                 return false;
             }
         }
