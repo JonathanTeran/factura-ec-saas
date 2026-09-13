@@ -90,8 +90,7 @@ mkdir -p docker/nginx/ssl
 # Instalar certbot (Debian/Ubuntu)
 sudo apt-get update && sudo apt-get install -y certbot
 
-# Emitir el certificado. Mientras la app móvil publicada use facturacion.amephia.com,
-# agrega también -d facturacion.amephia.com (ver docs/MIGRATION-2026-09.md).
+# Emitir el certificado (solo facturon.ec y www; facturacion.amephia.com se retiró el 2026-09-13).
 sudo certbot certonly --standalone \
   -d facturon.ec -d www.facturon.ec \
   --agree-tos -m soporte@amephia.com --no-eff-email

@@ -1,3 +1,5 @@
+> **2026-09-13:** `facturacion.amephia.com` quedó retirado (decisión del cliente). Su DNS ya no apunta a este servidor y se eliminó de nginx, `.env`, certificado y scripts. Este documento se conserva como histórico de la migración.
+
 # Migración a facturon.ec y al droplet nuevo (septiembre 2026)
 
 Estado al 13-sep-2026: el droplet nuevo (`159.89.40.217`, cuenta nueva de DigitalOcean,
