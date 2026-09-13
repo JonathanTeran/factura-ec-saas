@@ -16,7 +16,7 @@ export default function RegisterPage() {
       <CardHeader className="space-y-1">
         <CardTitle className="text-2xl">Crear cuenta</CardTitle>
         <CardDescription>
-          Empieza a facturar en minutos. 14 días de prueba gratis.
+          Empieza a facturar en minutos.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

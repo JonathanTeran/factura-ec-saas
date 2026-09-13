@@ -29,10 +29,25 @@ const ForgotSchema = z.object({
   email: z.email("Correo inválido"),
 });
 
+/** Extrae campos de texto del FormData para repoblar el formulario tras un error. */
+function keepValues(formData: FormData, keys: string[]): Record<string, string> {
+  const values: Record<string, string> = {};
+  for (const key of keys) {
+    const value = formData.get(key);
+    if (typeof value === "string") values[key] = value;
+  }
+  return values;
+}
+
+const LOGIN_KEEP = ["email"];
+const REGISTER_KEEP = ["name", "company_name", "email", "terms"];
+
 export type AuthState = {
   ok: boolean;
   message?: string;
   fieldErrors?: Record<string, string[]>;
+  /** Valores a conservar en el formulario tras un error (nunca contraseñas). */
+  values?: Record<string, string>;
 } | null;
 
 export async function loginAction(
@@ -47,6 +62,7 @@ export async function loginAction(
   if (!parsed.success) {
     return {
       ok: false,
+      values: keepValues(formData, LOGIN_KEEP),
       fieldErrors: z.flattenError(parsed.error).fieldErrors as Record<string, string[]>,
     };
   }
@@ -67,11 +83,12 @@ export async function loginAction(
       const payload = err.payload as { message?: string; errors?: Record<string, string[]> };
       return {
         ok: false,
+        values: keepValues(formData, LOGIN_KEEP),
         message: payload?.message ?? "Credenciales inválidas",
         fieldErrors: payload?.errors,
       };
     }
-    return { ok: false, message: "Error de conexión con el servidor" };
+    return { ok: false, message: "Error de conexión con el servidor", values: keepValues(formData, LOGIN_KEEP) };
   }
 
   redirect("/dashboard");
@@ -93,6 +110,7 @@ export async function registerAction(
   if (!parsed.success) {
     return {
       ok: false,
+      values: keepValues(formData, REGISTER_KEEP),
       fieldErrors: z.flattenError(parsed.error).fieldErrors as Record<string, string[]>,
     };
   }
@@ -113,11 +131,12 @@ export async function registerAction(
       const payload = err.payload as { message?: string; errors?: Record<string, string[]> };
       return {
         ok: false,
+        values: keepValues(formData, REGISTER_KEEP),
         message: payload?.message ?? "No se pudo crear la cuenta",
         fieldErrors: payload?.errors,
       };
     }
-    return { ok: false, message: "Error de conexión con el servidor" };
+    return { ok: false, message: "Error de conexión con el servidor", values: keepValues(formData, REGISTER_KEEP) };
   }
 
   redirect("/dashboard");

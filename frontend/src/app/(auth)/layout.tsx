@@ -57,7 +57,7 @@ export default function AuthLayout({
             <span className="grid size-9 place-items-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground shadow-lg shadow-black/20">
               <Receipt className="size-5" />
             </span>
-            AmePhia Facturación
+            Facturón
           </Link>
         </div>
 
@@ -88,7 +88,7 @@ export default function AuthLayout({
 
         <div className="relative flex items-center gap-2 text-xs text-sidebar-foreground/50">
           <ShieldCheck className="size-3.5" />
-          Autorizado por el Servicio de Rentas Internas
+          Comprobantes autorizados por el SRI
         </div>
       </div>
 
@@ -103,7 +103,7 @@ export default function AuthLayout({
             <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground">
               <Receipt className="size-4.5" />
             </span>
-            AmePhia Facturación
+            Facturón
           </Link>
           {children}
         </div>

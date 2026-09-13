@@ -28,22 +28,23 @@ export function RegisterForm() {
     registerAction,
     null,
   );
+  const values: Record<string, string> = state?.values ?? {};
 
   return (
     <form action={action} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="name">Tu nombre</Label>
-        <Input id="name" name="name" required autoComplete="name" />
+        <Input id="name" name="name" required autoComplete="name" defaultValue={values.name ?? ""} />
         <FieldError errors={state?.fieldErrors?.name} />
       </div>
       <div className="space-y-2">
         <Label htmlFor="company_name">Nombre de empresa</Label>
-        <Input id="company_name" name="company_name" required />
+        <Input id="company_name" name="company_name" required defaultValue={values.company_name ?? ""} />
         <FieldError errors={state?.fieldErrors?.company_name} />
       </div>
       <div className="space-y-2">
         <Label htmlFor="email">Correo electrónico</Label>
-        <Input id="email" name="email" type="email" required autoComplete="email" />
+        <Input id="email" name="email" type="email" required autoComplete="email" defaultValue={values.email ?? ""} />
         <FieldError errors={state?.fieldErrors?.email} />
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -79,6 +80,7 @@ export function RegisterForm() {
           <input
             type="checkbox"
             name="terms"
+            defaultChecked={values.terms === "on"}
             className="mt-0.5 size-4 shrink-0 accent-primary"
           />
           <span>

@@ -32,6 +32,7 @@ function SubmitButton() {
 
 export function LoginForm() {
   const [state, action] = useActionState<AuthState, FormData>(loginAction, null);
+  const values: Record<string, string> = state?.values ?? {};
 
   return (
     <form action={action} className="space-y-5">
@@ -44,6 +45,7 @@ export function LoginForm() {
           placeholder="tu@empresa.com"
           autoComplete="email"
           required
+          defaultValue={values.email ?? ""}
         />
         <FieldError errors={state?.fieldErrors?.email} />
       </div>
