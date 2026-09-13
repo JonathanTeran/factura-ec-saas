@@ -16,6 +16,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // Una sola instancia por proceso: FefSyncService lee los errores de API
+        // acumulados por FefIngestService durante la misma corrida.
+        $this->app->singleton(\App\Services\Arbitros\FefApiClient::class);
+
         //
     }
 

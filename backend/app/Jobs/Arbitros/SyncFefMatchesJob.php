@@ -2,45 +2,45 @@
 
 namespace App\Jobs\Arbitros;
 
-use App\Models\Tenant\Tenant;
-use App\Services\Arbitros\FefIngestService;
-use App\Services\Arbitros\RefereeMatcher;
+use App\Models\Arbitros\FefSyncRun;
+use App\Services\Arbitros\FefSyncService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
-use Illuminate\Support\Facades\Log;
 
 /**
- * Sincroniza catálogo FEF + auto-matching de árbitros. Programado cada hora y
- * disparable manualmente desde el panel del super admin (Filament).
+ * Sincroniza catálogo FEF + auto-matching de árbitros + directorio de árbitros,
+ * dejando la corrida registrada en fef_sync_runs. Programado cada hora y
+ * disparable desde el panel del super admin (trigger "manual").
  */
 class SyncFefMatchesJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable;
 
     public int $timeout = 300;
+
     public int $tries = 2;
+
+    public function __construct(
+        public string $trigger = FefSyncRun::TRIGGER_SCHEDULE,
+        public ?int $userId = null,
+    ) {}
 
     public function middleware(): array
     {
         return [(new WithoutOverlapping('arbitros-sync'))->releaseAfter(300)];
     }
 
-    public function handle(FefIngestService $ingest, RefereeMatcher $matcher): void
+    public function handle(FefSyncService $sync): void
     {
         // Sin tenants árbitro no hay nada que sincronizar: evita llamadas a la
         // API de la FEF en instalaciones que no usan el vertical.
-        $hasReferees = Tenant::where('business_type', Tenant::BUSINESS_TYPE_REFEREE)->exists();
-
-        if (! $hasReferees) {
+        if (! $sync->hasRefereeTenants()) {
             return;
         }
 
-        $ingestStats = $ingest->sync();
-        $matchStats = $matcher->run();
-
-        Log::info('[arbitros] Sync FEF completado', $ingestStats + $matchStats);
+        $sync->run($this->trigger, $this->userId);
     }
 }

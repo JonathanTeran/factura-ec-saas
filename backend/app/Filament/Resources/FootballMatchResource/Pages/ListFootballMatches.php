@@ -18,11 +18,11 @@ class ListFootballMatches extends ListRecords
                 ->icon('heroicon-o-arrow-path')
                 ->requiresConfirmation()
                 ->action(function () {
-                    dispatch(new \App\Jobs\Arbitros\SyncFefMatchesJob());
+                    dispatch(new \App\Jobs\Arbitros\SyncFefMatchesJob(\App\Models\Arbitros\FefSyncRun::TRIGGER_MANUAL, auth()->id()));
 
                     \Filament\Notifications\Notification::make()
                         ->title('Sincronización encolada')
-                        ->body('El catálogo FEF y el auto-matching se actualizarán en unos minutos.')
+                        ->body('El catálogo FEF y el auto-matching se actualizarán en unos minutos. Sigue el avance en Árbitros → Sincronización FEF.')
                         ->success()
                         ->send();
                 }),

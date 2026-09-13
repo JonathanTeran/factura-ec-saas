@@ -11,6 +11,20 @@ use Illuminate\Support\Facades\Http;
  */
 class FefApiClient
 {
+    /** @var list<array{path: string, reason: string}> endpoints caídos en la corrida actual */
+    private array $errors = [];
+
+    /** @return list<array{path: string, reason: string}> */
+    public function errors(): array
+    {
+        return $this->errors;
+    }
+
+    public function resetErrors(): void
+    {
+        $this->errors = [];
+    }
+
     /**
      * Lista de competiciones con partidos recientes.
      *
@@ -59,12 +73,16 @@ class FefApiClient
                     'Accept' => 'application/json',
                     'User-Agent' => 'Mozilla/5.0 (compatible; FacturaEC/1.0)',
                 ])
-                ->get($base . $path, $query);
-        } catch (\Throwable) {
+                ->get($base.$path, $query);
+        } catch (\Throwable $e) {
+            $this->errors[] = ['path' => $path, 'reason' => 'Sin respuesta: '.$e->getMessage()];
+
             return null; // timeout de conexión u otro fallo de red
         }
 
         if (! $response->successful()) {
+            $this->errors[] = ['path' => $path, 'reason' => 'HTTP '.$response->status()];
+
             return null;
         }
 

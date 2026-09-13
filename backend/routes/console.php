@@ -76,6 +76,13 @@ Schedule::job(new \App\Jobs\Arbitros\SyncFefMatchesJob)
     ->withoutOverlapping()
     ->onOneServer();
 
+// Revisión diaria: avisa a los super admins si la sincronización FEF lleva
+// más de arbitros.sync.stale_hours sin una corrida correcta.
+Schedule::command('arbitros:sync-health')
+    ->dailyAt('08:00')
+    ->name('arbitros-sync-health')
+    ->onOneServer();
+
 // Clean expired portal tokens and sessions - daily at 3 AM
 Schedule::command('portal:cleanup')
     ->dailyAt('03:00')

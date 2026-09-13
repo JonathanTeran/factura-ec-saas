@@ -2,29 +2,71 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Arbitros\FefSyncRun;
 use App\Services\Arbitros\FefIngestService;
+use App\Services\Arbitros\FefSyncService;
 use App\Services\Arbitros\RefereeMatcher;
 use Illuminate\Console\Command;
 
 /**
- * Sincroniza el catálogo FEF (campeonatos/clubes/partidos) y corre el
- * auto-matching de árbitros. Ver docs/arbitros-vertical-spec.md §6.
+ * Sincroniza el catálogo FEF (campeonatos/clubes/partidos), corre el
+ * auto-matching de árbitros y actualiza el directorio de árbitros. La corrida
+ * queda registrada en fef_sync_runs (visible en el panel del super admin).
+ * Con --dry-run no se escribe nada ni se registra corrida.
  */
 class SyncFefMatches extends Command
 {
     protected $signature = 'arbitros:sync-matches
         {--dry-run : No escribe nada; solo reporta lo que haría}
-        {--tenant= : Limitar el matching a un tenant específico}
-        {--since-days= : Ventana de partidos a considerar en el matching}';
+        {--tenant= : Limitar el matching a un tenant específico (solo con --dry-run)}
+        {--since-days= : Ventana de partidos a considerar en el matching (solo con --dry-run)}';
 
-    protected $description = 'Sincroniza partidos desde la API pública FEF y propone pendientes por facturar a los árbitros';
+    protected $description = 'Sincroniza partidos desde la API pública FEF, propone pendientes a los árbitros y registra la corrida';
 
-    public function handle(FefIngestService $ingest, RefereeMatcher $matcher): int
+    public function handle(FefSyncService $sync, FefIngestService $ingest, RefereeMatcher $matcher): int
     {
-        $dryRun = (bool) $this->option('dry-run');
+        if ($this->option('dry-run')) {
+            return $this->dryRun($ingest, $matcher);
+        }
 
-        $this->info(($dryRun ? '[dry-run] ' : '') . 'Sincronizando catálogo FEF…');
-        $ingestStats = $ingest->sync($dryRun);
+        $this->info('Sincronizando catálogo FEF, matching y directorio de árbitros…');
+
+        try {
+            $run = $sync->run(FefSyncRun::TRIGGER_CLI);
+        } catch (\Throwable $e) {
+            $this->error('La sincronización falló: '.$e->getMessage());
+            $this->line('La corrida quedó registrada como fallida en el panel (Árbitros → Sincronización FEF).');
+
+            return self::FAILURE;
+        }
+
+        $this->table(
+            ['Estado', 'Duración', 'Campeonatos', 'Clubes nuevos', 'Partidos nuevos', 'Partidos actualizados', 'Propuestas', 'Árbitros', 'Con cuenta', 'Errores API'],
+            [[
+                $run->statusLabel(),
+                round(($run->duration_ms ?? 0) / 1000, 1).' s',
+                $run->stat('championships'),
+                $run->stat('clubs'),
+                $run->stat('matches_created'),
+                $run->stat('matches_updated'),
+                $run->stat('proposals'),
+                $run->stat('referees'),
+                $run->stat('referees_linked'),
+                $run->apiErrorCount(),
+            ]]
+        );
+
+        foreach ($run->api_errors ?? [] as $error) {
+            $this->warn('API FEF: '.($error['path'] ?? '?').' → '.($error['reason'] ?? '?'));
+        }
+
+        return $run->isFailed() ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function dryRun(FefIngestService $ingest, RefereeMatcher $matcher): int
+    {
+        $this->info('[dry-run] Sincronizando catálogo FEF…');
+        $ingestStats = $ingest->sync(true);
 
         $this->table(
             ['Campeonatos', 'Clubes nuevos', 'Partidos nuevos', 'Partidos actualizados', 'Inactivos (omitidos)'],
@@ -37,15 +79,15 @@ class SyncFefMatches extends Command
             ]]
         );
 
-        $this->info('Corriendo auto-matching de árbitros…');
+        $this->info('[dry-run] Corriendo auto-matching de árbitros…');
         $matchStats = $matcher->run(
             tenantId: $this->option('tenant') ? (int) $this->option('tenant') : null,
             sinceDays: $this->option('since-days') ? (int) $this->option('since-days') : null,
-            dryRun: $dryRun,
+            dryRun: true,
         );
 
         $this->table(
-            ['Árbitros con nombre configurado', 'Propuestas ' . ($dryRun ? 'detectadas' : 'creadas')],
+            ['Árbitros con nombre configurado', 'Propuestas detectadas'],
             [[$matchStats['tenants'], $matchStats['proposals']]]
         );
 

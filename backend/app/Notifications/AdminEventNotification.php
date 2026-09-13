@@ -61,6 +61,8 @@ class AdminEventNotification extends Notification implements ShouldQueue
             'tenant.created' => 'Nuevo tenant registrado',
             'certificate.expiring' => 'Certificado proximo a vencer',
             'document.failed' => 'Documento rechazado por el SRI',
+            'fef_sync.failed' => 'Sincronización FEF fallida (árbitros)',
+            'fef_sync.stale' => 'Sincronización FEF sin corridas correctas',
             default => "Evento: {$this->event}",
         };
     }
@@ -69,41 +71,52 @@ class AdminEventNotification extends Notification implements ShouldQueue
     {
         return match ($this->event) {
             'payment.pending' => [
-                "Tenant: " . ($this->data['tenant_name'] ?? 'N/A'),
-                "Monto: \$" . ($this->data['amount'] ?? '0.00'),
-                "Metodo: Transferencia bancaria",
-                "Se requiere verificacion y aprobacion del comprobante.",
+                'Tenant: '.($this->data['tenant_name'] ?? 'N/A'),
+                'Monto: $'.($this->data['amount'] ?? '0.00'),
+                'Metodo: Transferencia bancaria',
+                'Se requiere verificacion y aprobacion del comprobante.',
             ],
             'payment.failed' => [
-                "Tenant: " . ($this->data['tenant_name'] ?? 'N/A'),
-                "Monto: \$" . ($this->data['amount'] ?? '0.00'),
-                "Error: " . ($this->data['error'] ?? 'Desconocido'),
+                'Tenant: '.($this->data['tenant_name'] ?? 'N/A'),
+                'Monto: $'.($this->data['amount'] ?? '0.00'),
+                'Error: '.($this->data['error'] ?? 'Desconocido'),
             ],
             'subscription.canceled' => [
-                "Tenant: " . ($this->data['tenant_name'] ?? 'N/A'),
-                "Plan: " . ($this->data['plan_name'] ?? 'N/A'),
-                "Motivo: " . ($this->data['reason'] ?? 'No especificado'),
+                'Tenant: '.($this->data['tenant_name'] ?? 'N/A'),
+                'Plan: '.($this->data['plan_name'] ?? 'N/A'),
+                'Motivo: '.($this->data['reason'] ?? 'No especificado'),
             ],
             'subscription.expired' => [
-                "Tenant: " . ($this->data['tenant_name'] ?? 'N/A'),
-                "Plan: " . ($this->data['plan_name'] ?? 'N/A'),
+                'Tenant: '.($this->data['tenant_name'] ?? 'N/A'),
+                'Plan: '.($this->data['plan_name'] ?? 'N/A'),
             ],
             'tenant.created' => [
-                "Nombre: " . ($this->data['tenant_name'] ?? 'N/A'),
-                "Email: " . ($this->data['email'] ?? 'N/A'),
+                'Nombre: '.($this->data['tenant_name'] ?? 'N/A'),
+                'Email: '.($this->data['email'] ?? 'N/A'),
             ],
             'certificate.expiring' => [
-                "Empresa: " . ($this->data['company_name'] ?? 'N/A'),
-                "Dias restantes: " . ($this->data['days_remaining'] ?? 'N/A'),
+                'Empresa: '.($this->data['company_name'] ?? 'N/A'),
+                'Dias restantes: '.($this->data['days_remaining'] ?? 'N/A'),
             ],
             'document.failed' => [
-                "Documento: " . ($this->data['document_number'] ?? 'N/A'),
-                "Tenant: " . ($this->data['tenant_name'] ?? 'N/A'),
-                "Error SRI: " . ($this->data['error'] ?? 'Desconocido'),
+                'Documento: '.($this->data['document_number'] ?? 'N/A'),
+                'Tenant: '.($this->data['tenant_name'] ?? 'N/A'),
+                'Error SRI: '.($this->data['error'] ?? 'Desconocido'),
+            ],
+            'fef_sync.failed' => [
+                'La sincronización con la API de la FEF (campeonatos, clubes, partidos y árbitros) falló.',
+                'Origen: '.($this->data['trigger'] ?? 'N/A').' · Inicio: '.($this->data['started_at'] ?? 'N/A'),
+                'Error: '.($this->data['error'] ?? 'Desconocido'),
+                'Horizon reintentará; si persiste, revisa el historial en Árbitros → Sincronización FEF.',
+            ],
+            'fef_sync.stale' => [
+                'No hay una sincronización FEF correcta en las últimas '.($this->data['hours'] ?? '?').' horas.',
+                'Última correcta: '.($this->data['last_ok_at'] ?? 'nunca').' · Estado de la última corrida: '.($this->data['last_status'] ?? 'N/A'),
+                'Los árbitros podrían no recibir propuestas de partidos nuevos hasta que se recupere.',
             ],
             default => [
                 "Se ha producido el evento: {$this->event}",
-                "Datos: " . json_encode($this->data),
+                'Datos: '.json_encode($this->data),
             ],
         };
     }
@@ -120,6 +133,7 @@ class AdminEventNotification extends Notification implements ShouldQueue
             'tenant.created' => isset($this->data['tenant_id'])
                 ? url("/admin/tenants/{$this->data['tenant_id']}")
                 : url('/admin/tenants'),
+            'fef_sync.failed', 'fef_sync.stale' => url('/admin/fef-sync-runs'),
             default => url('/admin'),
         };
     }

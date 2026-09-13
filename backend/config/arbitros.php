@@ -28,6 +28,12 @@ return [
         'timeout' => (int) env('FEF_API_TIMEOUT', 30),
     ],
 
+    /* Sincronización: alerta si no hay corrida correcta en N horas; retención del historial. */
+    'sync' => [
+        'stale_hours' => (int) env('FEF_SYNC_STALE_HOURS', 3),
+        'keep_days' => (int) env('FEF_SYNC_KEEP_DAYS', 90),
+    ],
+
     /* Auto-matching: ventana de partidos hacia atrás a considerar. */
     'matching' => [
         'since_days' => (int) env('FEF_MATCHING_SINCE_DAYS', 60),
