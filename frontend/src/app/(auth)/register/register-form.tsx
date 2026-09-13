@@ -1,116 +1,42 @@
 "use client";
 
 import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
-import { Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { CheckboxField, FormAlert, PasswordField, SubmitButton, TextField } from "@/components/auth/fields";
 import { registerAction, type AuthState } from "../actions";
 
-function FieldError({ errors }: { errors?: string[] }) {
-  if (!errors || errors.length === 0) return null;
-  return <p className="text-xs text-destructive">{errors[0]}</p>;
-}
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" className="w-full" disabled={pending}>
-      {pending && <Loader2 className="size-4 animate-spin" />}
-      Crear cuenta
-    </Button>
-  );
-}
-
 export function RegisterForm() {
-  const [state, action] = useActionState<AuthState, FormData>(
-    registerAction,
-    null,
-  );
+  const [state, action] = useActionState<AuthState, FormData>(registerAction, null);
   const values: Record<string, string> = state?.values ?? {};
 
   return (
-    <form action={action} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="name">Tu nombre</Label>
-        <Input id="name" name="name" required autoComplete="name" defaultValue={values.name ?? ""} />
-        <FieldError errors={state?.fieldErrors?.name} />
+    <form action={action} className="space-y-5">
+      <TextField id="name" name="name" label="Tu nombre" autoComplete="name" required defaultValue={values.name ?? ""} errors={state?.fieldErrors?.name} />
+      <TextField id="company_name" name="company_name" label="Nombre de empresa" autoComplete="organization" required defaultValue={values.company_name ?? ""} errors={state?.fieldErrors?.company_name} />
+      <TextField id="email" name="email" type="email" label="Correo electrónico" autoComplete="email" required defaultValue={values.email ?? ""} errors={state?.fieldErrors?.email} />
+      <div className="grid gap-5 sm:grid-cols-2">
+        <PasswordField id="password" name="password" label="Contraseña" autoComplete="new-password" required showRules errors={state?.fieldErrors?.password} className="sm:col-span-2" />
+        <PasswordField id="password_confirmation" name="password_confirmation" label="Confirmar contraseña" autoComplete="new-password" required errors={state?.fieldErrors?.password_confirmation} className="sm:col-span-2" />
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="company_name">Nombre de empresa</Label>
-        <Input id="company_name" name="company_name" required defaultValue={values.company_name ?? ""} />
-        <FieldError errors={state?.fieldErrors?.company_name} />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="email">Correo electrónico</Label>
-        <Input id="email" name="email" type="email" required autoComplete="email" defaultValue={values.email ?? ""} />
-        <FieldError errors={state?.fieldErrors?.email} />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <Label htmlFor="password">Contraseña</Label>
-          <Input
-            id="password"
-            name="password"
-            type="password"
-            required
-            autoComplete="new-password"
-          />
-          <p className="text-xs text-muted-foreground">
-            Mínimo 8 caracteres, con mayúscula, minúscula y un carácter
-            especial.
-          </p>
-          <FieldError errors={state?.fieldErrors?.password} />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="password_confirmation">Confirmar</Label>
-          <Input
-            id="password_confirmation"
-            name="password_confirmation"
-            type="password"
-            required
-            autoComplete="new-password"
-          />
-          <FieldError errors={state?.fieldErrors?.password_confirmation} />
-        </div>
-      </div>
-      <div className="space-y-1">
-        <label className="flex items-start gap-2 text-xs text-muted-foreground">
-          <input
-            type="checkbox"
-            name="terms"
-            defaultChecked={values.terms === "on"}
-            className="mt-0.5 size-4 shrink-0 accent-primary"
-          />
-          <span>
+      <CheckboxField
+        name="terms"
+        defaultChecked={values.terms === "on"}
+        errors={state?.fieldErrors?.terms}
+        label={
+          <>
             Acepto los{" "}
-            <a
-              href="/terms"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium text-primary underline"
-            >
+            <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand underline-offset-4 hover:underline">
               Términos y Condiciones
             </a>{" "}
             y la{" "}
-            <a
-              href="/privacy"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium text-primary underline"
-            >
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-semibold text-brand underline-offset-4 hover:underline">
               Política de Privacidad
             </a>{" "}
-            de Facturón EC.
-          </span>
-        </label>
-        <FieldError errors={state?.fieldErrors?.terms} />
-      </div>
-      {state?.message && !state.ok && (
-        <p className="text-sm text-destructive">{state.message}</p>
-      )}
-      <SubmitButton />
+            de Facturón.
+          </>
+        }
+      />
+      {state?.message && !state.ok && <FormAlert>{state.message}</FormAlert>}
+      <SubmitButton>Crear cuenta</SubmitButton>
     </form>
   );
 }

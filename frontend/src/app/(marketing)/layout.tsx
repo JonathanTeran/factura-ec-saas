@@ -1,15 +1,8 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque } from "next/font/google";
 import { SITE_DESCRIPTION } from "@/content/landing";
+import { bricolage } from "@/lib/fonts";
 import { APP_URL } from "@/lib/landing/config";
 import { WhatsAppButton } from "@/components/marketing/whatsapp-button";
-
-const bricolage = Bricolage_Grotesque({
-  subsets: ["latin"],
-  weight: ["700", "800"],
-  variable: "--font-bricolage",
-  display: "swap",
-});
 
 const TITLE = "Facturón — Facturación electrónica del Ecuador autorizada por el SRI";
 const OG_TITLE = "Facturón — Facturación electrónica del Ecuador";

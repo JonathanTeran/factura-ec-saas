@@ -1,51 +1,29 @@
 import Link from "next/link";
+import { AuthHeading, FormAlert } from "@/components/auth/fields";
 import { LoginForm } from "./login-form";
 
-export const metadata = { title: "Iniciar sesión" };
+export const metadata = { title: { absolute: "Iniciar sesión · Facturón" } };
 
 const REASON_MESSAGES: Record<string, string> = {
   expired: "Tu sesión expiró. Inicia sesión de nuevo.",
   unreachable: "No pudimos conectar con el servidor. Vuelve a iniciar sesión.",
 };
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ reason?: string }>;
-}) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ reason?: string }> }) {
   const { reason } = await searchParams;
   const message = reason ? REASON_MESSAGES[reason] : null;
 
   return (
     <div className="space-y-8">
-      <div className="space-y-2">
-        <h2 className="text-2xl font-semibold tracking-tight">
-          Bienvenido de nuevo
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Ingresa tus credenciales para acceder a tu panel.
-        </p>
-      </div>
-
-      {message && (
-        <div className="rounded-lg border border-amber-300/60 bg-amber-50 px-3.5 py-2.5 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
-          {message}
-        </div>
-      )}
-
+      <AuthHeading eyebrow="Bienvenido de nuevo" title="Ingresa a tu panel" subtitle="Tus comprobantes, clientes y cobros te esperan." />
+      {message && <FormAlert tone="warning">{message}</FormAlert>}
       <LoginForm />
-
-      <div className="space-y-3 text-sm">
-        <div className="text-center text-muted-foreground">
-          ¿No tienes cuenta?{" "}
-          <Link
-            href="/register"
-            className="font-medium text-primary underline-offset-4 hover:underline"
-          >
-            Regístrate
-          </Link>
-        </div>
-      </div>
+      <p className="text-center text-sm text-slate-500">
+        ¿No tienes cuenta?{" "}
+        <Link href="/register" className="font-semibold text-brand underline-offset-4 hover:underline">
+          Crear cuenta
+        </Link>
+      </p>
     </div>
   );
 }

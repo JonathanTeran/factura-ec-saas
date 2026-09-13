@@ -4,9 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FormAlert, PasswordField } from "@/components/auth/fields";
 
 export function ResetForm({ token, email }: { token: string; email: string }) {
   const router = useRouter();
@@ -31,12 +29,7 @@ export function ResetForm({ token, email }: { token: string; email: string }) {
       const res = await fetch("/api/proxy/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          token,
-          email,
-          password,
-          password_confirmation: confirm,
-        }),
+        body: JSON.stringify({ token, email, password, password_confirmation: confirm }),
       });
       const payload = await res.json().catch(() => null);
       if (!res.ok) {
@@ -53,45 +46,23 @@ export function ResetForm({ token, email }: { token: string; email: string }) {
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
-      <div className="space-y-2">
-        <Label htmlFor="password">Nueva contraseña</Label>
-        <Input
-          id="password"
-          type="password"
-          autoComplete="new-password"
-          placeholder="••••••••"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="confirm">Confirmar contraseña</Label>
-        <Input
-          id="confirm"
-          type="password"
-          autoComplete="new-password"
-          placeholder="••••••••"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          required
-        />
-      </div>
-      {error && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3.5 py-2.5 text-sm text-destructive">
-          {error}
-        </div>
-      )}
-      <Button type="submit" className="group w-full" size="lg" disabled={pending}>
+      <PasswordField id="password" label="Nueva contraseña" autoComplete="new-password" required showRules value={password} onChange={(e) => setPassword(e.target.value)} />
+      <PasswordField id="confirm" label="Confirmar contraseña" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+      {error && <FormAlert>{error}</FormAlert>}
+      <button
+        type="submit"
+        disabled={pending}
+        className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-brand text-[15px] font-semibold text-white shadow-lg shadow-brand/25 transition-colors hover:bg-brand-hover disabled:opacity-60"
+      >
         {pending ? (
-          <Loader2 className="size-4 animate-spin" />
+          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
         ) : (
           <>
             Cambiar contraseña
-            <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+            <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
           </>
         )}
-      </Button>
+      </button>
     </form>
   );
 }

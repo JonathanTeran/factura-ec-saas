@@ -1,35 +1,19 @@
 import Link from "next/link";
+import { AuthHeading } from "@/components/auth/fields";
 import { ForgotForm } from "./forgot-form";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 
-export const metadata = { title: "Recuperar contraseña" };
+export const metadata = { title: { absolute: "Recuperar contraseña · Facturón" } };
 
 export default function ForgotPasswordPage() {
   return (
-    <Card>
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl">Recuperar contraseña</CardTitle>
-        <CardDescription>
-          Ingresa tu correo y te enviaremos un enlace de recuperación
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <ForgotForm />
-        <div className="text-center text-sm">
-          <Link
-            href="/login"
-            className="text-muted-foreground hover:text-foreground hover:underline"
-          >
-            Volver al inicio de sesión
-          </Link>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="space-y-8">
+      <AuthHeading eyebrow="Recuperar acceso" title="¿Olvidaste tu contraseña?" subtitle="Escribe tu correo y te enviamos un enlace para crear una nueva." />
+      <ForgotForm />
+      <p className="text-center text-sm text-slate-500">
+        <Link href="/login" className="font-semibold text-brand underline-offset-4 hover:underline">
+          Volver a iniciar sesión
+        </Link>
+      </p>
+    </div>
   );
 }
