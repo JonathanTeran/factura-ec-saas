@@ -38,7 +38,8 @@ class ErrorPagesTest extends TestCase
         $this->get('/api/v1/esta-ruta-no-existe')
             ->assertNotFound()
             ->assertHeader('Content-Type', 'application/json')
-            ->assertJsonPath('error', 'not_found');
+            ->assertJsonPath('error', 'not_found')
+            ->assertJsonPath('message', 'Recurso no encontrado.');
 
         $this->get('/api/v1/ext/me')
             ->assertStatus(401)

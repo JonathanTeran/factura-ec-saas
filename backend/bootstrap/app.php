@@ -189,7 +189,11 @@ return Application::configure(basePath: dirname(__DIR__))
                 return response()->json([
                     'success' => false,
                     'error' => 'not_found',
-                    'message' => $e->getMessage() !== '' ? $e->getMessage() : 'Recurso no encontrado',
+                    // Los mensajes técnicos del router ("The route … could not be found") no
+                    // le sirven a nadie: mensaje amigable salvo que sea uno propio (abort).
+                    'message' => ($e->getMessage() !== '' && ! str_starts_with($e->getMessage(), 'The route'))
+                        ? $e->getMessage()
+                        : 'Recurso no encontrado.',
                     'errors' => [],
                 ], 404);
             }
