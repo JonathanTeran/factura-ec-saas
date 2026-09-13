@@ -3,8 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 /** Páginas de autenticación: sin sesión se ven; con sesión mandan al panel. */
 const AUTH_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
 
-/** Páginas públicas para todos (la landing). Con sesión también se muestran. */
+/** Páginas públicas para todos (landing y docs). Con sesión también se muestran. */
 const MARKETING_PATHS = ["/"];
+const MARKETING_PREFIXES = ["/docs"];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -13,7 +14,8 @@ export function proxy(request: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/") ||
     pathname.includes(".") ||
-    MARKETING_PATHS.includes(pathname)
+    MARKETING_PATHS.includes(pathname) ||
+    MARKETING_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))
   ) {
     return NextResponse.next();
   }

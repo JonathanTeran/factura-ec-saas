@@ -75,3 +75,35 @@ test.describe("landing", () => {
     await expect(page).toHaveURL(/\/login/);
   });
 });
+
+test.describe("documentación de la API", () => {
+  test("/docs/api renderiza la guía con índice, referencia y OpenAPI", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("console", (msg) => {
+      if (msg.type() === "error") errors.push(msg.text());
+    });
+    await page.goto("/docs/api");
+    await expect(page.locator("h1")).toHaveCount(1);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Emite comprobantes del SRI desde tu propio sistema");
+    // El índice lateral solo se muestra en escritorio (lg:); en móvil sigue en el DOM.
+    await expect(page.locator('nav[aria-label="Secciones de la documentación"] a[href="#idempotencia"]')).toHaveCount(1);
+    await expect(page.locator("#idempotencia")).toBeAttached();
+    await expect(page.locator("#post-documents")).toContainText("/documents");
+    await expect(page.getByRole("link", { name: /OpenAPI 3.1/ })).toHaveAttribute("href", "/docs/openapi.yaml");
+    expect(errors).toEqual([]);
+  });
+
+  test("openapi.yaml se sirve y el sitemap incluye /docs/api", async ({ request }) => {
+    const spec = await request.get("/docs/openapi.yaml");
+    expect(spec.ok()).toBe(true);
+    expect(await spec.text()).toContain("openapi: 3.1.0");
+    const sitemap = await request.get("/sitemap.xml");
+    expect(await sitemap.text()).toContain("/docs/api");
+  });
+
+  test("la página de docs es pública también sin sesión y no redirige", async ({ page }) => {
+    const response = await page.goto("/docs/api");
+    expect(response?.status()).toBe(200);
+    await expect(page).toHaveURL(/\/docs\/api$/);
+  });
+});

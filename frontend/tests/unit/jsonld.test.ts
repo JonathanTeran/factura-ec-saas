@@ -49,6 +49,6 @@ describe("buildJsonLd", () => {
   });
 
   it("la FAQPage tiene las 13 preguntas", () => {
-    expect((byType("FAQPage").mainEntity as unknown[]).length).toBe(13);
+    expect((byType("FAQPage").mainEntity as unknown[]).length).toBe(14);
   });
 });

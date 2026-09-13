@@ -20,11 +20,12 @@ describe("robots", () => {
 });
 
 describe("sitemap", () => {
-  it("lista la landing, registro, login y páginas legales", () => {
+  it("lista la landing, registro, docs de la API, login y páginas legales", () => {
     const urls = buildSitemap("https://facturon.ec", new Date("2026-09-12")).map((e) => e.url);
     expect(urls).toEqual([
       "https://facturon.ec/",
       "https://facturon.ec/register",
+      "https://facturon.ec/docs/api",
       "https://facturon.ec/login",
       "https://facturon.ec/terms",
       "https://facturon.ec/privacy",

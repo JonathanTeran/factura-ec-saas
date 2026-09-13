@@ -19,7 +19,7 @@ function allStrings(value: unknown): string[] {
 
 describe("contenido de la landing", () => {
   it("tiene 13 preguntas frecuentes completas", () => {
-    expect(FAQS).toHaveLength(13);
+    expect(FAQS).toHaveLength(14);
     for (const f of FAQS) {
       expect(f.q.length).toBeGreaterThan(10);
       expect(f.a.length).toBeGreaterThan(40);

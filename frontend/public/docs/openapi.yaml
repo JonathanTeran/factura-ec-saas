@@ -1,0 +1,965 @@
+openapi: 3.1.0
+info:
+  title: Facturón — API de integración
+  version: "1.0.0"
+  summary: Emite comprobantes electrónicos del SRI y consulta lo facturado desde tu propio sistema.
+  description: |
+    API REST para integrar ERPs, tiendas en línea, puntos de venta o scripts con Facturón.
+    Disponible en los planes **Negocio**, **Profesional** y **Enterprise**.
+
+    - Autenticación con llaves `fec_…` creadas en *Configuración → API e integraciones*.
+    - Cada llave tiene alcances (scopes), un límite de peticiones por minuto y caducidad opcional.
+    - La emisión es asíncrona: `POST /documents` responde `201` con el documento en `processing`;
+      consulta `GET /documents/{id}/status` hasta ver `authorized` o `rejected`.
+    - Usa la cabecera `Idempotency-Key` en `POST /documents` para reintentar sin duplicar facturas.
+
+    Documentación completa: https://facturon.ec/docs/api
+  contact:
+    name: Soporte Facturón
+    email: info@amephia.com
+    url: https://facturon.ec
+  termsOfService: https://facturon.ec/terms
+servers:
+  - url: https://facturon.ec/api/v1/ext
+    description: Producción (el ambiente del SRI —pruebas o producción— lo define cada empresa emisora)
+security:
+  - bearerAuth: []
+  - apiKeyHeader: []
+tags:
+  - name: Cuenta
+  - name: Documentos
+  - name: Clientes
+  - name: Productos
+  - name: Catálogos
+
+paths:
+  /me:
+    get:
+      tags: [Cuenta]
+      summary: Identidad de la integración
+      description: Cuenta, plan, límites, uso del período y datos de la llave. Útil para verificar credenciales.
+      operationId: getMe
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Me"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /companies:
+    get:
+      tags: [Cuenta]
+      summary: Empresas emisoras, establecimientos y puntos de emisión
+      description: Devuelve los `company_id` y `emission_point_id` que necesitas para emitir. Requiere `documents:read`.
+      operationId: listCompanies
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          companies:
+                            type: array
+                            items: { $ref: "#/components/schemas/Company" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /documents:
+    get:
+      tags: [Documentos]
+      summary: Listar documentos
+      description: Requiere `documents:read`. Paginado (máximo 100 por página).
+      operationId: listDocuments
+      parameters:
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/DocumentStatus" } }
+        - { name: document_type, in: query, schema: { $ref: "#/components/schemas/DocumentType" } }
+        - { name: company_id, in: query, schema: { type: integer } }
+        - { name: customer_id, in: query, schema: { type: integer } }
+        - { name: date_from, in: query, schema: { type: string, format: date }, description: Fecha de emisión desde (YYYY-MM-DD) }
+        - { name: date_to, in: query, schema: { type: string, format: date } }
+        - { name: access_key, in: query, schema: { type: string, minLength: 49, maxLength: 49 }, description: Clave de acceso exacta }
+        - { name: search, in: query, schema: { type: string }, description: Busca en clave de acceso, número y cliente }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 15 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Paginated"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Document" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Documentos]
+      summary: Crear (y emitir) un documento
+      description: |
+        Requiere `documents:write`. Crea el comprobante y, salvo `send: false`, lo valida contra las reglas
+        del SRI y lo envía a firmar y autorizar. Responde `201` con el documento en estado `processing`.
+
+        **Idempotencia:** envía `Idempotency-Key` (por ejemplo, el id del pedido en tu sistema). Si la
+        petición se repite con el mismo cuerpo dentro de 24 h recibirás la misma respuesta con la cabecera
+        `Idempotent-Replayed: true`; con otro cuerpo, `409 idempotency_key_reused`.
+
+        Facturón no recalcula los importes: envía `subtotal`, `tax_base`, `tax_value` y `total` ya calculados.
+      operationId: createDocument
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DocumentInput" }
+            examples:
+              factura:
+                summary: Factura con IVA 15 %
+                value:
+                  company_id: 1
+                  emission_point_id: 1
+                  customer_id: 25
+                  document_type: "01"
+                  issue_date: "2026-09-13"
+                  subtotal_15: 100
+                  total_tax: 15
+                  total: 115
+                  payment_methods: [{ code: "01", amount: 115 }]
+                  items:
+                    - main_code: "SERV-001"
+                      description: "Servicio de consultoría"
+                      quantity: 1
+                      unit_price: 100
+                      discount: 0
+                      subtotal: 100
+                      tax_code: "2"
+                      tax_percentage_code: "4"
+                      tax_rate: 15
+                      tax_base: 100
+                      tax_value: 15
+                  additional_info: { Pedido: "WEB-1001" }
+      responses:
+        "201":
+          description: Creado (y enviado al SRI si `send` es verdadero)
+          headers:
+            Idempotent-Replayed:
+              description: Presente (`true`) cuando la respuesta proviene de una petición idéntica anterior.
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          document: { $ref: "#/components/schemas/Document" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: "`subscription_required`, `api_access_not_allowed`, `insufficient_scope` o `plan_limit_reached`"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: "`idempotency_key_reused`, `idempotency_in_progress` o `send_failed`"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: Validación de campos o reglas del SRI (`errors.sri`). Si el documento se creó pero no pasó las reglas del SRI, viene en `data.document` con estado `rejected`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /documents/{id}:
+    parameters:
+      - $ref: "#/components/parameters/DocumentId"
+    get:
+      tags: [Documentos]
+      summary: Ver un documento
+      description: Requiere `documents:read`. Incluye ítems, cliente y empresa.
+      operationId: getDocument
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          document: { $ref: "#/components/schemas/Document" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /documents/{id}/status:
+    parameters:
+      - $ref: "#/components/parameters/DocumentId"
+    get:
+      tags: [Documentos]
+      summary: Estado ante el SRI
+      description: Requiere `documents:read`. Si el documento sigue en proceso, consulta al SRI en vivo antes de responder. Ideal para sondear cada 5–10 s tras emitir.
+      operationId: getDocumentStatus
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/DocumentStatusInfo" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /documents/{id}/send:
+    parameters:
+      - $ref: "#/components/parameters/DocumentId"
+    post:
+      tags: [Documentos]
+      summary: Enviar al SRI (borradores, fallidos o rechazados)
+      description: Requiere `documents:write`. Reintenta la emisión de un documento creado con `send: false` o que falló.
+      operationId: sendDocument
+      responses:
+        "200":
+          description: Enviado a procesar
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "400": { description: El documento no está en un estado enviable o la empresa no está lista (firma, establecimientos) }
+        "422": { description: Reglas del SRI no cumplidas, content: { application/json: { schema: { $ref: "#/components/schemas/ValidationError" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /documents/{id}/void:
+    parameters:
+      - $ref: "#/components/parameters/DocumentId"
+    post:
+      tags: [Documentos]
+      summary: Marcar como anulado
+      description: |
+        Requiere `documents:write`. Marca internamente un documento **autorizado** como anulado. En Ecuador la anulación
+        fiscal se realiza en SRI en línea (o emitiendo una nota de crédito); este endpoint registra el motivo en Facturón.
+      operationId: voidDocument
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, maxLength: 300 }
+      responses:
+        "200": { description: Anulado, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "400": { description: Solo se anulan documentos autorizados }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /documents/{id}/email:
+    parameters:
+      - $ref: "#/components/parameters/DocumentId"
+    post:
+      tags: [Documentos]
+      summary: Reenviar el comprobante por correo
+      description: Requiere `documents:write`. Solo documentos autorizados. Sin `email` se usa el del cliente.
+      operationId: emailDocument
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+      responses:
+        "200": { description: Encolado, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "400": { description: El documento no está autorizado o no hay correo }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /documents/{id}/ride:
+    parameters:
+      - $ref: "#/components/parameters/DocumentId"
+      - name: url
+        in: query
+        description: Con `1`, responde JSON con una URL temporal (30 min) en lugar del PDF.
+        schema: { type: integer, enum: [0, 1] }
+    get:
+      tags: [Documentos]
+      summary: RIDE en PDF
+      description: Requiere `documents:read`. Los borradores se entregan con marca de agua.
+      operationId: getDocumentRide
+      responses:
+        "200":
+          description: PDF (o JSON con `data.url` y `data.filename` si `url=1`)
+          content:
+            application/pdf: { schema: { type: string, format: binary } }
+            application/json: { schema: { $ref: "#/components/schemas/Envelope" } }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /documents/{id}/xml:
+    parameters:
+      - $ref: "#/components/parameters/DocumentId"
+      - name: url
+        in: query
+        schema: { type: integer, enum: [0, 1] }
+    get:
+      tags: [Documentos]
+      summary: XML firmado / autorizado
+      description: Requiere `documents:read`. Disponible cuando el documento fue firmado; `404 xml_not_available` antes.
+      operationId: getDocumentXml
+      responses:
+        "200":
+          description: XML (o JSON con URL temporal si `url=1`)
+          content:
+            application/xml: { schema: { type: string } }
+            application/json: { schema: { $ref: "#/components/schemas/Envelope" } }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /customers:
+    get:
+      tags: [Clientes]
+      summary: Listar clientes
+      description: Requiere `customers:read`.
+      operationId: listCustomers
+      parameters:
+        - { name: search, in: query, schema: { type: string }, description: Nombre, identificación o correo }
+        - { name: page, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: per_page, in: query, schema: { type: integer, maximum: 100 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Paginated"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Customer" }
+    post:
+      tags: [Clientes]
+      summary: Crear cliente
+      description: Requiere `customers:write`. La identificación debe ser única por cuenta.
+      operationId: createCustomer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomerInput" }
+      responses:
+        "201":
+          description: Creado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          customer: { $ref: "#/components/schemas/Customer" }
+        "422": { description: Validación, content: { application/json: { schema: { $ref: "#/components/schemas/ValidationError" } } } }
+
+  /customers/lookup:
+    get:
+      tags: [Clientes]
+      summary: Buscar por identificación exacta
+      description: Requiere `customers:read`. Devuelve `404 not_found` si no existe — útil para "crear si no existe".
+      operationId: lookupCustomer
+      parameters:
+        - { name: identification, in: query, required: true, schema: { type: string, maxLength: 20 }, example: "1790012345001" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          customer: { $ref: "#/components/schemas/Customer" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /customers/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [Clientes]
+      summary: Ver cliente
+      operationId: getCustomer
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Clientes]
+      summary: Actualizar cliente
+      description: Requiere `customers:write`. Envía el registro completo (`identification_type`, `identification_number` y `name` son obligatorios).
+      operationId: updateCustomer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomerInput" }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { description: Validación, content: { application/json: { schema: { $ref: "#/components/schemas/ValidationError" } } } }
+
+  /products:
+    get:
+      tags: [Productos]
+      summary: Listar productos y servicios
+      description: Requiere `products:read`.
+      operationId: listProducts
+      parameters:
+        - { name: search, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: per_page, in: query, schema: { type: integer, maximum: 100 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Paginated"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Product" }
+    post:
+      tags: [Productos]
+      summary: Crear producto o servicio
+      description: Requiere `products:write`. `code` es único por cuenta.
+      operationId: createProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductInput" }
+      responses:
+        "201": { description: Creado, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "422": { description: Validación, content: { application/json: { schema: { $ref: "#/components/schemas/ValidationError" } } } }
+
+  /products/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [Productos]
+      summary: Ver producto
+      operationId: getProduct
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Productos]
+      summary: Actualizar producto
+      description: Requiere `products:write`. Envía el registro completo (`code`, `name`, `type` y `unit_price` son obligatorios).
+      operationId: updateProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductInput" }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /catalogs/identification-types:
+    get:
+      tags: [Catálogos]
+      summary: Tipos de identificación (04 RUC, 05 cédula, 06 pasaporte, 07 consumidor final, 08 exterior)
+      operationId: catalogIdentificationTypes
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+  /catalogs/document-types:
+    get:
+      tags: [Catálogos]
+      summary: Tipos de comprobante (01 factura, 03 liquidación, 04 nota de crédito, 05 nota de débito, 06 guía, 07 retención)
+      operationId: catalogDocumentTypes
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+  /catalogs/payment-methods:
+    get:
+      tags: [Catálogos]
+      summary: Formas de pago del SRI (01 sin sistema financiero, 19 tarjeta de crédito, 20 otros con sistema financiero…)
+      operationId: catalogPaymentMethods
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+  /catalogs/tax-rates:
+    get:
+      tags: [Catálogos]
+      summary: Tarifas de IVA (códigos de porcentaje)
+      operationId: catalogTaxRates
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+  /catalogs/retention-codes:
+    get:
+      tags: [Catálogos]
+      summary: Códigos de retención (IVA y renta)
+      operationId: catalogRetentionCodes
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: fec_…
+      description: "`Authorization: Bearer fec_XXXXXXXX…` (recomendado)"
+    apiKeyHeader:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Alternativa equivalente a `Authorization: Bearer`.
+
+  parameters:
+    DocumentId:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Identificador único de la operación en tu sistema (máx. 128 caracteres). Válido 24 h.
+      schema: { type: string, maxLength: 128 }
+      example: pedido-WEB-1001
+
+  responses:
+    Unauthorized:
+      description: "`missing_api_key`, `invalid_api_key` o `expired_api_key`"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { success: false, error: invalid_api_key, message: "API key inválida o desactivada." }
+    Forbidden:
+      description: "`tenant_inactive`, `subscription_required`, `api_access_not_allowed` o `insufficient_scope`"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { success: false, error: insufficient_scope, message: "Esta API key no tiene el alcance documents:write.", required_scope: "documents:write" }
+    NotFound:
+      description: No existe o pertenece a otra cuenta
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { success: false, error: not_found, message: "Documento no encontrado." }
+    RateLimited:
+      description: Límite por minuto superado
+      headers:
+        Retry-After: { schema: { type: integer }, description: Segundos hasta poder reintentar }
+        X-RateLimit-Limit: { schema: { type: integer } }
+        X-RateLimit-Remaining: { schema: { type: integer } }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { success: false, error: rate_limit_exceeded, message: "Demasiadas solicitudes. Intenta de nuevo en 12 segundos.", retry_after: 12 }
+
+  schemas:
+    Envelope:
+      type: object
+      properties:
+        success: { type: boolean, const: true }
+        message: { type: string }
+        data: {}
+    Paginated:
+      type: object
+      properties:
+        success: { type: boolean }
+        data: { type: array, items: {} }
+        meta:
+          type: object
+          properties:
+            current_page: { type: integer }
+            last_page: { type: integer }
+            per_page: { type: integer }
+            total: { type: integer }
+        links:
+          type: object
+          properties:
+            first: { type: string, nullable: true }
+            last: { type: string, nullable: true }
+            prev: { type: string, nullable: true }
+            next: { type: string, nullable: true }
+    Error:
+      type: object
+      required: [success, error, message]
+      properties:
+        success: { type: boolean, const: false }
+        error:
+          type: string
+          description: Código estable en snake_case
+          enum:
+            - missing_api_key
+            - invalid_api_key
+            - expired_api_key
+            - tenant_inactive
+            - subscription_required
+            - api_access_not_allowed
+            - insufficient_scope
+            - plan_limit_reached
+            - not_found
+            - idempotency_key_reused
+            - idempotency_in_progress
+            - send_failed
+            - xml_not_available
+            - validation_error
+            - rate_limit_exceeded
+            - request_failed
+        message: { type: string }
+        upgrade_url: { type: string, description: Presente en `subscription_required` y `api_access_not_allowed` }
+        required_scope: { type: string, description: Presente en `insufficient_scope` }
+        retry_after: { type: integer, description: Presente en `rate_limit_exceeded` }
+    ValidationError:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            errors:
+              type: object
+              description: "Campo → lista de mensajes. Las reglas del SRI vienen en `errors.sri`."
+              additionalProperties:
+                type: array
+                items: { type: string }
+            data:
+              type: object
+              description: Presente cuando el documento se creó pero fue rechazado por las reglas del SRI
+              properties:
+                document: { $ref: "#/components/schemas/Document" }
+
+    DocumentType:
+      type: string
+      enum: ["01", "03", "04", "05", "06", "07"]
+      description: 01 factura · 03 liquidación de compra · 04 nota de crédito · 05 nota de débito · 06 guía de remisión · 07 comprobante de retención
+    DocumentStatus:
+      type: string
+      enum: [draft, processing, signed, sent, authorized, rejected, failed, voided]
+      description: draft borrador · processing en firma/envío · authorized autorizado por el SRI · rejected devuelto por el SRI · failed error interno · voided anulado
+
+    Me:
+      type: object
+      properties:
+        tenant:
+          type: object
+          properties: { id: { type: integer }, name: { type: string }, email: { type: string, nullable: true }, status: { type: string } }
+        plan:
+          type: object
+          nullable: true
+          properties: { slug: { type: string }, name: { type: string } }
+        subscription:
+          type: object
+          nullable: true
+          properties: { status: { type: string }, billing_cycle: { type: string, nullable: true }, ends_at: { type: string, format: date-time, nullable: true } }
+        limits:
+          type: object
+          properties:
+            documents_per_month: { type: integer, description: "-1 = ilimitado" }
+            effective_document_limit: { type: integer }
+            unlimited: { type: boolean }
+            rate_limit_per_minute: { type: integer }
+        usage:
+          type: object
+          properties: { documents_this_period: { type: integer }, period_start: { type: string, format: date } }
+        api_key:
+          type: object
+          properties:
+            name: { type: string }
+            key_prefix: { type: string, example: fec_a1B2c3D4 }
+            scopes: { type: array, items: { type: string } }
+            rate_limit_per_minute: { type: integer }
+            effective_rate_limit: { type: integer }
+            expires_at: { type: string, format: date-time, nullable: true }
+
+    Company:
+      type: object
+      properties:
+        id: { type: integer }
+        ruc: { type: string }
+        business_name: { type: string }
+        trade_name: { type: string, nullable: true }
+        sri_environment: { type: string, enum: ["1", "2"], description: "1 pruebas · 2 producción" }
+        sri_environment_label: { type: string }
+        is_active: { type: boolean }
+        has_signature: { type: boolean, nullable: true }
+        branches:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              code: { type: string, example: "001" }
+              name: { type: string }
+              address: { type: string, nullable: true }
+              is_main: { type: boolean }
+              emission_points:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: integer }
+                    code: { type: string, example: "001" }
+                    name: { type: string, nullable: true }
+                    series: { type: string, example: "001-001" }
+
+    DocumentItemInput:
+      type: object
+      required: [main_code, description, quantity, unit_price, subtotal, tax_base, tax_value]
+      properties:
+        product_id: { type: integer, nullable: true, description: Producto de Facturón (opcional) }
+        main_code: { type: string, maxLength: 50, description: Código principal del ítem }
+        aux_code: { type: string, maxLength: 50, nullable: true }
+        description: { type: string, maxLength: 300 }
+        quantity: { type: number, minimum: 0.000001 }
+        unit_price: { type: number, minimum: 0 }
+        discount: { type: number, minimum: 0, default: 0 }
+        subtotal: { type: number, description: quantity × unit_price − discount }
+        tax_code: { type: string, default: "2", description: "2 = IVA" }
+        tax_percentage_code: { type: string, description: "0 (0 %), 2 (12 %), 3 (14 %), 4 (15 %), 5 (5 %), 6 (no objeto), 7 (exento), 8 (8 %), 10 (13 %)" }
+        tax_rate: { type: number, description: Porcentaje numérico (15, 12, 5, 0…) }
+        tax_base: { type: number }
+        tax_value: { type: number }
+    PaymentMethodInput:
+      type: object
+      required: [code, amount]
+      properties:
+        code: { type: string, maxLength: 5, example: "01", description: Código de forma de pago del SRI }
+        amount: { type: number }
+        term: { type: integer, default: 0, description: Plazo }
+        time_unit: { type: string, default: dias }
+    WithholdingDetailInput:
+      type: object
+      required: [support_doc_code, support_doc_number, support_doc_date, tax_type, retention_code, tax_base, retention_rate, retained_value]
+      properties:
+        support_doc_code: { type: string, example: "01" }
+        support_doc_number: { type: string, example: "001-001-000000123" }
+        support_doc_date: { type: string, format: date }
+        support_doc_total: { type: number }
+        support_reason_code: { type: string, default: "01" }
+        tax_type: { type: string, enum: [renta, iva] }
+        retention_code: { type: string, example: "312" }
+        tax_base: { type: number }
+        retention_rate: { type: number }
+        retained_value: { type: number }
+    DocumentInput:
+      type: object
+      required: [company_id, customer_id, emission_point_id, document_type, total]
+      properties:
+        company_id: { type: integer }
+        customer_id: { type: integer }
+        emission_point_id: { type: integer }
+        document_type: { $ref: "#/components/schemas/DocumentType" }
+        issue_date: { type: string, format: date, description: Por defecto hoy }
+        subtotal_no_tax: { type: number }
+        subtotal_0: { type: number }
+        subtotal_5: { type: number }
+        subtotal_8: { type: number }
+        subtotal_12: { type: number }
+        subtotal_13: { type: number }
+        subtotal_15: { type: number }
+        total_discount: { type: number }
+        total_tax: { type: number }
+        tip: { type: number }
+        total: { type: number }
+        payment_methods:
+          type: array
+          items: { $ref: "#/components/schemas/PaymentMethodInput" }
+        additional_info:
+          type: object
+          description: Información adicional (nombre → valor, máx. 300 caracteres) impresa en el RIDE
+          additionalProperties: { type: string }
+        items:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/DocumentItemInput" }
+          description: Obligatorio salvo en retenciones (07)
+        reference_document_id: { type: integer, description: Obligatorio en notas de crédito/débito (04/05) }
+        modification_reason: { type: string, maxLength: 300, description: Obligatorio en notas de crédito/débito }
+        withholding_details:
+          type: array
+          items: { $ref: "#/components/schemas/WithholdingDetailInput" }
+          description: Obligatorio en retenciones (07)
+        send: { type: boolean, default: true, description: Enviar al SRI en la misma llamada }
+
+    Document:
+      type: object
+      properties:
+        id: { type: integer }
+        document_type: { $ref: "#/components/schemas/DocumentType" }
+        document_type_label: { type: string }
+        document_number: { type: string, example: "001-001-000000042" }
+        access_key: { type: string, nullable: true, description: Clave de acceso de 49 dígitos }
+        environment: { type: string, enum: ["1", "2"] }
+        environment_label: { type: string }
+        establishment_code: { type: string }
+        emission_point_code: { type: string }
+        series: { type: string }
+        sequential: { type: string }
+        issue_date: { type: string, format: date }
+        issue_datetime: { type: string, format: date-time }
+        currency: { type: string, example: DOLAR }
+        subtotal_no_tax: { type: number }
+        subtotal_0: { type: number }
+        subtotal_5: { type: number }
+        subtotal_8: { type: number }
+        subtotal_12: { type: number }
+        subtotal_13: { type: number }
+        subtotal_15: { type: number }
+        total_discount: { type: number }
+        total_tax: { type: number }
+        tip: { type: number }
+        total: { type: number }
+        payment_methods: { type: array, nullable: true, items: { $ref: "#/components/schemas/PaymentMethodInput" } }
+        status: { $ref: "#/components/schemas/DocumentStatus" }
+        status_label: { type: string }
+        authorization_number: { type: string, nullable: true }
+        authorization_date: { type: string, format: date-time, nullable: true }
+        sri_messages: { type: array, nullable: true, items: {} }
+        error_details: { type: array, items: { type: string } }
+        contingency_active: { type: boolean }
+        contingency_message: { type: string, nullable: true }
+        additional_info: { type: object, nullable: true }
+        email_sent: { type: boolean }
+        email_sent_at: { type: string, format: date-time, nullable: true }
+        has_ride: { type: boolean }
+        has_xml: { type: boolean }
+        customer: { $ref: "#/components/schemas/Customer" }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              product_id: { type: integer, nullable: true }
+              main_code: { type: string }
+              aux_code: { type: string, nullable: true }
+              description: { type: string }
+              quantity: { type: number }
+              unit_price: { type: number }
+              discount: { type: number }
+              subtotal: { type: number }
+              tax_code: { type: string }
+              tax_percentage_code: { type: string }
+              tax_rate: { type: number }
+              tax_base: { type: number }
+              tax_value: { type: number }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    DocumentStatusInfo:
+      type: object
+      properties:
+        status: { $ref: "#/components/schemas/DocumentStatus" }
+        status_label: { type: string }
+        authorization_number: { type: string, nullable: true }
+        authorization_date: { type: string, format: date-time, nullable: true }
+        sri_messages: { type: array, items: {} }
+        contingency_active: { type: boolean }
+        contingency_message: { type: string, nullable: true }
+
+    CustomerInput:
+      type: object
+      required: [identification_type, identification_number, name]
+      properties:
+        identification_type: { type: string, enum: ["04", "05", "06", "07", "08"] }
+        identification_number: { type: string, maxLength: 20, example: "1790012345001" }
+        name: { type: string, maxLength: 300 }
+        email: { type: string, format: email, nullable: true }
+        additional_emails: { type: array, maxItems: 5, items: { type: string, format: email } }
+        phone: { type: string, maxLength: 20, nullable: true }
+        address: { type: string, maxLength: 300, nullable: true }
+        economic_activity: { type: string, maxLength: 300, nullable: true }
+        is_active: { type: boolean }
+    Customer:
+      type: object
+      properties:
+        id: { type: integer }
+        identification_type: { type: string }
+        identification_type_label: { type: string }
+        identification_number: { type: string }
+        name: { type: string }
+        email: { type: string, nullable: true }
+        additional_emails: { type: array, nullable: true, items: { type: string } }
+        phone: { type: string, nullable: true }
+        address: { type: string, nullable: true }
+        economic_activity: { type: string, nullable: true }
+        is_active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ProductInput:
+      type: object
+      required: [code, name, type, unit_price]
+      properties:
+        code: { type: string, maxLength: 50, description: Código principal (único por cuenta) }
+        sku: { type: string, maxLength: 50, nullable: true, description: Código auxiliar }
+        name: { type: string, maxLength: 300 }
+        description: { type: string, maxLength: 500, nullable: true }
+        type: { type: string, enum: [product, service] }
+        category_id: { type: integer, nullable: true }
+        unit_price: { type: number, minimum: 0 }
+        cost: { type: number, nullable: true }
+        tax_code: { type: string, default: "2" }
+        tax_percentage_code: { type: string, example: "4" }
+        tax_rate: { type: number, example: 15 }
+        track_inventory: { type: boolean }
+        stock: { type: integer, nullable: true }
+        min_stock: { type: integer, nullable: true }
+        is_active: { type: boolean }
+    Product:
+      type: object
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        sku: { type: string, nullable: true }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        type: { type: string, enum: [product, service] }
+        type_label: { type: string }
+        category_id: { type: integer, nullable: true }
+        unit_price: { type: number }
+        cost: { type: number, nullable: true }
+        tax_code: { type: string, nullable: true }
+        tax_percentage_code: { type: string, nullable: true }
+        tax_rate: { type: number, nullable: true }
+        track_inventory: { type: boolean }
+        stock: { type: number, nullable: true }
+        min_stock: { type: number, nullable: true }
+        is_active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }

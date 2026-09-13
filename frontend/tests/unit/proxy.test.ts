@@ -12,6 +12,12 @@ describe("proxy (rutas públicas y privadas)", () => {
     expect(proxy(req("/", "abc")).headers.get("location")).toBeNull();
   });
 
+  it("la documentación de la API (/docs/*) es pública", () => {
+    expect(proxy(req("/docs/api")).headers.get("location")).toBeNull();
+    expect(proxy(req("/docs/api", "abc")).headers.get("location")).toBeNull();
+    expect(proxy(req("/docs")).headers.get("location")).toBeNull();
+  });
+
   it("manda al login las rutas del panel sin sesión, conservando el destino", () => {
     const res = proxy(req("/dashboard"));
     expect(res.headers.get("location")).toBe("http://localhost:3000/login?next=%2Fdashboard");

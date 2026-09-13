@@ -4,7 +4,7 @@ import { FacturonLogo } from "./logo";
 
 type FooterLink = { label: string; href: string; disabled?: boolean };
 
-const NEXT_ROUTES = new Set(["/login", "/register", "/dashboard"]);
+const NEXT_ROUTES = new Set(["/login", "/register", "/dashboard", "/docs/api"]);
 
 const COLUMNS: Array<{ title: string; links: FooterLink[] }> = [
   {
@@ -13,6 +13,7 @@ const COLUMNS: Array<{ title: string; links: FooterLink[] }> = [
       { label: "Funcionalidades", href: "#funcionalidades" },
       { label: "Precios", href: "#precios" },
       { label: "Preguntas frecuentes", href: "#faq" },
+      { label: "API para desarrolladores", href: "/docs/api" },
       { label: "App para Android", href: STORE_PLAY_URL, disabled: STORE_PLAY_URL === "" },
       { label: "App para iOS", href: STORE_APPSTORE_URL, disabled: STORE_APPSTORE_URL === "" },
     ],

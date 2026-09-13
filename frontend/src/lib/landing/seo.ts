@@ -47,6 +47,7 @@ export function buildSitemap(appUrl: string, lastModified: Date): MetadataRoute.
   return [
     { url: `${appUrl}/`, lastModified, changeFrequency: "weekly", priority: 1 },
     { url: `${appUrl}/register`, lastModified, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${appUrl}/docs/api`, lastModified, changeFrequency: "monthly", priority: 0.7 },
     { url: `${appUrl}/login`, lastModified, changeFrequency: "yearly", priority: 0.3 },
     { url: `${appUrl}/terms`, lastModified, changeFrequency: "yearly", priority: 0.2 },
     { url: `${appUrl}/privacy`, lastModified, changeFrequency: "yearly", priority: 0.2 },

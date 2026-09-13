@@ -5,6 +5,7 @@ import {
   CreditCard,
   Landmark,
   Receipt,
+  Plug,
   Shield,
   ShieldCheck,
   User,
@@ -57,8 +58,14 @@ const SECTIONS = [
     icon: Receipt,
   },
   {
+    title: "API e integraciones",
+    description: "Llaves de API, límites y documentación",
+    href: "/settings/api",
+    icon: Plug,
+  },
+  {
     title: "Seguridad",
-    description: "API keys, 2FA, sesiones",
+    description: "Contraseña, 2FA y sesiones",
     href: "/settings/security",
     icon: Shield,
   },

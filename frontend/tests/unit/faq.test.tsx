@@ -7,7 +7,7 @@ describe("Faq", () => {
   it("renderiza 13 <details> nativos con la primera abierta", () => {
     const { container } = render(<Faq />);
     const details = container.querySelectorAll("details");
-    expect(details).toHaveLength(13);
+    expect(details).toHaveLength(14);
     expect(details[0].hasAttribute("open")).toBe(true);
     expect(details[1].hasAttribute("open")).toBe(false);
     expect(details[0].querySelector("summary")?.textContent).toContain(FAQS[0].q);

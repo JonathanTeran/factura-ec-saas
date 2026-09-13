@@ -49,6 +49,7 @@ export function buildLlmsTxt(input: { appUrl: string; plans: LandingPlan[]; cont
     `- Sitio: ${input.appUrl}/`,
     `- Crear cuenta: ${input.appUrl}/register`,
     `- Ingresar: ${input.appUrl}/login`,
+    `- API para desarrolladores (docs + OpenAPI): ${input.appUrl}/docs/api`,
     `- Términos: ${input.appUrl}/terms`,
     `- Privacidad: ${input.appUrl}/privacy`,
     `- Contacto: ${input.contactEmail} · WhatsApp ${input.whatsapp}`,
