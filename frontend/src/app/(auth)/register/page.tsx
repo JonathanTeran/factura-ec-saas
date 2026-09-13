@@ -9,8 +9,9 @@ export default async function RegisterPage({
 }: {
   searchParams: Promise<{ type?: string; plan?: string }>;
 }) {
-  const { type } = await searchParams;
+  const { type, plan } = await searchParams;
   const defaultType = type === "referee" ? "referee" : "generic";
+  const planSlug = typeof plan === "string" && /^[a-z0-9-]{1,50}$/.test(plan) ? plan : "";
 
   return (
     <div className="space-y-8">
@@ -23,7 +24,7 @@ export default async function RegisterPage({
           </>
         }
       />
-      <RegisterForm defaultType={defaultType} />
+      <RegisterForm defaultType={defaultType} plan={planSlug} />
       <p className="text-center text-sm text-slate-500">
         ¿Ya tienes cuenta?{" "}
         <Link href="/login" className="font-semibold text-brand underline-offset-4 hover:underline">

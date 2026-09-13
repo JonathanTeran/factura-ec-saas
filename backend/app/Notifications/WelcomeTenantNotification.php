@@ -32,17 +32,18 @@ class WelcomeTenantNotification extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        $onboardingUrl = rtrim((string) config('app.url'), '/') . '/onboarding';
+        $onboardingUrl = rtrim((string) config('app.url'), '/').'/onboarding';
 
         return (new MailMessage)
-            ->subject('¡Bienvenido a AmePhia Facturación!')
-            ->greeting('Hola ' . $this->user->name . ' 👋')
-            ->line('Tu cuenta ya está creada. Para empezar a emitir comprobantes electrónicos, completá esta configuración asistida (te toma unos minutos):')
+            ->subject('¡Bienvenido a Facturón!')
+            ->greeting('Hola '.$this->user->name.' 👋')
+            ->line('Tu cuenta ya está creada. Para empezar a emitir comprobantes electrónicos, completa esta configuración asistida (te toma unos minutos):')
             ->line('1️⃣  **Datos de tu empresa** — RUC, razón social, dirección y régimen tributario.')
-            ->line('2️⃣  **Firma electrónica (.p12)** — subí tu certificado del BCE, Security Data o ANF. No vendemos certificados: usás el tuyo y nosotros firmamos por vos.')
+            ->line('2️⃣  **Firma electrónica (.p12)** — sube tu certificado del BCE, Security Data o ANF. No vendemos certificados: usas el tuyo y nosotros firmamos por ti.')
             ->line('3️⃣  **Establecimiento y punto de emisión** — para que tus facturas cumplan con el SRI.')
+            ->line('4️⃣  **Tu plan** — elige el plan y envía el comprobante de tu transferencia; lo activamos en menos de 24 horas.')
             ->action('Completar mi configuración', $onboardingUrl)
-            ->line('Una vez completado, ya podés emitir tu primera factura. Si tenés dudas, respondé a este correo y te ayudamos.')
-            ->salutation('El equipo de AmePhia');
+            ->line('Una vez completado, ya puedes emitir tu primera factura. Si tienes dudas, responde a este correo y te ayudamos.')
+            ->salutation('El equipo de Facturón');
     }
 }

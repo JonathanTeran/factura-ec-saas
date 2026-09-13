@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Clock, Loader2 } from "lucide-react";
+import { CheckCircle2, Clock, CreditCard, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Card,
@@ -58,6 +58,7 @@ export function SubscriptionView() {
 
   const [confirmingPlan, setConfirmingPlan] = useState<number | null>(null);
   const [subscribingPlan, setSubscribingPlan] = useState<Plan | null>(null);
+  const [autoOpened, setAutoOpened] = useState(false);
 
   if (currentQ.isLoading) {
     return (
@@ -69,9 +70,17 @@ export function SubscriptionView() {
 
   const sub = currentQ.data?.subscription;
   const plan = currentQ.data?.plan;
+  const intendedPlan = currentQ.data?.intendedPlan ?? null;
   // Comprobante de transferencia esperando verificación: se muestra el aviso
   // y se bloquea enviar otro (el backend también lo rechaza con 422).
   const pendingPayment = currentQ.data?.pendingPayment;
+
+  // Sin suscripción y con un plan elegido en la web: se abre directamente el
+  // formulario de pago para ese plan (una sola vez por visita).
+  if (!autoOpened && currentQ.data && !sub && !pendingPayment && intendedPlan) {
+    setAutoOpened(true);
+    setSubscribingPlan(intendedPlan);
+  }
 
   return (
     <div className="space-y-6">
@@ -95,6 +104,29 @@ export function SubscriptionView() {
         </Card>
       )}
 
+      {!sub && !pendingPayment && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <CreditCard className="mt-0.5 size-5 shrink-0 text-primary" />
+              <div>
+                <p className="font-medium">Aún no tienes una suscripción activa</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Elige un plan y envía el comprobante de tu transferencia. Activamos tu
+                  cuenta en menos de 24 horas y desde ese momento puedes emitir al SRI.
+                </p>
+              </div>
+            </div>
+            {intendedPlan && (
+              <Button className="shrink-0" onClick={() => setSubscribingPlan(intendedPlan)}>
+                Contratar {intendedPlan.name}
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {sub && (
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Plan actual</CardTitle>
@@ -161,6 +193,7 @@ export function SubscriptionView() {
           </div>
         </CardContent>
       </Card>
+      )}
 
       <Tabs defaultValue="plans">
         <TabsList>
@@ -177,14 +210,20 @@ export function SubscriptionView() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {(plansQ.data ?? []).map((p) => {
-                const isCurrent = plan?.id === p.id;
+                const isCurrent = !!sub && plan?.id === p.id;
+                const isIntended = !sub && intendedPlan?.id === p.id;
                 return (
                   <Card
                     key={p.id}
-                    className={isCurrent ? "ring-2 ring-primary" : ""}
+                    className={isCurrent || isIntended ? "ring-2 ring-primary" : ""}
                   >
                     <CardHeader>
-                      <CardTitle className="text-lg">{p.name}</CardTitle>
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        {p.name}
+                        {isIntended && (
+                          <Badge variant="secondary" className="font-normal">Elegido en la web</Badge>
+                        )}
+                      </CardTitle>
                       <p className="text-2xl font-semibold mt-1">
                         {formatMoney(p.price)}
                       </p>

@@ -27,6 +27,9 @@ class RegisterRequest extends FormRequest
             'terms' => ['required', 'accepted'],
             // Tipo de cuenta elegido al registrarse (por defecto negocio; 'referee' activa el módulo de árbitros).
             'business_type' => ['nullable', 'string', Rule::in(Tenant::BUSINESS_TYPES)],
+            // Plan elegido en la landing (/register?plan=slug): se recuerda para
+            // preseleccionarlo en la compra; NO activa nada hasta que pague.
+            'plan' => ['nullable', 'string', Rule::exists('plans', 'slug')->where('is_active', true)],
         ];
     }
 

@@ -61,9 +61,18 @@ class SubscriptionController extends ApiController
         $pendingPayment = $this->pendingTransferPayment($tenant->id);
 
         if (! $subscription) {
+            // Sin suscripción vigente no hay "plan actual" que mostrar (antes se
+            // devolvía tenant->currentPlan y el panel lo pintaba como contratado).
+            // Se manda el plan elegido en la landing para preseleccionar la compra.
+            $intendedSlug = data_get($tenant->settings, 'intended_plan');
+            $intended = $intendedSlug
+                ? Plan::where('slug', $intendedSlug)->where('is_active', true)->where('is_contact_sales', false)->first()
+                : null;
+
             return $this->success([
                 'subscription' => null,
-                'plan' => $tenant->currentPlan ? new PlanResource($tenant->currentPlan) : null,
+                'plan' => null,
+                'intended_plan' => $intended ? new PlanResource($intended) : null,
                 'pending_payment' => $pendingPayment ? new PaymentResource($pendingPayment) : null,
             ]);
         }

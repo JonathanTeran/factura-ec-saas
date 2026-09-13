@@ -115,6 +115,11 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+    // Respuestas de los clientes a un buzón real (no-reply perjudica la reputación).
+    'reply_to' => [
+        'address' => env('MAIL_REPLY_TO_ADDRESS', env('SUPPORT_EMAIL', 'info@facturon.ec')),
+        'name' => env('MAIL_REPLY_TO_NAME', env('MAIL_FROM_NAME', 'Facturón')),
+    ],
 
     /*
     |--------------------------------------------------------------------------

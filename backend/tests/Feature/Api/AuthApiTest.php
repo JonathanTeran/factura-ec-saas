@@ -47,9 +47,41 @@ class AuthApiTest extends TestCase
         $this->assertNotNull($tenant);
         $this->assertSame('jane@example.com', $tenant->owner_email);
         $this->assertNotEmpty($tenant->uuid);
-        $this->assertSame($plan->id, $tenant->current_plan_id);
         $this->assertSame($user->id, $tenant->owner_id);
-        $this->assertSame($plan->max_documents_per_month, $tenant->max_documents_per_month);
+        // Sin plan ni suscripción hasta que compre: nada de "Emprendedor" por defecto.
+        $this->assertNull($tenant->current_plan_id);
+        $this->assertSame(0, (int) $tenant->max_documents_per_month);
+        $this->assertFalse($tenant->hasFeature('proformas'));
+        $this->assertNull($tenant->activeSubscription);
+        $this->assertNull(data_get($tenant->settings, 'intended_plan'));
+        $this->assertSame($plan->id, $plan->fresh()->id);
+    }
+
+    public function test_registration_remembers_the_plan_chosen_on_the_landing(): void
+    {
+        Plan::factory()->create(['slug' => 'negocio', 'is_active' => true, 'sort_order' => 2, 'is_contact_sales' => false]);
+
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Ana', 'email' => 'ana@example.com', 'password' => 'Password123!', 'password_confirmation' => 'Password123!',
+            'company_name' => 'Ana SA', 'terms' => true, 'plan' => 'negocio',
+        ])->assertCreated();
+
+        $user = User::where('email', 'ana@example.com')->firstOrFail();
+        $this->assertSame('negocio', data_get($user->tenant->settings, 'intended_plan'));
+        $this->assertNull($user->tenant->current_plan_id);
+
+        \Laravel\Sanctum\Sanctum::actingAs($user);
+        $this->getJson('/api/v1/subscription/current')
+            ->assertOk()
+            ->assertJsonPath('data.subscription', null)
+            ->assertJsonPath('data.plan', null)
+            ->assertJsonPath('data.intended_plan.slug', 'negocio');
+
+        // Un slug inexistente se rechaza.
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'B', 'email' => 'b@example.com', 'password' => 'Password123!', 'password_confirmation' => 'Password123!',
+            'company_name' => 'B', 'terms' => true, 'plan' => 'no-existe',
+        ])->assertStatus(422)->assertJsonValidationErrors(['plan']);
     }
 
     public function test_registration_as_referee_activates_the_module(): void

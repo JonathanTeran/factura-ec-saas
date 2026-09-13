@@ -9,12 +9,20 @@ const ACCOUNT_TYPES = [
   { value: "referee", label: "Árbitro de fútbol", hint: "Control de partidos designados y facturación a la FEF." },
 ] as const;
 
-export function RegisterForm({ defaultType = "generic" }: { defaultType?: "generic" | "referee" }) {
+export function RegisterForm({
+  defaultType = "generic",
+  plan = "",
+}: {
+  defaultType?: "generic" | "referee";
+  /** Slug del plan elegido en la landing: se recuerda para preseleccionar la compra. */
+  plan?: string;
+}) {
   const [state, action] = useActionState<AuthState, FormData>(registerAction, null);
   const values: Record<string, string> = state?.values ?? {};
 
   return (
     <form action={action} className="space-y-5">
+      {plan && <input type="hidden" name="plan" value={plan} />}
       <TextField id="name" name="name" label="Tu nombre" autoComplete="name" required defaultValue={values.name ?? ""} errors={state?.fieldErrors?.name} />
       <TextField id="company_name" name="company_name" label="Nombre de empresa" autoComplete="organization" required defaultValue={values.company_name ?? ""} errors={state?.fieldErrors?.company_name} />
       <TextField id="email" name="email" type="email" label="Correo electrónico" autoComplete="email" required defaultValue={values.email ?? ""} errors={state?.fieldErrors?.email} />

@@ -50,6 +50,7 @@ import {
 } from "@/lib/api/queries/onboarding";
 import { logoutAction } from "@/app/(auth)/actions";
 import { useProfile } from "@/lib/api/queries/profile";
+import { useCurrentSubscription } from "@/lib/api/queries/subscription";
 
 const STEPS = [
   {
@@ -145,6 +146,10 @@ export function OnboardingWizard() {
   const [emailPrefilled, setEmailPrefilled] = useState(false);
   const [importedCount, setImportedCount] = useState(0);
   const profileQ = useProfile();
+  const subscriptionQ = useCurrentSubscription();
+  const hasActiveSubscription =
+    subscriptionQ.data?.subscription != null &&
+    ["active", "trialing", "cancelled"].includes(subscriptionQ.data.subscription.status);
 
   const saveCompany = useSaveCompany();
   const rucLookup = useRucLookup();
@@ -278,6 +283,11 @@ export function OnboardingWizard() {
   async function finish() {
     try {
       await complete.mutateAsync();
+      if (!hasActiveSubscription) {
+        toast.success("¡Cuenta configurada! Ahora elige tu plan para empezar a emitir.");
+        router.push("/settings/subscription");
+        return;
+      }
       toast.success("¡Cuenta configurada!");
       router.push("/dashboard");
     } catch (e) {
@@ -858,6 +868,15 @@ export function OnboardingWizard() {
                     hint={importedCount > 0 ? `Además se importaron ${importedCount} sucursal(es) desde el SRI.` : undefined}
                   />
                   <SummaryRow
+                    ok={hasActiveSubscription}
+                    label="Suscripción"
+                    value={
+                      hasActiveSubscription
+                        ? `Plan ${subscriptionQ.data?.plan?.name ?? "activo"}`
+                        : "Pendiente: elige tu plan y envía el comprobante de tu transferencia para poder emitir al SRI."
+                    }
+                  />
+                  <SummaryRow
                     ok
                     label="Numeración"
                     value={
@@ -914,7 +933,13 @@ export function OnboardingWizard() {
               </div>
             ) : (
               <Button onClick={finish} disabled={busy}>
-                {busy ? <Loader2 className="size-4 animate-spin" /> : "Ir al panel"}
+                {busy ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : hasActiveSubscription ? (
+                  "Ir al panel"
+                ) : (
+                  "Elegir mi plan"
+                )}
                 <ArrowRight className="size-4" />
               </Button>
             )}

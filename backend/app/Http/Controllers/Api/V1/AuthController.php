@@ -88,8 +88,13 @@ class AuthController extends ApiController
         $businessType = $request->input('business_type') ?: Tenant::BUSINESS_TYPE_GENERIC;
 
         [$user, $token, $tenant] = DB::transaction(function () use ($request, $businessType) {
-            // Default to the cheapest active plan (nullable FK, safe if none exist)
-            $defaultPlan = Plan::where('is_active', true)->orderBy('sort_order')->first();
+            // Sin plan ni suscripción al registrarse: la cuenta nace con los
+            // límites mínimos (igual que Tenant::revokePlanAccess) y el usuario
+            // elige y paga su plan (transferencia) desde Configuración →
+            // Suscripción. El plan elegido en la landing solo se recuerda.
+            $intendedPlan = $request->filled('plan')
+                ? Plan::where('slug', $request->input('plan'))->where('is_active', true)->first()
+                : null;
 
             // Create tenant (uuid + referral_code are set by the model on creating)
             $tenant = Tenant::create([
@@ -99,24 +104,26 @@ class AuthController extends ApiController
                 'owner_email' => $request->email,
                 'status' => TenantStatus::ACTIVE,
                 'trial_ends_at' => null,
-                'current_plan_id' => $defaultPlan?->id,
-                'max_documents_per_month' => $defaultPlan?->max_documents_per_month ?? 10,
-                'max_users' => $defaultPlan?->max_users ?? 1,
-                'max_companies' => $defaultPlan?->max_companies ?? 1,
-                'max_emission_points' => $defaultPlan?->max_emission_points ?? 1,
-                'has_api_access' => $defaultPlan?->has_api_access ?? false,
-                'has_inventory' => $defaultPlan?->has_inventory ?? false,
-                'has_pos' => $defaultPlan?->has_pos ?? false,
-                'has_recurring_invoices' => $defaultPlan?->has_recurring_invoices ?? false,
-                'has_advanced_reports' => $defaultPlan?->has_advanced_reports ?? false,
-                'has_whitelabel_ride' => $defaultPlan?->has_whitelabel_ride ?? false,
-                'has_webhooks' => $defaultPlan?->has_webhooks ?? false,
-                'has_ai_categorization' => $defaultPlan?->has_ai_categorization ?? false,
-                'has_client_portal' => $defaultPlan?->has_client_portal ?? false,
-                'has_multi_currency' => $defaultPlan?->has_multi_currency ?? false,
-                'has_thermal_printer' => $defaultPlan?->has_thermal_printer ?? false,
+                'current_plan_id' => null,
+                'max_documents_per_month' => 0,
+                'max_users' => 1,
+                'max_companies' => 1,
+                'max_emission_points' => 1,
+                'has_api_access' => false,
+                'has_inventory' => false,
+                'has_pos' => false,
+                'has_recurring_invoices' => false,
+                'has_proformas' => false,
+                'has_advanced_reports' => false,
+                'has_whitelabel_ride' => false,
+                'has_webhooks' => false,
+                'has_ai_categorization' => false,
+                'has_client_portal' => false,
+                'has_multi_currency' => false,
+                'has_thermal_printer' => false,
                 'documents_this_month' => 0,
                 'documents_month_reset_at' => now()->startOfMonth(),
+                'settings' => $intendedPlan ? ['intended_plan' => $intendedPlan->slug] : [],
             ]);
 
             // Create user
