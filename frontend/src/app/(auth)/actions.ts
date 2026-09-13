@@ -74,7 +74,7 @@ export async function loginAction(
     return { ok: false, message: "Error de conexión con el servidor" };
   }
 
-  redirect("/");
+  redirect("/dashboard");
 }
 
 export async function registerAction(
@@ -120,7 +120,7 @@ export async function registerAction(
     return { ok: false, message: "Error de conexión con el servidor" };
   }
 
-  redirect("/");
+  redirect("/dashboard");
 }
 
 export async function forgotPasswordAction(

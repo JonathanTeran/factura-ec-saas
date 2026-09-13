@@ -8,7 +8,7 @@ import { buildNavGroups } from "./sidebar-nav";
 import { useProfile } from "@/lib/api/queries/profile";
 
 function isActive(currentPath: string, href: string) {
-  if (href === "/") return currentPath === "/";
+  if (href === "/dashboard") return currentPath === "/dashboard";
   return currentPath === href || currentPath.startsWith(`${href}/`);
 }
 

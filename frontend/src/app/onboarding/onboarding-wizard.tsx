@@ -273,7 +273,7 @@ export function OnboardingWizard() {
     try {
       await complete.mutateAsync();
       toast.success("¡Cuenta configurada!");
-      router.push("/");
+      router.push("/dashboard");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ocurrió un error.");
     }
@@ -406,7 +406,7 @@ export function OnboardingWizard() {
                 variant="ghost"
                 size="sm"
                 className="text-muted-foreground"
-                onClick={() => router.push("/")}
+                onClick={() => router.push("/dashboard")}
               >
                 Completar más tarde
               </Button>

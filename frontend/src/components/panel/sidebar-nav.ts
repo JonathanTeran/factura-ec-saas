@@ -42,7 +42,7 @@ export type NavGroup = {
 export const navGroups: NavGroup[] = [
   {
     label: "Principal",
-    items: [{ label: "Dashboard", href: "/", icon: LayoutDashboard }],
+    items: [{ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard }],
   },
   {
     label: "Ventas",
