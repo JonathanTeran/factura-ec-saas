@@ -45,6 +45,8 @@ class RegisterRequest extends FormRequest
             'company_name.required' => 'El nombre de la empresa es requerido.',
             'terms.required' => 'Debes aceptar los Términos y Condiciones y la Política de Privacidad.',
             'terms.accepted' => 'Debes aceptar los Términos y Condiciones y la Política de Privacidad.',
+            'business_type.in' => 'El tipo de cuenta no es válido.',
+            'plan.exists' => 'El plan elegido no existe o ya no está disponible.',
         ];
     }
 }
