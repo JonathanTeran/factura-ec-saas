@@ -32,7 +32,7 @@ export function Showcase() {
                   <div className="rounded-3xl bg-slate-50 p-4 ring-1 ring-slate-200 sm:p-8">
                     {row.image.kind === "browser" ? (
                       <BrowserFrame url="facturon.ec" className="border-slate-200 bg-white shadow-xl shadow-slate-900/10">
-                        <Image src={row.image.src} alt={row.image.alt} width={row.image.width} height={row.image.height} sizes="(min-width: 1024px) 56vw, 100vw" priority={i === 0} className="block h-auto w-full" />
+                        <Image src={row.image.src} alt={row.image.alt} width={row.image.width} height={row.image.height} sizes="(min-width: 1024px) 56vw, 100vw" className="block h-auto w-full" />
                       </BrowserFrame>
                     ) : (
                       <PhoneFrame>

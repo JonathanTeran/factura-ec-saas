@@ -123,7 +123,7 @@ export function LiveDemo() {
             </dl>
 
             <div className="mt-4 min-h-14 rounded-lg bg-black/30 p-2.5">
-              <p className="text-[10px] uppercase tracking-wider text-slate-500">Clave de acceso</p>
+              <p className="text-[10px] uppercase tracking-wider text-slate-400">Clave de acceso</p>
               {reduce ? (
                 <p data-testid="demo-clave" className="break-all font-mono text-[11px] leading-snug text-emerald-300">{clave}</p>
               ) : (

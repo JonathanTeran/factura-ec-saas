@@ -13,12 +13,10 @@ export function HowItWorks() {
         </Reveal>
         <ol className="mt-14 grid gap-8 sm:grid-cols-3">
           {STEPS.map((step, i) => (
-            <Reveal key={step.title} delay={i * 0.1}>
-              <li className="relative rounded-2xl border border-slate-200 bg-white p-7">
+            <Reveal as="li" key={step.title} delay={i * 0.1} className="relative rounded-2xl border border-slate-200 bg-white p-7">
                 <span className="flex size-12 items-center justify-center rounded-2xl bg-navy font-display text-xl font-bold text-white">{i + 1}</span>
                 <h3 className="mt-5 text-base font-semibold text-navy">{step.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">{step.text}</p>
-              </li>
             </Reveal>
           ))}
         </ol>

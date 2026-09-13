@@ -11,6 +11,8 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  // Se usa poco (claves, secuenciales): sin preload para no competir con el LCP.
+  preload: false,
 });
 
 export const metadata: Metadata = {

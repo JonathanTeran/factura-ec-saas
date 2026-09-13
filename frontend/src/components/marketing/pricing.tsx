@@ -68,7 +68,7 @@ export function Pricing({ data }: { data: LandingData }) {
         </Reveal>
 
         <div className="mt-10 flex items-center justify-center gap-3">
-          <span className={cn("text-sm font-medium", yearly ? "text-slate-400" : "text-navy")}>Mensual</span>
+          <span className={cn("text-sm font-medium", yearly ? "text-slate-600" : "text-navy")}>Mensual</span>
           <button
             type="button"
             role="switch"
@@ -79,7 +79,7 @@ export function Pricing({ data }: { data: LandingData }) {
           >
             <span className={cn("absolute left-0.5 top-0.5 size-5 rounded-full bg-white shadow-sm transition-transform", yearly && "translate-x-5")} />
           </button>
-          <span className={cn("text-sm font-medium", yearly ? "text-navy" : "text-slate-400")}>
+          <span className={cn("text-sm font-medium", yearly ? "text-navy" : "text-slate-600")}>
             Anual
             {savings > 0 && (
               <span className="ml-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-200">Ahorra hasta {savings} %</span>

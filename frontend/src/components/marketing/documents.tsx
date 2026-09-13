@@ -19,8 +19,7 @@ export function Documents() {
           {DOCUMENT_TYPES.map((doc, i) => {
             const Icon = ICONS[doc.icon];
             return (
-              <Reveal key={doc.code} delay={i * 0.05}>
-                <li className="flex h-full gap-4 rounded-2xl border border-slate-200 bg-white p-6 transition-shadow hover:shadow-lg hover:shadow-slate-200/60">
+              <Reveal as="li" key={doc.code} delay={i * 0.05} className="flex h-full gap-4 rounded-2xl border border-slate-200 bg-white p-6 transition-shadow hover:shadow-lg hover:shadow-slate-200/60">
                   <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-navy text-white">
                     <Icon className="size-5" aria-hidden="true" />
                   </span>
@@ -29,7 +28,6 @@ export function Documents() {
                     <h3 className="mt-0.5 text-base font-semibold text-navy">{doc.name}</h3>
                     <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{doc.use}</p>
                   </div>
-                </li>
               </Reveal>
             );
           })}

@@ -46,7 +46,7 @@ function FooterAnchor({ link }: { link: FooterLink }) {
   const cls = "text-sm text-slate-500 transition-colors hover:text-navy";
   if (link.disabled) {
     return (
-      <span className="text-sm text-slate-400">
+      <span className="text-sm text-slate-500">
         {link.label} <span className="text-xs">(próximamente)</span>
       </span>
     );
