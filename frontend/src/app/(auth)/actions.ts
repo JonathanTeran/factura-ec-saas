@@ -20,6 +20,7 @@ const RegisterSchema = z.object({
   terms: z.literal("on", {
     error: "Debes aceptar los Términos y Condiciones y la Política de Privacidad",
   }),
+  business_type: z.enum(["generic", "referee"], { error: "Elige el tipo de cuenta" }).default("generic"),
 }).refine((d) => d.password === d.password_confirmation, {
   message: "Las contraseñas no coinciden",
   path: ["password_confirmation"],
@@ -40,7 +41,7 @@ function keepValues(formData: FormData, keys: string[]): Record<string, string> 
 }
 
 const LOGIN_KEEP = ["email"];
-const REGISTER_KEEP = ["name", "company_name", "email", "terms"];
+const REGISTER_KEEP = ["name", "company_name", "email", "terms", "business_type"];
 
 export type AuthState = {
   ok: boolean;
@@ -105,6 +106,7 @@ export async function registerAction(
     password: formData.get("password"),
     password_confirmation: formData.get("password_confirmation"),
     terms: formData.get("terms"),
+    business_type: formData.get("business_type") ?? "generic",
   });
 
   if (!parsed.success) {

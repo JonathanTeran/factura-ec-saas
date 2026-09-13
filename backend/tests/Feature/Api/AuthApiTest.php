@@ -52,6 +52,32 @@ class AuthApiTest extends TestCase
         $this->assertSame($plan->max_documents_per_month, $tenant->max_documents_per_month);
     }
 
+    public function test_registration_as_referee_activates_the_module(): void
+    {
+        config(['arbitros.fef.ruc' => '1790000000001', 'arbitros.fef.business_name' => 'FEDERACION ECUATORIANA DE FUTBOL', 'arbitros.fef.email' => 'fef@example.com']);
+        Plan::factory()->create(['slug' => 'emprendedor', 'is_active' => true, 'sort_order' => 1]);
+
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Pito Fino',
+            'email' => 'arbitro@example.com',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+            'company_name' => 'Pito Fino',
+            'terms' => true,
+            'business_type' => 'referee',
+        ])->assertCreated()->assertJsonPath('data.user.tenant.business_type', 'referee');
+
+        $tenant = User::where('email', 'arbitro@example.com')->firstOrFail()->tenant;
+        $this->assertTrue($tenant->isReferee());
+        $this->assertDatabaseHas('customers', ['tenant_id' => $tenant->id, 'identification' => '1790000000001']);
+
+        // Valor inválido: 422; sin el campo: negocio por defecto.
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'X', 'email' => 'x@example.com', 'password' => 'Password123!', 'password_confirmation' => 'Password123!',
+            'company_name' => 'X', 'terms' => true, 'business_type' => 'club',
+        ])->assertStatus(422)->assertJsonValidationErrors(['business_type']);
+    }
+
     public function test_registration_sends_welcome_email(): void
     {
         \Illuminate\Support\Facades\Notification::fake();

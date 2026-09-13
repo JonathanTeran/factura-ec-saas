@@ -81,9 +81,15 @@ function fromCustomer(c: Customer): CustomerInput {
   };
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+export function isValidEmail(value: string): boolean {
+  return EMAIL_RE.test(value.trim());
+}
+
 function parseAdditionalEmails(text: string): string[] {
   return text
-    .split(",")
+    .split(/[,;\s]+/)
     .map((e) => e.trim())
     .filter(Boolean);
 }
@@ -162,9 +168,29 @@ function CustomerFormInner({
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
+    const additional = parseAdditionalEmails(additionalEmailsText);
+    // Validación local: que sean correos de verdad (el servidor vuelve a validar).
+    const invalidMain = form.email && !isValidEmail(form.email);
+    const invalidExtra = additional.filter((m) => !isValidEmail(m));
+    if (invalidMain || invalidExtra.length > 0) {
+      setErrors({
+        ...(invalidMain ? { email: ["Ingresa un correo válido (ej. nombre@empresa.com)."] } : {}),
+        ...(invalidExtra.length > 0
+          ? { additional_emails: [`Correo inválido: ${invalidExtra.join(", ")}. Sepáralos por coma.`] }
+          : {}),
+      });
+      toast.error("Revisa los correos: deben tener el formato nombre@dominio.com.");
+      return;
+    }
+    if (additional.length > 5) {
+      setErrors({ additional_emails: ["Máximo 5 correos adicionales."] });
+      toast.error("Máximo 5 correos adicionales.");
+      return;
+    }
     const payload: CustomerInput = {
       ...form,
-      additional_emails: parseAdditionalEmails(additionalEmailsText),
+      email: form.email?.trim() || form.email,
+      additional_emails: additional,
     };
     mutation.mutate(payload, {
       onSuccess: () => {

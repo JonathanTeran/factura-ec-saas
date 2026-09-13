@@ -4,7 +4,14 @@ import { RegisterForm } from "./register-form";
 
 export const metadata = { title: { absolute: "Crear cuenta · Facturón" } };
 
-export default function RegisterPage() {
+export default async function RegisterPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ type?: string; plan?: string }>;
+}) {
+  const { type } = await searchParams;
+  const defaultType = type === "referee" ? "referee" : "generic";
+
   return (
     <div className="space-y-8">
       <AuthHeading
@@ -16,7 +23,7 @@ export default function RegisterPage() {
           </>
         }
       />
-      <RegisterForm />
+      <RegisterForm defaultType={defaultType} />
       <p className="text-center text-sm text-slate-500">
         ¿Ya tienes cuenta?{" "}
         <Link href="/login" className="font-semibold text-brand underline-offset-4 hover:underline">

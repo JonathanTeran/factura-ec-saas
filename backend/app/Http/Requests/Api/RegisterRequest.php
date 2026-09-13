@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Models\Tenant\Tenant;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 class RegisterRequest extends FormRequest
@@ -23,6 +25,8 @@ class RegisterRequest extends FormRequest
             // Aceptación explícita de Términos y Condiciones + Política de
             // Privacidad (se guarda constancia en users.terms_accepted_at).
             'terms' => ['required', 'accepted'],
+            // Tipo de cuenta elegido al registrarse (por defecto negocio; 'referee' activa el módulo de árbitros).
+            'business_type' => ['nullable', 'string', Rule::in(Tenant::BUSINESS_TYPES)],
         ];
     }
 

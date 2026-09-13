@@ -49,6 +49,7 @@ import {
   type CertificateInfo,
 } from "@/lib/api/queries/onboarding";
 import { logoutAction } from "@/app/(auth)/actions";
+import { useProfile } from "@/lib/api/queries/profile";
 
 const STEPS = [
   {
@@ -140,6 +141,10 @@ export function OnboardingWizard() {
   const [seq, setSeq] = useState<Record<string, string>>({});
 
   const [businessType, setBusinessType] = useState<BusinessType>("generic");
+  const [bizInitialized, setBizInitialized] = useState(false);
+  const [emailPrefilled, setEmailPrefilled] = useState(false);
+  const [importedCount, setImportedCount] = useState(0);
+  const profileQ = useProfile();
 
   const saveCompany = useSaveCompany();
   const rucLookup = useRucLookup();
@@ -246,6 +251,7 @@ export function OnboardingWizard() {
         });
         setEmissionPointId(res.data.emission_point.id);
         const imported = res.data.imported_branches?.length ?? 0;
+        setImportedCount(imported);
         if (imported > 0) {
           toast.success(
             `Se importaron ${imported} sucursal(es) adicionales desde el SRI.`,
@@ -285,6 +291,26 @@ export function OnboardingWizard() {
   // guía lo que falte. Sin empresa aún, solo queda salir de la cuenta.
   const statusQ = useOnboardingStatus();
   const canExitToPanel = step > 0 || (statusQ.data?.has_company ?? false);
+
+  // El tipo de cuenta elegido al registrarse (o fijado por el super admin)
+  // llega preseleccionado; el correo de la empresa se rellena con el del
+  // usuario registrado. Ajustes durante el render, patrón del resto del panel.
+  if (!bizInitialized && statusQ.data) {
+    setBizInitialized(true);
+    if (statusQ.data.business_type && statusQ.data.business_type !== businessType) {
+      setBusinessType(statusQ.data.business_type);
+    }
+  }
+  if (!emailPrefilled && profileQ.data?.email) {
+    setEmailPrefilled(true);
+    if (!company.email) setC("email", profileQ.data.email);
+  }
+
+  const summarySequentials = DOC_TYPES.map((d) => {
+    const last = parseInt(seq[d.code] || "", 10);
+    const from = Number.isFinite(last) && last > 0 && migrated ? last + 1 : 1;
+    return { ...d, from, formatted: `${est.branch_code}-${est.ep_code}-${String(from).padStart(9, "0")}` };
+  });
 
   const progressPct = (step / (STEPS.length - 1)) * 100;
 
@@ -791,18 +817,64 @@ export function OnboardingWizard() {
             )}
 
             {step === 4 && (
-              <div className="flex flex-col items-center gap-4 py-8 text-center">
-                <span className="grid size-16 place-items-center rounded-2xl bg-success/10 text-success ring-1 ring-success/20">
-                  <Check className="size-8" />
-                </span>
-                <div>
-                  <p className="text-lg font-semibold">
-                    Tu cuenta quedó configurada.
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Ya puedes emitir tu primera factura electrónica.
-                  </p>
+              <div className="space-y-5 py-2">
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <span className="grid size-14 place-items-center rounded-2xl bg-success/10 text-success ring-1 ring-success/20">
+                    <Check className="size-7" />
+                  </span>
+                  <div>
+                    <p className="text-lg font-semibold">Tu cuenta quedó configurada.</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Esto es lo que dejamos listo:
+                    </p>
+                  </div>
                 </div>
+
+                <ul className="divide-y divide-border rounded-xl border border-border text-sm">
+                  <SummaryRow
+                    ok
+                    label="Tipo de cuenta"
+                    value={businessType === "referee" ? "Árbitro de fútbol (control de partidos y facturación a la FEF)" : "Empresa o negocio"}
+                  />
+                  <SummaryRow
+                    ok
+                    label="Empresa emisora"
+                    value={`${company.business_name || "—"} · RUC ${company.ruc || "—"} · ${company.sri_environment === "2" ? "ambiente de producción" : "ambiente de pruebas"}`}
+                    hint={company.email ? `Correo de la empresa: ${company.email}` : undefined}
+                  />
+                  <SummaryRow
+                    ok={!!certInfo}
+                    label="Firma electrónica"
+                    value={
+                      certInfo
+                        ? `${certInfo.signature_subject} · vence el ${formatDate(certInfo.signature_expires_at)}`
+                        : "Pendiente: súbela en Configuración → Firma electrónica antes de emitir."
+                    }
+                  />
+                  <SummaryRow
+                    ok
+                    label="Establecimiento y punto de emisión"
+                    value={`${est.branch_code}-${est.ep_code} · ${est.branch_name}${est.branch_address ? ` · ${est.branch_address}` : ""}`}
+                    hint={importedCount > 0 ? `Además se importaron ${importedCount} sucursal(es) desde el SRI.` : undefined}
+                  />
+                  <SummaryRow
+                    ok
+                    label="Numeración"
+                    value={
+                      migrated
+                        ? "Continúa la numeración de tu sistema anterior."
+                        : "Empieza desde el número 1 en cada tipo de comprobante."
+                    }
+                    hint={summarySequentials
+                      .filter((s) => migrated ? s.from > 1 : s.code === "01")
+                      .map((s) => `${s.label}: ${s.formatted}`)
+                      .join(" · ")}
+                  />
+                </ul>
+
+                <p className="text-center text-xs text-muted-foreground">
+                  Todo esto se puede ajustar luego en Configuración. Ya puedes emitir tu primera factura electrónica.
+                </p>
               </div>
             )}
           </div>
@@ -850,6 +922,35 @@ export function OnboardingWizard() {
         </div>
       </main>
     </div>
+  );
+}
+
+function SummaryRow({
+  ok,
+  label,
+  value,
+  hint,
+}: {
+  ok: boolean;
+  label: string;
+  value: string;
+  hint?: string;
+}) {
+  return (
+    <li className="flex items-start gap-3 px-4 py-3">
+      <span
+        className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full ${
+          ok ? "bg-success/15 text-success" : "bg-warning/15 text-warning"
+        }`}
+      >
+        <Check className="size-3.5" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className="text-sm text-foreground">{value}</p>
+        {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
+      </div>
+    </li>
   );
 }
 

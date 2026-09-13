@@ -46,6 +46,12 @@ class AppServiceProvider extends ServiceProvider
             ->mixedCase()
             ->symbols());
 
+        // Entregabilidad: todo correo HTML lleva también su versión en texto plano.
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Mail\Events\MessageSending::class,
+            \App\Listeners\AddPlainTextPart::class
+        );
+
         // Vertical árbitros: sincroniza el estado del partido pitado con el
         // ciclo de vida de su factura (autorizada/anulada/rechazada).
         \App\Models\SRI\ElectronicDocument::observe(

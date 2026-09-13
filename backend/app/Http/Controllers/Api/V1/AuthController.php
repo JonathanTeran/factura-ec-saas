@@ -85,7 +85,9 @@ class AuthController extends ApiController
      */
     public function register(RegisterRequest $request): JsonResponse
     {
-        [$user, $token] = DB::transaction(function () use ($request) {
+        $businessType = $request->input('business_type') ?: Tenant::BUSINESS_TYPE_GENERIC;
+
+        [$user, $token, $tenant] = DB::transaction(function () use ($request, $businessType) {
             // Default to the cheapest active plan (nullable FK, safe if none exist)
             $defaultPlan = Plan::where('is_active', true)->orderBy('sort_order')->first();
 
@@ -93,6 +95,7 @@ class AuthController extends ApiController
             $tenant = Tenant::create([
                 'name' => $request->company_name,
                 'slug' => Str::slug($request->company_name).'-'.Str::random(4),
+                'business_type' => $businessType,
                 'owner_email' => $request->email,
                 'status' => TenantStatus::ACTIVE,
                 'trial_ends_at' => null,
@@ -136,8 +139,13 @@ class AuthController extends ApiController
                 now()->addDays(30)
             );
 
-            return [$user, $token];
+            return [$user, $token, $tenant];
         });
+
+        // Árbitro: activa el vertical (cliente FEF, control de partidos).
+        if ($businessType === Tenant::BUSINESS_TYPE_REFEREE) {
+            app(\App\Services\Arbitros\RefereeModuleActivator::class)->activate($tenant);
+        }
 
         // Correo de bienvenida al nuevo usuario con los pasos pendientes
         // (configuración asistida). Encolado; lo procesa Horizon.

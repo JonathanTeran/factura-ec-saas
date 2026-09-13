@@ -2,19 +2,16 @@
 
 namespace App\Filament\Resources;
 
+use App\Enums\SubscriptionStatus;
+use App\Enums\TenantStatus;
 use App\Filament\Resources\TenantResource\Pages;
 use App\Filament\Resources\TenantResource\RelationManagers;
 use App\Models\Tenant\Tenant;
-use App\Models\Billing\Plan;
-use App\Enums\TenantStatus;
-use App\Enums\SubscriptionStatus;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Filament\Infolists;
-use Filament\Infolists\Infolist;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
@@ -71,7 +68,16 @@ class TenantResource extends Resource
                             ->relationship('currentPlan', 'name')
                             ->searchable()
                             ->preload(),
-                    ])->columns(3),
+                        Forms\Components\Select::make('business_type')
+                            ->label('Tipo de cuenta')
+                            ->options([
+                                Tenant::BUSINESS_TYPE_GENERIC => 'Empresa / negocio',
+                                Tenant::BUSINESS_TYPE_REFEREE => 'Árbitro de fútbol (FEF)',
+                            ])
+                            ->default(Tenant::BUSINESS_TYPE_GENERIC)
+                            ->required()
+                            ->helperText('Árbitro activa el módulo de control de partidos y facturación a la FEF.'),
+                    ])->columns(4),
 
                 Forms\Components\Section::make('Límites')
                     ->schema([
@@ -134,6 +140,12 @@ class TenantResource extends Resource
                     ->label('Plan')
                     ->badge()
                     ->color('primary'),
+                Tables\Columns\TextColumn::make('business_type')
+                    ->label('Tipo')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state) => $state === Tenant::BUSINESS_TYPE_REFEREE ? 'Árbitro' : 'Negocio')
+                    ->color(fn (?string $state) => $state === Tenant::BUSINESS_TYPE_REFEREE ? 'warning' : 'gray')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('status')
                     ->label('Estado')
                     ->badge()
@@ -169,6 +181,12 @@ class TenantResource extends Resource
                 Tables\Filters\SelectFilter::make('current_plan_id')
                     ->label('Plan')
                     ->relationship('currentPlan', 'name'),
+                Tables\Filters\SelectFilter::make('business_type')
+                    ->label('Tipo de cuenta')
+                    ->options([
+                        Tenant::BUSINESS_TYPE_GENERIC => 'Empresa / negocio',
+                        Tenant::BUSINESS_TYPE_REFEREE => 'Árbitro de fútbol',
+                    ]),
                 Tables\Filters\TrashedFilter::make(),
             ])
             ->actions([
