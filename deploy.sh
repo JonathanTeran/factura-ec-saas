@@ -61,7 +61,7 @@ preflight() {
 
     # Certificados SSL obligatorios (nginx no arranca sin ellos) => fallo duro
     if [ ! -f "$DOCKER_DIR/nginx/ssl/fullchain.pem" ] || [ ! -f "$DOCKER_DIR/nginx/ssl/privkey.pem" ]; then
-        error "Faltan certificados SSL en docker/nginx/ssl/ (fullchain.pem y privkey.pem).\nProvisiónalos: certbot certonly --standalone -d facturacion.amephia.com\ny copia los .pem a docker/nginx/ssl/"
+        error "Faltan certificados SSL en docker/nginx/ssl/ (fullchain.pem y privkey.pem).\nProvisiónalos: certbot certonly --webroot -w /opt/factura-ec-saas/backend/public -d facturon.ec -d www.facturon.ec -d facturacion.amephia.com\ny copia los .pem a docker/nginx/ssl/"
     fi
 
     log "Pre-flight OK"
