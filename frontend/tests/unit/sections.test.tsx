@@ -14,10 +14,10 @@ describe("secciones", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Todo lo que emites" })).toBeInTheDocument();
   });
 
-  it("Features tiene el ancla y 12 tarjetas", () => {
+  it("Features tiene el ancla y 10 tarjetas", () => {
     const { container } = render(<Features />);
     expect(container.querySelector("section#funcionalidades")).not.toBeNull();
-    expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(12);
+    expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(10);
   });
 
   it("HowItWorks tiene el ancla y 3 pasos", () => {

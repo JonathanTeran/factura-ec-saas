@@ -80,9 +80,9 @@ export const SHOWCASE: ShowcaseRow[] = [
     image: { src: "/marketing/panel-invoice.png", alt: "Formulario de nueva factura en Facturón", width: 1920, height: 1200, kind: "browser" },
   },
   {
-    title: "Vende desde el celular o en caja",
-    text: "La app para Android e iOS emite y consulta comprobantes desde donde estés. El punto de venta abre sesiones de caja e imprime en impresora térmica.",
-    bullets: ["App Android e iOS", "Sesiones de caja y cierres", "Impresión térmica del recibo"],
+    title: "Vende desde el celular",
+    text: "La app para Android e iOS emite y consulta comprobantes desde donde estés, con el estado de autorización del SRI en tiempo real.",
+    bullets: ["App Android e iOS", "Emite y consulta desde cualquier lugar", "Estado de autorización en tiempo real"],
     image: { src: "/marketing/app-home.png", alt: "Inicio de la app móvil de Facturón con el resumen del mes", width: 1080, height: 2400, kind: "phone" },
   },
 ];
@@ -91,8 +91,6 @@ export const FEATURES: Feature[] = [
   { title: "Firmamos por ti", text: "Sube tu certificado .p12 una vez y firmamos cada comprobante con XAdES-BES, como exige el SRI. No instalas nada.", icon: "ShieldCheck", span: 2 },
   { title: "Autorización con reintentos", text: "Si el SRI no responde, el documento espera en cola y se reintenta solo. Ves el estado en tiempo real.", icon: "Zap", span: 2 },
   { title: "RIDE + XML por correo", text: "Tu cliente recibe el PDF y el XML al instante, con tu logo.", icon: "Mail" },
-  { title: "Punto de venta", text: "Sesiones de caja, factura al instante e impresora térmica.", icon: "Store" },
-  { title: "Inventario y compras", text: "Stock con alertas de mínimos, compras y documentos recibidos.", icon: "Package" },
   { title: "Contabilidad, ATS e IVA", text: "Plan de cuentas, asientos automáticos, ATS mensual y resumen para la declaración de IVA.", icon: "BookOpen" },
   { title: "Portal de clientes", text: "Tus clientes descargan sus comprobantes sin pedírtelos.", icon: "Users" },
   { title: "Multi-empresa", text: "Varios RUC en una cuenta; cambias de empresa con un clic.", icon: "Building2" },
@@ -126,7 +124,7 @@ export const ARBITROS = {
 
 export const REASONS = [
   { title: "Hecho para el SRI desde cero", text: "XML según la ficha técnica, firma XAdES-BES y comunicación directa con los web services del SRI.", icon: "ShieldCheck" as IconName },
-  { title: "Todo en uno", text: "Facturación, punto de venta, inventario, contabilidad básica y portal de clientes, sin integrar cinco sistemas.", icon: "Building2" as IconName },
+  { title: "Todo en uno", text: "Facturación, contabilidad básica, portal de clientes y API, sin integrar varios sistemas.", icon: "Building2" as IconName },
   { title: "Sin trabajo manual", text: "Creas el documento; nosotros lo firmamos, lo enviamos al SRI y se lo mandamos a tu cliente.", icon: "Zap" as IconName },
 ] as const;
 

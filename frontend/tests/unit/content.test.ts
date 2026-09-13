@@ -30,8 +30,8 @@ describe("contenido de la landing", () => {
     expect(DOCUMENT_TYPES.map((d) => d.code)).toEqual(["01", "03", "04", "05", "06", "07"]);
   });
 
-  it("tiene 12 funcionalidades, 3 pasos y 3 razones", () => {
-    expect(FEATURES).toHaveLength(12);
+  it("tiene 10 funcionalidades, 3 pasos y 3 razones", () => {
+    expect(FEATURES).toHaveLength(10);
     expect(STEPS).toHaveLength(3);
     expect(REASONS).toHaveLength(3);
     expect(TRUST_CHIPS.length).toBeGreaterThanOrEqual(5);
