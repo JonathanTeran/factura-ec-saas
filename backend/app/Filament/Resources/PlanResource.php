@@ -66,6 +66,10 @@ class PlanResource extends Resource
                             ->label('Días de prueba')
                             ->numeric()
                             ->default(14),
+                        Forms\Components\Toggle::make('is_contact_sales')
+                            ->label('Precio a medida (Contáctanos)')
+                            ->helperText('No se publica el precio en la landing ni se puede contratar en autoservicio: el interesado nos escribe.')
+                            ->columnSpanFull(),
                     ])->columns(4),
 
                 Forms\Components\Section::make('Límites')

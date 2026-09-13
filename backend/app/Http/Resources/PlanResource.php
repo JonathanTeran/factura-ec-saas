@@ -18,6 +18,7 @@ class PlanResource extends JsonResource
             'price_yearly' => (float) $this->price_yearly,
             'currency' => $this->currency,
             'trial_days' => $this->trial_days,
+            'is_contact_sales' => (bool) $this->is_contact_sales,
             'limits' => [
                 'max_documents_per_month' => $this->max_documents_per_month,
                 'max_users' => $this->max_users,

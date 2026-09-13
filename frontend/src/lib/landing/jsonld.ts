@@ -1,5 +1,5 @@
 import type { FaqItem } from "@/content/landing";
-import type { LandingPlan } from "./pricing";
+import { pricedPlans, type LandingPlan } from "./pricing";
 
 export type JsonLdInput = {
   baseUrl: string;
@@ -33,9 +33,10 @@ export function buildJsonLd(input: JsonLdInput) {
     ],
   };
 
-  const prices = input.plans.map((p) => p.price_monthly);
+  const priced = pricedPlans(input.plans);
+  const prices = priced.map((p) => p.price_monthly);
   const offers =
-    input.plans.length === 0
+    priced.length === 0
       ? {}
       : {
           offers: [
@@ -44,8 +45,8 @@ export function buildJsonLd(input: JsonLdInput) {
               priceCurrency: "USD",
               lowPrice: Math.min(...prices).toFixed(2),
               highPrice: Math.max(...prices).toFixed(2),
-              offerCount: input.plans.length,
-              offers: input.plans.map((p) => ({
+              offerCount: priced.length,
+              offers: priced.map((p) => ({
                 "@type": "Offer",
                 name: p.name,
                 price: p.price_monthly.toFixed(2),

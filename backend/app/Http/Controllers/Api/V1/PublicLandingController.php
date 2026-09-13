@@ -30,7 +30,7 @@ class PublicLandingController extends ApiController
     private function plans(): array
     {
         return Plan::active()
-            ->where('price_monthly', '>', 0)
+            ->where(fn ($q) => $q->where('price_monthly', '>', 0)->orWhere('is_contact_sales', true))
             ->ordered()
             ->get()
             ->map(fn (Plan $plan) => [
@@ -38,11 +38,13 @@ class PublicLandingController extends ApiController
                 'name' => $plan->name,
                 'slug' => $plan->slug,
                 'description' => $plan->description,
-                'price_monthly' => (float) $plan->price_monthly,
-                'price_yearly' => (float) $plan->price_yearly,
+                // Planes a medida: el precio no se publica; el interesado nos contacta.
+                'price_monthly' => $plan->is_contact_sales ? 0.0 : (float) $plan->price_monthly,
+                'price_yearly' => $plan->is_contact_sales ? 0.0 : (float) $plan->price_yearly,
                 'currency' => $plan->currency ?: 'USD',
                 'is_featured' => (bool) $plan->is_featured,
-                'yearly_savings_percent' => (int) $plan->getYearlySavingsPercent(),
+                'is_contact_sales' => (bool) $plan->is_contact_sales,
+                'yearly_savings_percent' => $plan->is_contact_sales ? 0 : (int) $plan->getYearlySavingsPercent(),
                 'features_list' => $plan->getFeaturesList(),
             ])
             ->values()

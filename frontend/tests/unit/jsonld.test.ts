@@ -37,8 +37,11 @@ describe("buildJsonLd", () => {
     const aggregate = (app.offers as Array<Record<string, unknown>>)[0];
     expect(aggregate["@type"]).toBe("AggregateOffer");
     expect(aggregate.lowPrice).toBe("2.99");
-    expect(aggregate.highPrice).toBe("49.99");
-    expect((aggregate.offers as unknown[]).length).toBe(4);
+    // El plan a medida (Enterprise) no publica precio: queda fuera de las ofertas.
+    expect(aggregate.highPrice).toBe("14.99");
+    const offers = aggregate.offers as Array<Record<string, unknown>>;
+    expect(offers.length).toBe(3);
+    expect(offers.map((o) => o.name)).not.toContain("Enterprise");
     expect(app.aggregateRating).toBeUndefined();
     expect(app.url).toBe("https://facturon.ec/");
   });

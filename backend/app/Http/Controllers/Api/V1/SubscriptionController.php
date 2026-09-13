@@ -39,7 +39,7 @@ class SubscriptionController extends ApiController
      */
     public function plans(Request $request): JsonResponse
     {
-        $plans = Cache::remember('billing:plans', now()->addHour(), fn () => Plan::active()->ordered()->get());
+        $plans = Cache::remember('billing:plans', now()->addHour(), fn () => Plan::active()->where('is_contact_sales', false)->ordered()->get());
 
         return $this->success([
             'plans' => PlanResource::collection($plans),

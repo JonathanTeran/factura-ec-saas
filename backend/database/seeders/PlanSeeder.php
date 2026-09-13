@@ -166,6 +166,7 @@ class PlanSeeder extends Seeder
                 'support_response_hours' => 1,
                 'is_active' => true,
                 'is_featured' => false,
+                'is_contact_sales' => true,
                 'sort_order' => 4,
                 'trial_days' => 0,
             ],

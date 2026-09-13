@@ -49,6 +49,7 @@ class Plan extends Model
         'support_response_hours',
         'is_active',
         'is_featured',
+        'is_contact_sales',
         'sort_order',
         'trial_days',
         'features_json',
@@ -81,6 +82,7 @@ class Plan extends Model
         'has_sla' => 'boolean',
         'is_active' => 'boolean',
         'is_featured' => 'boolean',
+        'is_contact_sales' => 'boolean',
         'features_json' => 'array',
     ];
 

@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Check } from "lucide-react";
-import { formatPrice, maxSavings, monthlyEquivalent, visiblePlanFeatures, type LandingData, type LandingPlan } from "@/lib/landing/pricing";
+import { formatPrice, isContactSales, maxSavings, monthlyEquivalent, visiblePlanFeatures, type LandingData, type LandingPlan } from "@/lib/landing/pricing";
+import { CONTACT_EMAIL, whatsappUrl } from "@/lib/landing/config";
 import { cn } from "@/lib/utils";
 import { Reveal } from "./reveal";
 
 function PlanCard({ plan, yearly }: { plan: LandingPlan; yearly: boolean }) {
   const featured = plan.is_featured;
+  const contactSales = isContactSales(plan);
   const price = yearly ? plan.price_yearly : plan.price_monthly;
   return (
     <article
@@ -22,22 +24,50 @@ function PlanCard({ plan, yearly }: { plan: LandingPlan; yearly: boolean }) {
       )}
       <h3 className="font-display text-lg font-semibold">{plan.name}</h3>
       {plan.description && <p className={cn("mt-1.5 text-sm", featured ? "text-slate-300" : "text-slate-600")}>{plan.description}</p>}
-      <div className="mt-6 flex items-baseline gap-1">
-        <span className="font-display text-4xl font-bold tracking-tight">{formatPrice(price, plan.currency)}</span>
-        <span className={cn("text-sm", featured ? "text-slate-400" : "text-slate-500")}>{yearly ? "/año" : "/mes"}</span>
-      </div>
-      <p className={cn("mt-1 h-5 text-xs", featured ? "text-slate-400" : "text-slate-500")}>
-        {yearly ? `Equivale a ${formatPrice(monthlyEquivalent(plan.price_yearly), plan.currency)} al mes` : ""}
-      </p>
-      <Link
-        href={`/register?plan=${plan.slug}`}
-        className={cn(
-          "mt-5 inline-flex h-11 items-center justify-center rounded-xl text-sm font-semibold transition-colors",
-          featured ? "bg-brand text-white hover:bg-brand-hover" : "bg-slate-100 text-navy hover:bg-slate-200",
-        )}
-      >
-        Crear cuenta
-      </Link>
+      {contactSales ? (
+        <>
+          <div className="mt-6 flex items-baseline gap-1">
+            <span className="font-display text-3xl font-bold tracking-tight">A tu medida</span>
+          </div>
+          <p className={cn("mt-1 h-5 text-xs", featured ? "text-slate-400" : "text-slate-500")}>Precio según volumen y requerimientos</p>
+          <a
+            href={whatsappUrl(`Hola, quiero información del plan ${plan.name} de Facturón`)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              "mt-5 inline-flex h-11 items-center justify-center rounded-xl text-sm font-semibold transition-colors",
+              featured ? "bg-brand text-white hover:bg-brand-hover" : "bg-navy text-white hover:bg-navy/90",
+            )}
+          >
+            Contáctanos
+          </a>
+          <p className={cn("mt-2 text-center text-xs", featured ? "text-slate-400" : "text-slate-500")}>
+            o escríbenos a{" "}
+            <a href={`mailto:${CONTACT_EMAIL}`} className="font-medium underline-offset-2 hover:underline">
+              {CONTACT_EMAIL}
+            </a>
+          </p>
+        </>
+      ) : (
+        <>
+          <div className="mt-6 flex items-baseline gap-1">
+            <span className="font-display text-4xl font-bold tracking-tight">{formatPrice(price, plan.currency)}</span>
+            <span className={cn("text-sm", featured ? "text-slate-400" : "text-slate-500")}>{yearly ? "/año" : "/mes"}</span>
+          </div>
+          <p className={cn("mt-1 h-5 text-xs", featured ? "text-slate-400" : "text-slate-500")}>
+            {yearly ? `Equivale a ${formatPrice(monthlyEquivalent(plan.price_yearly), plan.currency)} al mes` : ""}
+          </p>
+          <Link
+            href={`/register?plan=${plan.slug}`}
+            className={cn(
+              "mt-5 inline-flex h-11 items-center justify-center rounded-xl text-sm font-semibold transition-colors",
+              featured ? "bg-brand text-white hover:bg-brand-hover" : "bg-slate-100 text-navy hover:bg-slate-200",
+            )}
+          >
+            Crear cuenta
+          </Link>
+        </>
+      )}
       <ul className="mt-7 space-y-2.5">
         {visiblePlanFeatures(plan.features_list).map((feature) => (
           <li key={feature} className={cn("flex items-start gap-2.5 text-sm", featured ? "text-slate-200" : "text-slate-700")}>

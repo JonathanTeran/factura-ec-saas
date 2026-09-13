@@ -28,6 +28,10 @@ export function buildLlmsTxt(input: { appUrl: string; plans: LandingPlan[]; cont
   if (input.plans.length > 0) {
     lines.push("", "## Precios", "", "Sin comisión por documento. Pago por transferencia bancaria; sin período de prueba.", "");
     for (const p of input.plans) {
+      if (p.is_contact_sales) {
+        lines.push(`- ${p.name}: precio a medida según volumen y requerimientos; contactar por WhatsApp o a ${input.contactEmail}. ${p.features_list.join(", ")}.`);
+        continue;
+      }
       lines.push(`- ${p.name}: ${formatPrice(p.price_monthly, p.currency)}/mes o ${formatPrice(p.price_yearly, p.currency)}/año. ${p.features_list.join(", ")}.`);
     }
   }

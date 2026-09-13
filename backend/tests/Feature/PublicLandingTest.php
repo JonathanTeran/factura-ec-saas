@@ -6,10 +6,11 @@ use App\Models\Billing\Plan;
 use App\Services\Settings\PricingContentSettings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use Tests\Traits\CreatesTestTenant;
 
 class PublicLandingTest extends TestCase
 {
-    use RefreshDatabase;
+    use CreatesTestTenant, RefreshDatabase;
 
     private const URL = '/api/v1/public/landing';
 
@@ -43,6 +44,30 @@ class PublicLandingTest extends TestCase
             ->assertJsonPath('data.plans.0.yearly_savings_percent', 17);
 
         $this->assertNotEmpty($res->json('data.plans.0.features_list'));
+    }
+
+    public function test_contact_sales_plan_is_listed_without_price(): void
+    {
+        $this->makePlan(['name' => 'Negocio', 'slug' => 'negocio', 'sort_order' => 2]);
+        $this->makePlan([
+            'name' => 'Enterprise', 'slug' => 'enterprise', 'sort_order' => 4,
+            'price_monthly' => 49.99, 'price_yearly' => 499, 'is_contact_sales' => true,
+        ]);
+
+        $this->getJson(self::URL)
+            ->assertOk()
+            ->assertJsonCount(2, 'data.plans')
+            ->assertJsonPath('data.plans.1.slug', 'enterprise')
+            ->assertJsonPath('data.plans.1.is_contact_sales', true)
+            ->assertJsonPath('data.plans.1.price_monthly', 0)
+            ->assertJsonPath('data.plans.1.price_yearly', 0)
+            ->assertJsonPath('data.plans.0.is_contact_sales', false);
+
+        // En autoservicio (panel/app) el plan a medida no se ofrece.
+        $this->setUpTenantContext();
+        $slugs = collect($this->getJson('/api/v1/subscription/plans')->json('data.plans'))->pluck('slug');
+        $this->assertFalse($slugs->contains('enterprise'));
+        $this->assertTrue($slugs->contains('negocio'));
     }
 
     public function test_pricing_content_falls_back_to_defaults_and_reflects_saved_values(): void

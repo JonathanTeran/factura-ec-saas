@@ -7,6 +7,8 @@ export type LandingPlan = {
   price_yearly: number;
   currency: string;
   is_featured: boolean;
+  /** Plan a medida (Enterprise): sin precio publicado, el interesado nos contacta. */
+  is_contact_sales?: boolean;
   yearly_savings_percent: number;
   features_list: string[];
 };
@@ -34,15 +36,24 @@ export function formatPrice(amount: number, currency = "USD"): string {
   }).format(amount);
 }
 
+export function isContactSales(plan: LandingPlan): boolean {
+  return plan.is_contact_sales === true;
+}
+
+/** Planes con precio publicado (excluye los "a medida"). */
+export function pricedPlans(plans: LandingPlan[]): LandingPlan[] {
+  return plans.filter((plan) => !isContactSales(plan));
+}
+
 export function cheapestPlan(plans: LandingPlan[]): LandingPlan | null {
-  return plans.reduce<LandingPlan | null>(
+  return pricedPlans(plans).reduce<LandingPlan | null>(
     (min, plan) => (min === null || plan.price_monthly < min.price_monthly ? plan : min),
     null,
   );
 }
 
 export function maxSavings(plans: LandingPlan[]): number {
-  return plans.reduce((max, plan) => Math.max(max, plan.yearly_savings_percent), 0);
+  return pricedPlans(plans).reduce((max, plan) => Math.max(max, plan.yearly_savings_percent), 0);
 }
 
 export function monthlyEquivalent(priceYearly: number): number {

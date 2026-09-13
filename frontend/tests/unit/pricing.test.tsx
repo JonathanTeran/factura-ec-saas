@@ -10,8 +10,18 @@ describe("Pricing", () => {
     expect(screen.getByText("$7.99")).toBeInTheDocument();
     expect(screen.getByText("Más popular")).toBeInTheDocument();
     const links = screen.getAllByRole("link", { name: "Crear cuenta" });
-    expect(links).toHaveLength(4);
+    expect(links).toHaveLength(3);
     expect(links[1]).toHaveAttribute("href", "/register?plan=negocio");
+  });
+
+  it("el plan a medida (Enterprise) no publica precio y ofrece contacto", () => {
+    render(<Pricing data={LANDING_FIXTURE} />);
+    expect(screen.queryByText("$49.99")).toBeNull();
+    expect(screen.getByText("A tu medida")).toBeInTheDocument();
+    const contact = screen.getByRole("link", { name: "Contáctanos" });
+    expect(contact).toHaveAttribute("href", expect.stringContaining("wa.me/"));
+    expect(contact).toHaveAttribute("href", expect.stringContaining("Enterprise"));
+    expect(screen.getByRole("link", { name: "info@facturon.ec" })).toHaveAttribute("href", "mailto:info@facturon.ec");
   });
 
   it("cambia a precios anuales con el switch", () => {
