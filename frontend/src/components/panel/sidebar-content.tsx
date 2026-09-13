@@ -6,6 +6,7 @@ import { Plus, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buildNavGroups } from "./sidebar-nav";
 import { useProfile } from "@/lib/api/queries/profile";
+import { PlanUsageCard } from "./plan-usage-card";
 
 function isActive(currentPath: string, href: string) {
   if (href === "/dashboard") return currentPath === "/dashboard";
@@ -32,7 +33,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           <Receipt className="size-4.5" />
         </span>
         <span className="text-[15px] font-semibold tracking-tight text-foreground">
-          AmePhia
+          Facturón
         </span>
       </div>
 
@@ -93,8 +94,12 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         ))}
       </nav>
 
-      <div className="shrink-0 border-t border-sidebar-border bg-sidebar px-5 py-3 text-[11px] text-muted-foreground/60">
-        AmePhia Facturación · SRI
+      {/* Plan contratado y consumo del mes */}
+      <div className="shrink-0 border-t border-sidebar-border bg-sidebar pt-3">
+        <PlanUsageCard onNavigate={onNavigate} />
+        <div className="px-5 pb-3 text-[11px] text-muted-foreground/60">
+          Facturón · Facturación electrónica SRI
+        </div>
       </div>
     </div>
   );

@@ -4,6 +4,8 @@ import { apiFetch } from "@/lib/server/api";
 import { Sidebar } from "@/components/panel/sidebar";
 import { Topbar } from "@/components/panel/topbar";
 import { SignatureBanner } from "@/components/panel/signature-banner";
+import { SubscriptionBanner } from "@/components/panel/subscription-banner";
+import type { CurrentSubscriptionRaw } from "@/lib/api/queries/subscription";
 import type { ApiSuccess } from "@/lib/api/client";
 import type {
   OnboardingStatus,
@@ -44,12 +46,24 @@ export default async function PanelLayout({
     signature = null;
   }
 
+  // Franja permanente de suscripción (sin plan activo no se puede emitir).
+  let subscription: CurrentSubscriptionRaw | null = null;
+  try {
+    const res = await apiFetch<ApiSuccess<CurrentSubscriptionRaw>>(
+      "/api/v1/subscription/current",
+    );
+    subscription = res.data;
+  } catch {
+    subscription = null;
+  }
+
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar user={user} />
         <main className="flex-1">
+          <SubscriptionBanner initial={subscription} />
           {signature && <SignatureBanner data={signature} />}
           {children}
         </main>

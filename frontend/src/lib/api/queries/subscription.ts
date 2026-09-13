@@ -105,33 +105,43 @@ export function usePlans() {
   });
 }
 
+export type CurrentSubscriptionRaw = {
+  subscription: (Subscription & { plan?: RawPlan | null }) | null;
+  plan: RawPlan | null;
+  /** Plan elegido en la landing al registrarse (solo sin suscripción). */
+  intended_plan?: RawPlan | null;
+  pending_payment?: (Payment & { status_label?: string }) | null;
+};
+
+export type CurrentSubscription = {
+  subscription: (Subscription & { plan?: RawPlan | null }) | null;
+  plan: Plan | null;
+  intendedPlan: Plan | null;
+  pendingPayment: (Payment & { status_label?: string }) | null;
+};
+
+/** Estados con los que se puede emitir (cancelada conserva acceso hasta ends_at). */
+export const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "cancelled"]);
+
+export function normalizeCurrentSubscription(raw: CurrentSubscriptionRaw): CurrentSubscription {
+  // Con suscripción activa, el backend anida el plan dentro de
+  // `subscription.plan`; sin suscripción ya no manda "plan actual".
+  const rawPlan = raw.subscription?.plan ?? raw.plan;
+  return {
+    subscription: raw.subscription ?? null,
+    plan: rawPlan ? normalizePlan(rawPlan) : null,
+    intendedPlan: raw.intended_plan ? normalizePlan(raw.intended_plan) : null,
+    // Transferencia esperando verificación del admin: la vista muestra
+    // "pendiente" y bloquea el envío de otro comprobante.
+    pendingPayment: raw.pending_payment ?? null,
+  };
+}
+
 export function useCurrentSubscription() {
   return useQuery({
     queryKey: subscriptionKeys.current(),
-    queryFn: () =>
-      api.get<
-        ApiSuccess<{
-          subscription: (Subscription & { plan?: RawPlan | null }) | null;
-          plan: RawPlan | null;
-          /** Plan elegido en la landing al registrarse (solo sin suscripción). */
-          intended_plan?: RawPlan | null;
-          pending_payment?: (Payment & { status_label?: string }) | null;
-        }>
-      >("subscription/current"),
-    select: (raw) => {
-      // Con suscripción activa, el backend anida el plan dentro de
-      // `subscription.plan`; sin suscripción, lo manda como `plan` suelto
-      // (vista previa del plan elegido en onboarding, sin pago aún).
-      const rawPlan = raw.data.subscription?.plan ?? raw.data.plan;
-      return {
-        subscription: raw.data.subscription ?? null,
-        plan: rawPlan ? normalizePlan(rawPlan) : null,
-        intendedPlan: raw.data.intended_plan ? normalizePlan(raw.data.intended_plan) : null,
-        // Transferencia esperando verificación del admin: la vista muestra
-        // "pendiente" y bloquea el envío de otro comprobante.
-        pendingPayment: raw.data.pending_payment ?? null,
-      };
-    },
+    queryFn: () => api.get<ApiSuccess<CurrentSubscriptionRaw>>("subscription/current"),
+    select: (raw) => normalizeCurrentSubscription(raw.data),
   });
 }
 
@@ -149,11 +159,24 @@ export function usePayments() {
   });
 }
 
+/** Consumo frente al límite del plan (limit -1 = ilimitado). */
+export type UsageLimit = {
+  allowed: boolean;
+  message?: string;
+  limit: number;
+  used: number;
+};
+
+export type Usage = {
+  documents: UsageLimit;
+  users: UsageLimit;
+  companies: UsageLimit;
+};
+
 export function useUsage() {
   return useQuery({
     queryKey: subscriptionKeys.usage(),
-    queryFn: () =>
-      api.get<ApiSuccess<unknown>>("subscription/usage"),
+    queryFn: () => api.get<ApiSuccess<Usage>>("subscription/usage"),
     select: (raw) => raw.data,
   });
 }
