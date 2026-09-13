@@ -147,7 +147,7 @@ class CompanyController extends ApiController
         $this->authorizeCompany($request, $company);
 
         $branches = $company->branches()
-            ->with('emissionPoints')
+            ->with(['emissionPoints.sequentialNumbers', 'emissionPoints.branch'])
             ->orderBy('name')
             ->get();
 

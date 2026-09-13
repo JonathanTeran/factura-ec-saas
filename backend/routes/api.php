@@ -136,6 +136,7 @@ Route::prefix('v1')->group(function () {
 
         // Consulta pública del catastro del SRI (autocompletar datos por RUC/cédula)
         Route::get('sri/ruc/{ruc}', [SriLookupController::class, 'ruc']);
+        Route::get('sri/establishments', [SriLookupController::class, 'establishments']);
         Route::get('sri/identification/{identification}', [SriLookupController::class, 'identification']);
         Route::post('sri/import-establishments', [SriLookupController::class, 'importEstablishments']);
 
@@ -199,6 +200,8 @@ Route::prefix('v1')->group(function () {
 
         Route::prefix('branches/{branch}')->group(function () {
             Route::apiResource('emission-points', EmissionPointController::class);
+            Route::get('emission-points/{emission_point}/sequentials', [EmissionPointController::class, 'sequentials']);
+            Route::put('emission-points/{emission_point}/sequentials', [EmissionPointController::class, 'updateSequentials']);
         });
 
         // Subscriptions & Billing

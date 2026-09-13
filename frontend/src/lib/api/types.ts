@@ -120,12 +120,22 @@ export type Branch = {
   emission_points_count?: number;
 };
 
+export type EmissionPointSequentialSummary = {
+  document_type: string;
+  document_type_label: string;
+  current_number: number;
+  next_number: number;
+};
+
 export type EmissionPoint = {
   id: number;
   branch_id: number;
   code: string;
   description?: string | null;
   is_active?: boolean;
+  series?: string | null;
+  sequentials?: EmissionPointSequentialSummary[];
+  next_invoice_number?: string | null;
   branch?: Branch;
 };
 

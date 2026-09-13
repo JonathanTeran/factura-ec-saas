@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type ApiSuccess } from "@/lib/api/client";
 import { companyKeys } from "@/lib/api/queries/companies";
 
@@ -40,9 +40,10 @@ export function useImportSriEstablishments(companyId: number | null) {
     mutationFn: () =>
       api.post<ApiSuccess<{ imported: ImportedBranch[] }>>(
         "sri/import-establishments",
-        {},
+        companyId ? { company_id: companyId } : {},
       ),
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["sri", "establishments", companyId] });
       if (companyId) {
         qc.invalidateQueries({ queryKey: companyKeys.branches(companyId) });
         qc.invalidateQueries({
@@ -50,5 +51,43 @@ export function useImportSriEstablishments(companyId: number | null) {
         });
       }
     },
+  });
+}
+
+export type SriEstablishment = {
+  code: string;
+  trade_name: string | null;
+  address: string | null;
+  is_main: boolean;
+  is_open: boolean;
+  configured: boolean;
+  branch_id: number | null;
+  branch_name: string | null;
+  branch_is_active: boolean | null;
+};
+
+export type SriEstablishmentsResult = {
+  company: { id: number; ruc: string; business_name: string };
+  establishments: SriEstablishment[];
+  pending_import: number;
+};
+
+export const sriKeys = {
+  establishments: (companyId: number | null) =>
+    ["sri", "establishments", companyId] as const,
+};
+
+/** Establecimientos del RUC según el catastro del SRI, marcando los ya configurados. */
+export function useSriEstablishments(companyId: number | null, enabled = true) {
+  return useQuery({
+    queryKey: sriKeys.establishments(companyId),
+    queryFn: () =>
+      api.get<ApiSuccess<SriEstablishmentsResult>>("sri/establishments", {
+        query: { company_id: companyId },
+      }),
+    enabled: !!companyId && enabled,
+    staleTime: 60_000,
+    retry: false,
+    select: (raw) => raw.data,
   });
 }

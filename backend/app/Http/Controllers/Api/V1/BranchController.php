@@ -17,7 +17,7 @@ class BranchController extends ApiController
         $this->authorizeCompany($request, $company);
 
         $branches = $company->branches()
-            ->with('emissionPoints')
+            ->with(['emissionPoints.sequentialNumbers', 'emissionPoints.branch'])
             ->orderBy('code')
             ->get();
 
@@ -101,6 +101,7 @@ class BranchController extends ApiController
         $this->authorizeBranch($company, $branch);
 
         $emissionPoints = $branch->emissionPoints()
+            ->with(['sequentialNumbers', 'branch'])
             ->orderBy('code')
             ->get();
 

@@ -9,8 +9,8 @@ use Tests\Traits\CreatesTestTenant;
 
 class RucLookupApiTest extends TestCase
 {
-    use RefreshDatabase;
     use CreatesTestTenant;
+    use RefreshDatabase;
 
     protected function setUp(): void
     {
@@ -135,6 +135,36 @@ class RucLookupApiTest extends TestCase
 
         $imported = \App\Models\Tenant\Branch::where('code', '007')->first();
         $this->assertCount(1, $imported->emissionPoints);
+    }
+
+    public function test_sri_establishments_preview_marks_configured_ones(): void
+    {
+        Http::fake([
+            '*Establecimiento*' => Http::response([
+                ['nombreFantasiaComercial' => 'MATRIZ', 'direccionCompleta' => 'GUAYAS / GUAYAQUIL', 'estado' => 'ABIERTO', 'numeroEstablecimiento' => $this->branch->code, 'matriz' => 'SI'],
+                ['nombreFantasiaComercial' => 'SUCURSAL NORTE', 'direccionCompleta' => 'GUAYAS / GUAYAQUIL / TARQUI', 'estado' => 'ABIERTO', 'numeroEstablecimiento' => '007', 'matriz' => 'NO'],
+                ['nombreFantasiaComercial' => 'CERRADA', 'direccionCompleta' => 'X', 'estado' => 'CERRADO', 'numeroEstablecimiento' => '009', 'matriz' => 'NO'],
+            ]),
+        ]);
+
+        $this->getJson('/api/v1/sri/establishments?company_id='.$this->company->id)
+            ->assertOk()
+            ->assertJsonPath('data.company.ruc', $this->company->ruc)
+            ->assertJsonCount(3, 'data.establishments')
+            ->assertJsonPath('data.establishments.0.configured', true)
+            ->assertJsonPath('data.establishments.0.branch_id', $this->branch->id)
+            ->assertJsonPath('data.establishments.1.configured', false)
+            ->assertJsonPath('data.establishments.2.is_open', false)
+            ->assertJsonPath('data.pending_import', 1);
+    }
+
+    public function test_sri_establishments_rejects_company_of_other_tenant(): void
+    {
+        $other = $this->createSecondTenant();
+        $foreign = \App\Models\Tenant\Company::factory()->create(['tenant_id' => $other['tenant']->id]);
+
+        $this->getJson('/api/v1/sri/establishments?company_id='.$foreign->id)->assertStatus(404);
+        $this->postJson('/api/v1/sri/import-establishments', ['company_id' => $foreign->id])->assertStatus(404);
     }
 
     public function test_import_establishments_fails_gracefully_when_sri_down(): void

@@ -247,3 +247,61 @@ export function useDeleteEmissionPoint(branchId: number) {
     },
   });
 }
+
+export type EmissionPointSequential = {
+  document_type: string;
+  document_type_label: string;
+  current_number: number;
+  next_number: number;
+  next_formatted: string;
+  last_issued: number;
+  documents_count: number;
+};
+
+export type EmissionPointSequentialsResult = {
+  emission_point: { id: number; code: string; series: string };
+  sequentials: EmissionPointSequential[];
+};
+
+export const sequentialKeys = {
+  detail: (branchId: number, emissionPointId: number) =>
+    ["emission-point-sequentials", branchId, emissionPointId] as const,
+};
+
+/** Secuenciales por tipo de comprobante de un punto de emisión. */
+export function useEmissionPointSequentials(
+  branchId: number,
+  emissionPointId: number,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: sequentialKeys.detail(branchId, emissionPointId),
+    queryFn: () =>
+      api.get<ApiSuccess<EmissionPointSequentialsResult>>(
+        `branches/${branchId}/emission-points/${emissionPointId}/sequentials`,
+      ),
+    enabled,
+    select: (raw) => raw.data,
+  });
+}
+
+/** Guarda el último número usado por tipo (el siguiente comprobante sale con +1). */
+export function useUpdateEmissionPointSequentials(
+  branchId: number,
+  emissionPointId: number,
+) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      sequentials: Array<{ document_type: string; last_number: number }>;
+    }) =>
+      api.put<ApiSuccess<EmissionPointSequentialsResult>>(
+        `branches/${branchId}/emission-points/${emissionPointId}/sequentials`,
+        input,
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: sequentialKeys.detail(branchId, emissionPointId) });
+      qc.invalidateQueries({ queryKey: companyKeys.all });
+    },
+  });
+}

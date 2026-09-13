@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Loader2, Plus } from "lucide-react";
+import { Building2, Download, Hash, Loader2, Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import {
   Card,
@@ -31,11 +31,24 @@ import {
   useCreateEmissionPoint,
   useDeleteBranch,
   useDeleteEmissionPoint,
+  useEmissionPointSequentials,
+  useUpdateEmissionPointSequentials,
   type BranchInput,
   type EmissionPointInput,
 } from "@/lib/api/queries/companies";
 import { ClientApiError } from "@/lib/api/client";
-import { useImportSriEstablishments } from "@/lib/api/queries/sri";
+import {
+  useImportSriEstablishments,
+  useSriEstablishments,
+} from "@/lib/api/queries/sri";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 function errMessage(err: unknown): string {
   if (err instanceof ClientApiError) {
@@ -48,8 +61,12 @@ function errMessage(err: unknown): string {
   return err instanceof Error ? err.message : "Error inesperado";
 }
 
-function ImportSriButton({ companyId }: { companyId: number }) {
+function SriEstablishmentsDialog({ companyId }: { companyId: number }) {
+  const [open, setOpen] = useState(false);
+  const sriQ = useSriEstablishments(companyId, open);
   const importSri = useImportSriEstablishments(companyId);
+  const data = sriQ.data;
+  const pending = data?.pending_import ?? 0;
 
   const onImport = () => {
     importSri.mutate(undefined, {
@@ -66,19 +83,107 @@ function ImportSriButton({ companyId }: { companyId: number }) {
   };
 
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={onImport}
-      disabled={importSri.isPending}
-    >
-      {importSri.isPending ? (
-        <Loader2 className="size-4 animate-spin" />
-      ) : (
-        <Download className="size-4" />
-      )}
-      Importar del SRI
-    </Button>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Building2 className="size-4" />
+          Ver en el SRI
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Establecimientos registrados en el SRI</DialogTitle>
+          <DialogDescription>
+            {data
+              ? `RUC ${data.company.ruc} · ${data.company.business_name}. Los que ya tienes configurados aparecen marcados.`
+              : "Consultamos el catastro público del SRI con el RUC de la empresa."}
+          </DialogDescription>
+        </DialogHeader>
+
+        {sriQ.isLoading ? (
+          <div className="flex justify-center py-10">
+            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : sriQ.error ? (
+          <div className="space-y-3 py-6 text-center text-sm">
+            <p className="text-destructive">{errMessage(sriQ.error)}</p>
+            <Button variant="outline" size="sm" onClick={() => sriQ.refetch()}>
+              <RefreshCw className="size-4" /> Reintentar
+            </Button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-16">Código</TableHead>
+                  <TableHead>Nombre / dirección</TableHead>
+                  <TableHead>Estado SRI</TableHead>
+                  <TableHead>En Facturón</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(data?.establishments ?? []).map((e) => (
+                  <TableRow key={e.code}>
+                    <TableCell className="font-mono text-xs">{e.code}</TableCell>
+                    <TableCell>
+                      <div className="font-medium">
+                        {e.trade_name || (e.is_main ? "Matriz" : `Establecimiento ${e.code}`)}
+                        {e.is_main && (
+                          <Badge variant="secondary" className="ml-2">Matriz</Badge>
+                        )}
+                      </div>
+                      {e.address && (
+                        <div className="text-xs text-muted-foreground">{e.address}</div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={e.is_open ? "default" : "destructive"}>
+                        {e.is_open ? "Abierto" : "Cerrado"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {e.configured ? (
+                        <span className="text-sm text-success">
+                          Configurado{e.branch_is_active === false ? " (inactivo)" : ""}
+                        </span>
+                      ) : e.is_open ? (
+                        <span className="text-sm text-muted-foreground">Falta importar</span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+
+        <DialogFooter className="sm:justify-between">
+          <p className="text-xs text-muted-foreground">
+            {data
+              ? pending > 0
+                ? `${pending} establecimiento(s) abiertos aún no están en Facturón.`
+                : "Todos los establecimientos abiertos ya están configurados."
+              : ""}
+          </p>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cerrar
+            </Button>
+            <Button onClick={onImport} disabled={importSri.isPending || !data || pending === 0}>
+              {importSri.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Download className="size-4" />
+              )}
+              Importar faltantes
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -126,7 +231,7 @@ export function EstablishmentsManager() {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Establecimientos</CardTitle>
             <div className="flex items-center gap-2">
-              <ImportSriButton companyId={effectiveCompanyId} />
+              <SriEstablishmentsDialog companyId={effectiveCompanyId} />
               <NewBranchDialog companyId={effectiveCompanyId} />
             </div>
           </CardHeader>
@@ -228,13 +333,21 @@ function EmissionPointRow({
   const del = useDeleteEmissionPoint(ep.branch_id);
   return (
     <li className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-muted/50">
-      <div className="flex items-center gap-3 text-sm">
+      <div className="flex flex-wrap items-center gap-3 text-sm">
         <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-muted">
           {ep.code}
         </span>
         <span>{ep.description ?? "Sin descripción"}</span>
         {ep.is_active === false && <Badge variant="secondary">Inactivo</Badge>}
+        {ep.next_invoice_number && (
+          <span className="text-xs text-muted-foreground">
+            Siguiente factura:{" "}
+            <span className="font-mono text-foreground">{ep.next_invoice_number}</span>
+          </span>
+        )}
       </div>
+      <div className="flex items-center gap-1">
+        <SequentialsDialog ep={ep} />
       <DeleteConfirmButton
         onConfirm={async () => {
           await del.mutateAsync(ep.id);
@@ -245,7 +358,145 @@ function EmissionPointRow({
         successMessage="Punto eliminado"
         iconOnly
       />
+      </div>
     </li>
+  );
+}
+
+function SequentialsDialog({
+  ep,
+}: {
+  ep: import("@/lib/api/types").EmissionPoint;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const seqQ = useEmissionPointSequentials(ep.branch_id, ep.id, open);
+  const update = useUpdateEmissionPointSequentials(ep.branch_id, ep.id);
+  const rows = seqQ.data?.sequentials ?? [];
+  const series = seqQ.data?.emission_point.series ?? ep.series ?? "";
+
+  const valueFor = (docType: string, current: number) =>
+    draft[docType] ?? String(current);
+
+  const changed = rows.filter(
+    (r) => draft[r.document_type] !== undefined && Number(draft[r.document_type]) !== r.current_number,
+  );
+
+  const onSave = () => {
+    update.mutate(
+      {
+        sequentials: changed.map((r) => ({
+          document_type: r.document_type,
+          last_number: Math.max(0, Math.floor(Number(draft[r.document_type]) || 0)),
+        })),
+      },
+      {
+        onSuccess: () => {
+          toast.success("Secuenciales actualizados");
+          setDraft({});
+          setOpen(false);
+        },
+        onError: (e) => toast.error(errMessage(e)),
+      },
+    );
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (!v) setDraft({});
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="sm" title="Ver y ajustar secuenciales">
+          <Hash className="size-4" /> Secuenciales
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Secuenciales del punto {series || ep.code}</DialogTitle>
+          <DialogDescription>
+            Cada tipo de comprobante lleva su propia numeración. Escribe el{" "}
+            <strong>último número usado</strong> (por ejemplo, el de tu sistema anterior) y el
+            siguiente comprobante saldrá con +1. Nunca se puede retroceder por debajo de lo ya emitido.
+          </DialogDescription>
+        </DialogHeader>
+
+        {seqQ.isLoading ? (
+          <div className="flex justify-center py-10">
+            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : seqQ.error ? (
+          <p className="py-6 text-center text-sm text-destructive">{errMessage(seqQ.error)}</p>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Comprobante</TableHead>
+                  <TableHead className="w-36">Último usado</TableHead>
+                  <TableHead>Siguiente</TableHead>
+                  <TableHead className="text-right">Emitidos</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((r) => {
+                  const val = valueFor(r.document_type, r.current_number);
+                  const n = Math.max(0, Math.floor(Number(val) || 0));
+                  const belowIssued = n < r.last_issued;
+                  return (
+                    <TableRow key={r.document_type}>
+                      <TableCell className="font-medium">{r.document_type_label}</TableCell>
+                      <TableCell>
+                        <Input
+                          inputMode="numeric"
+                          className="h-9 font-mono"
+                          value={val}
+                          onChange={(e) =>
+                            setDraft((d) => ({ ...d, [r.document_type]: e.target.value.replace(/\D+/g, "") }))
+                          }
+                          aria-invalid={belowIssued || undefined}
+                        />
+                        {belowIssued && (
+                          <p className="mt-1 text-xs text-destructive">
+                            Ya emitiste hasta {r.last_issued}.
+                          </p>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {series}-{String(n + 1).padStart(9, "0")}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">
+                        {r.documents_count}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cerrar
+          </Button>
+          <Button
+            onClick={onSave}
+            disabled={
+              update.isPending ||
+              changed.length === 0 ||
+              rows.some((r) => Number(valueFor(r.document_type, r.current_number)) < r.last_issued)
+            }
+          >
+            {update.isPending && <Loader2 className="size-4 animate-spin" />}
+            Guardar cambios
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
