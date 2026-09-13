@@ -107,3 +107,12 @@ test.describe("documentación de la API", () => {
     await expect(page).toHaveURL(/\/docs\/api$/);
   });
 });
+
+test.describe("páginas de error", () => {
+  test("una ruta inexistente responde 404 con la página de marca", async ({ page }) => {
+    const response = await page.goto("/esta-ruta-no-existe");
+    expect(response?.status()).toBe(404);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("No encontramos esta página");
+    await expect(page.getByRole("link", { name: "Ir al inicio", exact: true })).toBeVisible();
+  });
+});

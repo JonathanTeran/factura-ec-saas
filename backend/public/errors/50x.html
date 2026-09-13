@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <meta http-equiv="refresh" content="30">
+    <meta name="theme-color" content="#0B1220">
+    <title>Volvemos en un momento · Facturón</title>
+    <style>
+        * { box-sizing: border-box; }
+        html, body { height: 100%; }
+        body { margin: 0; min-height: 100%; display: flex; flex-direction: column; background: #0B1220 radial-gradient(70% 60% at 85% -10%, rgba(43,84,228,.38), transparent 60%); color: #E2E8F0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+        .flag { height: 4px; background: linear-gradient(90deg, #FFCE00 0 33.3%, #0653C6 33.3% 66.6%, #EF3340 66.6% 100%); }
+        main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 48px 20px; }
+        .card { width: 100%; max-width: 560px; text-align: center; }
+        .brand { display: inline-flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; }
+        .brand svg { width: 40px; height: 40px; }
+        .brand span { font-weight: 700; font-size: 22px; letter-spacing: -.01em; }
+        .code { margin: 34px 0 6px; font-weight: 800; font-size: clamp(40px, 9vw, 64px); line-height: .95; letter-spacing: -.04em; color: rgba(255,255,255,.8); }
+        h1 { margin: 6px 0 0; font-weight: 800; font-size: clamp(24px, 4.6vw, 32px); line-height: 1.15; letter-spacing: -.02em; color: #fff; }
+        p { margin: 14px auto 0; max-width: 460px; font-size: 16px; line-height: 1.6; color: #B7C2D6; }
+        .actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 28px; }
+        .btn { display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 22px; border-radius: 999px; font-weight: 600; font-size: 15px; text-decoration: none; }
+        .btn-primary { background: #2B54E4; color: #fff; box-shadow: 0 10px 30px rgba(43,84,228,.35); }
+        .btn-secondary { border: 1px solid rgba(255,255,255,.22); color: #fff; }
+        .support { margin-top: 34px; font-size: 13.5px; color: #8B98AF; }
+        .support a { color: #C7D2FE; text-decoration: none; }
+        footer { padding: 18px 20px 26px; text-align: center; font-size: 12.5px; color: #6B7791; }
+    </style>
+</head>
+<body>
+    <div class="flag" aria-hidden="true"></div>
+    <main>
+        <div class="card">
+            <a class="brand" href="/" aria-label="Facturón, ir al inicio">
+                <svg viewBox="0 0 1024 1024" aria-hidden="true" focusable="false">
+                    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#FFCE00"/><stop offset="48%" stop-color="#0653C6"/><stop offset="100%" stop-color="#EF3340"/></linearGradient></defs>
+                    <rect width="1024" height="1024" rx="230" fill="url(#g)"/>
+                    <rect x="110" y="110" width="804" height="804" rx="190" fill="#0B1424"/>
+                    <rect x="400" y="300" width="100" height="424" rx="16" fill="#FFFFFF"/>
+                    <rect x="400" y="300" width="260" height="100" rx="16" fill="#FFFFFF"/>
+                    <rect x="400" y="440" width="200" height="96" rx="16" fill="#FFFFFF"/>
+                </svg>
+                <span>Facturón</span>
+            </a>
+            <p class="code" aria-hidden="true">Un momento</p>
+            <h1>Estamos actualizando Facturón</h1>
+            <p>El servicio se está reiniciando o actualizando. Esta página se recargará sola en unos segundos; tus comprobantes y datos están a salvo.</p>
+            <div class="actions">
+                <a class="btn btn-primary" href="javascript:location.reload()">Reintentar ahora</a>
+                <a class="btn btn-secondary" href="/">Ir al inicio</a>
+            </div>
+            <p class="support">¿Necesitas ayuda? <a href="https://wa.me/13347324056" target="_blank" rel="noopener">WhatsApp +1 334 732 4056</a> · <a href="mailto:info@amephia.com">info@amephia.com</a></p>
+        </div>
+    </main>
+    <footer>Facturón · Un producto de AmePhia Systems Inc.</footer>
+</body>
+</html>

@@ -24,11 +24,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Páginas de error de marca (resources/views/errors): URLs y contacto.
+        \Illuminate\Support\Facades\View::composer(['errors::*', 'errors.*'], \App\View\Composers\ErrorPageComposer::class);
+
         // All factories live in Database\Factories\ (flat), even for models in App\Models\Tenant\
         Factory::guessFactoryNamesUsing(function (string $modelName) {
             $modelBaseName = class_basename($modelName);
 
-            return 'Database\\Factories\\' . $modelBaseName . 'Factory';
+            return 'Database\\Factories\\'.$modelBaseName.'Factory';
         });
 
         // Política de contraseñas (registro, cambio y reseteo): mínimo 8
@@ -83,7 +86,7 @@ class AppServiceProvider extends ServiceProvider
 
         // 10 attempts per minute for login
         RateLimiter::for('login', function (Request $request) {
-            $key = strtolower($request->input('email', '')) . '|' . $request->ip();
+            $key = strtolower($request->input('email', '')).'|'.$request->ip();
 
             return Limit::perMinute(10)->by($key)->response(function () {
                 return response()->json([
@@ -96,7 +99,7 @@ class AppServiceProvider extends ServiceProvider
 
         // 3 requests per hour for magic link / password reset
         RateLimiter::for('magic-link', function (Request $request) {
-            $key = strtolower($request->input('email', '')) . '|' . $request->ip();
+            $key = strtolower($request->input('email', '')).'|'.$request->ip();
 
             return Limit::perHour(3)->by($key)->response(function () {
                 return response()->json([

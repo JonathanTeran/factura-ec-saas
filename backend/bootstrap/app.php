@@ -46,6 +46,10 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Toda la API responde JSON aunque el cliente no envíe Accept (curl,
+        // integraciones, navegador): nunca una página HTML de error.
+        $exceptions->shouldRenderJsonWhen(fn (\Illuminate\Http\Request $request, \Throwable $e) => $request->is('api/*') || $request->expectsJson());
+
         $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e, \Illuminate\Http\Request $request) {
             if ($request->is('admin*') && auth()->check()) {
                 return redirect()->route('panel.dashboard');

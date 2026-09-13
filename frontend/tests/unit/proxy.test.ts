@@ -12,6 +12,12 @@ describe("proxy (rutas públicas y privadas)", () => {
     expect(proxy(req("/", "abc")).headers.get("location")).toBeNull();
   });
 
+  it("una ruta desconocida sin sesión no redirige al login (404 de marca de Next)", () => {
+    expect(proxy(req("/esta-ruta-no-existe")).headers.get("location")).toBeNull();
+    expect(proxy(req("/settings/api")).headers.get("location")).toBe("http://localhost:3000/login?next=%2Fsettings%2Fapi");
+    expect(proxy(req("/onboarding")).headers.get("location")).toBe("http://localhost:3000/login?next=%2Fonboarding");
+  });
+
   it("la documentación de la API (/docs/*) es pública", () => {
     expect(proxy(req("/docs/api")).headers.get("location")).toBeNull();
     expect(proxy(req("/docs/api", "abc")).headers.get("location")).toBeNull();
