@@ -61,7 +61,7 @@ return [
         // solo marca. Cambiá SRI_SIGNATURE_DESCRIPTION para personalizarlo.
         'signature_description' => env(
             'SRI_SIGNATURE_DESCRIPTION',
-            'Comprobante electrónico emitido con Facturón EC · amephia.com'
+            'Comprobante electrónico emitido con Facturón EC · facturon.ec'
         ),
     ],
 

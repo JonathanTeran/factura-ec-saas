@@ -1,6 +1,6 @@
 # Guía de Despliegue — Factura EC SaaS
 
-Despliegue en producción para **facturacion.amephia.com** usando Docker Compose
+Despliegue en producción para **facturon.ec** usando Docker Compose
 y el script `deploy.sh` que vive en la raíz del repositorio.
 
 Stack: Laravel 12 (PHP 8.3-fpm-alpine) · MySQL 8 · Redis 7 · Horizon ·
@@ -14,9 +14,9 @@ En el servidor de producción (VPS, 1 CPU mínimo):
 
 - **Docker** y **Docker Compose v2** (`docker compose`, no `docker-compose`).
 - **Git** (el `deploy.sh update` hace `git pull` del backend).
-- Un **dominio** apuntando al servidor: `facturacion.amephia.com`.
-- **DNS**: registro `A` (y/o `AAAA`) de `facturacion.amephia.com` → IP pública del
-  servidor. Verifica con `dig +short facturacion.amephia.com` antes de seguir.
+- Un **dominio** apuntando al servidor: `facturon.ec` (y `www.facturon.ec`).
+- **DNS**: registro `A` (y/o `AAAA`) de `facturon.ec` → IP pública del
+  servidor. Verifica con `dig +short facturon.ec` antes de seguir.
 - Puertos **80** y **443** abiertos en el firewall (los publica el servicio `nginx`).
 - Clonar el repo en el servidor, p. ej. en `/opt/factura-ec-saas`.
 
@@ -60,7 +60,7 @@ Edita `backend/.env` y reemplaza **todos** los valores marcados `CAMBIAR_*`:
 Confirma estos valores ya correctos en la plantilla:
 
 - `APP_ENV=production`, `APP_DEBUG=false`
-- `APP_URL=https://facturacion.amephia.com`
+- `APP_URL=https://facturon.ec`
 - `SRI_ENVIRONMENT=2` (producción del SRI)
 - `BACKUP_NOTIFICATION_EMAIL` *(opcional)* — correo que recibirá avisos de backup
   fallido (por defecto `soporte@amephia.com`, definido en `config/backup.php`).
@@ -90,14 +90,15 @@ mkdir -p docker/nginx/ssl
 # Instalar certbot (Debian/Ubuntu)
 sudo apt-get update && sudo apt-get install -y certbot
 
-# Emitir el certificado
+# Emitir el certificado. Mientras la app móvil publicada use facturacion.amephia.com,
+# agrega también -d facturacion.amephia.com (ver docs/MIGRATION-2026-09.md).
 sudo certbot certonly --standalone \
-  -d facturacion.amephia.com \
+  -d facturon.ec -d www.facturon.ec \
   --agree-tos -m soporte@amephia.com --no-eff-email
 
 # Copiar al directorio que monta nginx
-sudo cp /etc/letsencrypt/live/facturacion.amephia.com/fullchain.pem docker/nginx/ssl/fullchain.pem
-sudo cp /etc/letsencrypt/live/facturacion.amephia.com/privkey.pem   docker/nginx/ssl/privkey.pem
+sudo cp /etc/letsencrypt/live/facturon.ec/fullchain.pem docker/nginx/ssl/fullchain.pem
+sudo cp /etc/letsencrypt/live/facturon.ec/privkey.pem   docker/nginx/ssl/privkey.pem
 ```
 
 ### Renovación
@@ -106,8 +107,8 @@ Let's Encrypt caduca cada 90 días. Renueva y recarga nginx:
 
 ```bash
 sudo certbot renew --quiet
-sudo cp /etc/letsencrypt/live/facturacion.amephia.com/fullchain.pem docker/nginx/ssl/fullchain.pem
-sudo cp /etc/letsencrypt/live/facturacion.amephia.com/privkey.pem   docker/nginx/ssl/privkey.pem
+sudo cp /etc/letsencrypt/live/facturon.ec/fullchain.pem docker/nginx/ssl/fullchain.pem
+sudo cp /etc/letsencrypt/live/facturon.ec/privkey.pem   docker/nginx/ssl/privkey.pem
 docker compose -f docker/docker-compose.production.yml restart nginx
 ```
 
@@ -140,9 +141,9 @@ Esto (ver `deploy.sh` → `deploy_full`):
 
 Al terminar tendrás:
 
-- App: `https://facturacion.amephia.com`
-- Horizon: `https://facturacion.amephia.com/horizon`
-- Admin (Filament): `https://facturacion.amephia.com/admin`
+- App: `https://facturon.ec`
+- Horizon: `https://facturon.ec/horizon`
+- Admin (Filament): `https://facturon.ec/admin`
 
 ---
 

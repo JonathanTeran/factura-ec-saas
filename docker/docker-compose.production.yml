@@ -38,7 +38,7 @@ services:
       context: ../frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_APP_URL: ${FRONTEND_URL:-https://facturacion.amephia.com}
+        NEXT_PUBLIC_APP_URL: ${FRONTEND_URL:-https://facturon.ec}
         NEXT_PUBLIC_APP_NAME: "AmePhia Facturación"
         NEXT_PUBLIC_WHATSAPP: ${LANDING_WHATSAPP:-13347324056}
         NEXT_PUBLIC_CONTACT_EMAIL: ${LANDING_CONTACT_EMAIL:-info@amephia.com}
@@ -49,7 +49,7 @@ services:
     environment:
       # El proxy server-side del frontend llama al backend por la red interna.
       LARAVEL_API_URL: http://nginx
-      NEXT_PUBLIC_APP_URL: ${FRONTEND_URL:-https://facturacion.amephia.com}
+      NEXT_PUBLIC_APP_URL: ${FRONTEND_URL:-https://facturon.ec}
       NODE_ENV: production
     networks:
       - factura-network

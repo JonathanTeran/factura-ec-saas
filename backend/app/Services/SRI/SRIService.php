@@ -40,7 +40,7 @@ class SRIService
         // paquete usa un texto neutral; acá ponemos la marca propia. Nunca la de
         // terceros. Configurable por env SRI_SIGNATURE_DESCRIPTION.
         $this->sri->setDescripcionFirma(
-            config('services.sri.signature_description', 'Comprobante electrónico emitido con Facturón EC · amephia.com')
+            config('services.sri.signature_description', 'Comprobante electrónico emitido con Facturón EC · facturon.ec')
         );
 
         return $this;

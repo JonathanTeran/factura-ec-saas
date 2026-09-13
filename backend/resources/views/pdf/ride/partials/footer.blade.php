@@ -45,5 +45,5 @@
     <div class="footer-note">{{ $rideFooter }}</div>
 @endif
 <div class="footer-note">
-    Documento generado por AmePhia Facturación · www.amephia.com
+    Documento generado por Facturón EC · facturon.ec
 </div>

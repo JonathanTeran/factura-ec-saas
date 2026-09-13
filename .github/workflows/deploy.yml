@@ -3,7 +3,7 @@ name: Deploy to Production
 # ===========================================================================
 # Continuous Deployment - Factura EC SaaS
 # ===========================================================================
-# Este workflow despliega a produccion (facturacion.amephia.com) ejecutando
+# Este workflow despliega a produccion (facturon.ec) ejecutando
 # `./deploy.sh update` en el servidor por SSH.
 #
 # Encadenamiento con CI:
@@ -55,7 +55,7 @@ jobs:
     # El environment habilita el gate de aprobacion manual (required reviewers).
     environment:
       name: production
-      url: https://facturacion.amephia.com
+      url: https://facturon.ec
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3

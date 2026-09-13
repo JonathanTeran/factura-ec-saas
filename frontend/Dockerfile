@@ -19,7 +19,7 @@ RUN corepack enable && corepack prepare pnpm@10.15.0 --activate
 
 # NEXT_PUBLIC_* se incrustan en tiempo de build.
 ARG NEXT_PUBLIC_APP_NAME="AmePhia Facturación"
-ARG NEXT_PUBLIC_APP_URL="https://facturacion.amephia.com"
+ARG NEXT_PUBLIC_APP_URL="https://facturon.ec"
 ENV NEXT_PUBLIC_APP_NAME=$NEXT_PUBLIC_APP_NAME
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 ARG NEXT_PUBLIC_WHATSAPP="13347324056"
