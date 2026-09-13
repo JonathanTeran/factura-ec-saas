@@ -1,19 +1,19 @@
 @extends('emails.partials.layout')
 
-@section('title', 'Suscripcion Activada')
+@section('title', 'Suscripción activada')
 
 @section('content')
     <div class="header">
-        <h2>{{ config('app.name') }}</h2>
-        <p>Facturacion Electronica Ecuador</p>
-        <span class="badge badge-success">Suscripcion Activa</span>
+        <h2>Suscripción activada</h2>
+        <p>Plan {{ $subscription->plan->name }} · gracias por confiar en Facturón.</p>
+        <span class="badge badge-success">Suscripción activa</span>
     </div>
 
     <p class="greeting">
         Hola <strong>{{ $subscription->tenant->owner->name ?? $subscription->tenant->name }}</strong>,
     </p>
     <p class="text">
-        Tu suscripcion al plan <strong>{{ $subscription->plan->name }}</strong> ha sido activada exitosamente.
+        Tu suscripción al plan <strong>{{ $subscription->plan->name }}</strong> quedó activada. Este es el resumen:
     </p>
 
     <table class="info-table">
@@ -22,7 +22,7 @@
             <td>{{ $subscription->plan->name }}</td>
         </tr>
         <tr>
-            <td>Ciclo de facturacion</td>
+            <td>Ciclo de facturación</td>
             <td>{{ $subscription->billing_cycle === 'yearly' ? 'Anual' : 'Mensual' }}</td>
         </tr>
         <tr>
@@ -40,11 +40,11 @@
             <td>{{ $subscription->starts_at->format('d/m/Y') }}</td>
         </tr>
         <tr>
-            <td>Proximo cobro</td>
+            <td>Próximo cobro</td>
             <td>{{ $subscription->ends_at?->format('d/m/Y') ?? 'N/A' }}</td>
         </tr>
         <tr>
-            <td>Documentos/mes</td>
+            <td>Documentos por mes</td>
             <td>{{ $subscription->plan->max_documents_per_month == -1 ? 'Ilimitados' : $subscription->plan->max_documents_per_month }}</td>
         </tr>
         <tr>
@@ -54,10 +54,10 @@
     </table>
 
     <div class="cta">
-        <a href="{{ url('/panel') }}" class="cta-primary">Ir al Panel</a>
+        <a href="{{ url('/dashboard') }}" class="cta-primary">Ir a mi panel</a>
     </div>
 @endsection
 
 @section('footer')
-    <p>Puedes gestionar tu suscripcion desde Configuracion > Facturacion.</p>
+    <p>Puedes gestionar tu suscripción desde Configuración → Suscripción.</p>
 @endsection

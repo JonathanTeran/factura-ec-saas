@@ -29,14 +29,14 @@ class BankTransferPendingNotification extends Notification implements ShouldQueu
         $adminName = $notifiable->name ?? 'Administrador';
 
         return (new MailMessage)
-            ->subject("Transferencia pendiente de aprobacion - {$tenantName}")
+            ->subject("Transferencia pendiente de aprobación · {$tenantName}")
             ->greeting("Hola {$adminName},")
             ->line("Se ha registrado un nuevo pago por transferencia bancaria que requiere tu aprobacion.")
             ->line("Tenant: {$tenantName}")
             ->line("Plan: {$planName}")
             ->line("Monto: \${$this->payment->total_amount} {$this->payment->currency}")
             ->line("Referencia: {$this->payment->transfer_reference}")
-            ->action('Revisar Pago', url("/admin/payments/{$this->payment->id}"))
+            ->action('Revisar pago', url("/admin/payments/{$this->payment->id}"))
             ->line('Por favor verifica el comprobante y aprueba o rechaza el pago.');
     }
 

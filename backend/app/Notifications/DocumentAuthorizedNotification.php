@@ -24,13 +24,13 @@ class DocumentAuthorizedNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject("Documento Autorizado - {$this->document->document_number}")
+            ->subject("Documento autorizado · {$this->document->document_number}")
             ->greeting("Hola {$notifiable->name},")
             ->line("El documento {$this->document->document_type->label()} #{$this->document->document_number} ha sido autorizado por el SRI.")
             ->line("Clave de acceso: {$this->document->access_key}")
             ->line("Cliente: {$this->document->customer->business_name}")
             ->line("Total: \${$this->document->total}")
-            ->action('Ver Documento', url("/panel/documents/{$this->document->id}"))
+            ->action('Ver documento', url("/documents/{$this->document->id}"))
             ->line('Puedes descargar el PDF y XML desde el panel.');
     }
 

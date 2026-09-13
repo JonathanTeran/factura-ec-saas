@@ -115,4 +115,22 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Markdown Mail Settings
+    |--------------------------------------------------------------------------
+    |
+    | Tema de marca (resources/views/vendor/mail/html/themes/facturon.css)
+    | usado por todas las notificaciones que construyen un MailMessage.
+    |
+    */
+
+    'markdown' => [
+        'theme' => 'facturon',
+        'paths' => [
+            resource_path('views/vendor/mail'),
+        ],
+    ],
+
 ];

@@ -139,7 +139,7 @@ class AuthController extends ApiController
             'token' => $token->plainTextToken,
             'token_type' => 'Bearer',
             'expires_at' => $token->accessToken->expires_at,
-        ], 'Registro exitoso. Bienvenido a AmePhia Facturacion.');
+        ], 'Registro exitoso. Bienvenido a Facturón.');
     }
 
     /**

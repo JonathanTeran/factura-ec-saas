@@ -1,32 +1,32 @@
 @extends('emails.partials.layout')
 
-@section('title', 'Pago Recibido')
+@section('title', 'Pago recibido')
 
 @section('content')
     <div class="header">
-        <h2>{{ config('app.name') }}</h2>
-        <p>Facturacion Electronica Ecuador</p>
-        <span class="badge badge-success">Pago Confirmado</span>
+        <h2>Pago recibido</h2>
+        <p>Gracias por tu pago. Este es el detalle de la transacción.</p>
+        <span class="badge badge-success">Pago confirmado</span>
     </div>
 
     <p class="greeting">
         Hola <strong>{{ $payment->billing_name ?? $payment->tenant->name }}</strong>,
     </p>
     <p class="text">
-        Hemos recibido tu pago exitosamente. A continuacion los detalles:
+        Hemos recibido tu pago correctamente. A continuación los detalles:
     </p>
 
     <table class="info-table">
         <tr>
-            <td>No. Transaccion</td>
+            <td>No. de transacción</td>
             <td>{{ $payment->transaction_id }}</td>
         </tr>
         <tr>
-            <td>Descripcion</td>
-            <td>{{ $payment->description ?? 'Suscripcion ' . ($payment->subscription?->plan?->name ?? '') }}</td>
+            <td>Descripción</td>
+            <td>{{ $payment->description ?? 'Suscripción ' . ($payment->subscription?->plan?->name ?? '') }}</td>
         </tr>
         <tr>
-            <td>Metodo de pago</td>
+            <td>Método de pago</td>
             <td>{{ $payment->payment_method->label() }}</td>
         </tr>
         <tr>
@@ -39,7 +39,7 @@
             <td>${{ number_format($payment->tax_amount, 2) }}</td>
         </tr>
         @endif
-        <tr style="font-weight: bold;">
+        <tr>
             <td><strong>Total</strong></td>
             <td><strong>${{ number_format($payment->total_amount, 2) }} {{ $payment->currency }}</strong></td>
         </tr>
@@ -51,12 +51,12 @@
 
     @if($payment->subscription?->ends_at)
     <div class="alert-box alert-info">
-        Tu suscripcion esta activa hasta el <strong>{{ $payment->subscription->ends_at->format('d/m/Y') }}</strong>.
+        Tu suscripción está activa hasta el <strong>{{ $payment->subscription->ends_at->format('d/m/Y') }}</strong>.
     </div>
     @endif
 
     <div class="cta">
-        <a href="{{ url('/panel/settings/billing') }}" class="cta-primary">Ver Facturacion</a>
+        <a href="{{ url('/settings/subscription') }}" class="cta-primary">Ver mi suscripción</a>
     </div>
 @endsection
 

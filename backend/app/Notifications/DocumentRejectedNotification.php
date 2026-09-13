@@ -25,7 +25,7 @@ class DocumentRejectedNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject("Documento Rechazado - {$this->document->document_number}")
+            ->subject("Documento rechazado · {$this->document->document_number}")
             ->view('emails.document-rejected', [
                 'document' => $this->document,
                 'company' => $this->document->company,

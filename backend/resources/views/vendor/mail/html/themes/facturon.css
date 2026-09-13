@@ -1,0 +1,78 @@
+/* Facturón — tema de correo Markdown (el mailer lo inyecta inline). Marca:
+   navy #0b1220, azul #2b54e4, texto slate. Estructura idéntica al tema default
+   de Laravel para que header/footer/button/panel/table sigan funcionando. */
+
+body,
+body *:not(html):not(style):not(br):not(tr):not(code) {
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    position: relative;
+}
+
+body {
+    -webkit-text-size-adjust: none;
+    background-color: #f1f5f9;
+    color: #334155;
+    height: 100%;
+    line-height: 1.5;
+    margin: 0;
+    padding: 0;
+    width: 100% !important;
+}
+
+p, ul, ol, blockquote { line-height: 1.55; text-align: left; }
+a { color: #2b54e4; }
+a img { border: none; }
+
+h1 { color: #0b1220; font-size: 22px; font-weight: 800; letter-spacing: -0.01em; margin-top: 0; text-align: left; }
+h2 { color: #0b1220; font-size: 17px; font-weight: 700; margin-top: 0; text-align: left; }
+h3 { color: #0b1220; font-size: 15px; font-weight: 700; margin-top: 0; text-align: left; }
+p { color: #334155; font-size: 15px; line-height: 1.6; margin-top: 0; text-align: left; }
+p.sub { font-size: 12px; }
+img { max-width: 100%; }
+
+.wrapper { -premailer-cellpadding: 0; -premailer-cellspacing: 0; -premailer-width: 100%; background-color: #f1f5f9; margin: 0; padding: 0; width: 100%; }
+.content { -premailer-cellpadding: 0; -premailer-cellspacing: 0; -premailer-width: 100%; margin: 0; padding: 0; width: 100%; }
+
+/* Cabecera: franja bandera + banda navy con el logo */
+.header { padding: 0; text-align: center; }
+.flag { -premailer-cellpadding: 0; -premailer-cellspacing: 0; -premailer-width: 570px; margin: 28px auto 0; width: 570px; }
+.flag td { font-size: 0; height: 4px; line-height: 0; padding: 0; }
+.header-band { -premailer-cellpadding: 0; -premailer-cellspacing: 0; -premailer-width: 570px; background-color: #0b1220; margin: 0 auto; width: 570px; }
+.header-band td { padding: 22px 32px; text-align: left; }
+.logo { height: 48px; max-height: 48px; width: 158px; }
+
+/* Cuerpo */
+.body { -premailer-cellpadding: 0; -premailer-cellspacing: 0; -premailer-width: 100%; background-color: #f1f5f9; margin: 0; padding: 0; width: 100%; }
+.inner-body { -premailer-cellpadding: 0; -premailer-cellspacing: 0; -premailer-width: 570px; background-color: #ffffff; border-color: #e2e8f0; border-radius: 0 0 16px 16px; border-style: solid; border-top: 0; border-width: 1px; margin: 0 auto; padding: 0; width: 570px; }
+.inner-body a { word-break: break-all; }
+.content-cell { max-width: 100vw; padding: 32px; }
+
+.subcopy { border-top: 1px solid #e2e8f0; margin-top: 25px; padding-top: 25px; }
+.subcopy p { color: #64748b; font-size: 12px; }
+
+/* Pie */
+.footer { -premailer-cellpadding: 0; -premailer-cellspacing: 0; -premailer-width: 570px; margin: 0 auto; padding: 0; text-align: center; width: 570px; }
+.footer p { color: #94a3b8; font-size: 12px; text-align: center; }
+.footer a { color: #64748b; text-decoration: underline; }
+
+/* Tablas markdown */
+.table table { -premailer-cellpadding: 0; -premailer-cellspacing: 0; -premailer-width: 100%; margin: 24px auto; width: 100%; }
+.table th { border-bottom: 1px solid #e2e8f0; color: #64748b; font-size: 12px; letter-spacing: 0.04em; margin: 0; padding-bottom: 8px; text-align: left; text-transform: uppercase; }
+.table td { border-bottom: 1px solid #f1f5f9; color: #334155; font-size: 14px; line-height: 1.5; margin: 0; padding: 10px 0; }
+
+/* Botones */
+.action { -premailer-cellpadding: 0; -premailer-cellspacing: 0; -premailer-width: 100%; margin: 28px auto; padding: 0; text-align: center; width: 100%; }
+.button { -webkit-text-size-adjust: none; border-radius: 999px; color: #fff; display: inline-block; font-size: 15px; font-weight: 700; overflow: hidden; text-decoration: none; }
+.button-blue, .button-primary { background-color: #2b54e4; border-bottom: 10px solid #2b54e4; border-left: 26px solid #2b54e4; border-right: 26px solid #2b54e4; border-top: 10px solid #2b54e4; }
+.button-green, .button-success { background-color: #059669; border-bottom: 10px solid #059669; border-left: 26px solid #059669; border-right: 26px solid #059669; border-top: 10px solid #059669; }
+.button-red, .button-error { background-color: #dc2626; border-bottom: 10px solid #dc2626; border-left: 26px solid #dc2626; border-right: 26px solid #dc2626; border-top: 10px solid #dc2626; }
+
+/* Paneles */
+.panel { border-left: #2b54e4 solid 4px; margin: 21px 0; }
+.panel-content { background-color: #f8fafc; color: #334155; padding: 16px; }
+.panel-content p { color: #334155; }
+.panel-item { padding: 0; }
+.panel-item p:last-of-type { margin-bottom: 0; padding-bottom: 0; }
+
+.break-all { word-break: break-all; }

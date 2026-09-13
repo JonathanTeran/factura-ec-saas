@@ -33,7 +33,7 @@ class SubscriptionCancelledNotification extends Notification implements ShouldQu
             ->line("Podras seguir usando el servicio hasta el {$endsAt}.")
             ->line("Motivo: " . ($this->subscription->cancellation_reason ?? 'No especificado'))
             ->line('Si deseas reactivar tu suscripcion, puedes hacerlo desde el panel de facturacion.')
-            ->action('Ir a Facturacion', url('/panel/settings/billing'))
+            ->action('Ir a mi suscripción', url('/settings/subscription'))
             ->line('Gracias por haber sido parte de nuestro servicio.');
     }
 

@@ -25,7 +25,7 @@ class PaymentRejectedNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         $mail = (new MailMessage)
-            ->subject('Pago rechazado - Accion requerida')
+            ->subject('Pago rechazado: acción requerida')
             ->error()
             ->greeting("Hola {$notifiable->name},")
             ->line("Lamentablemente, tu pago por transferencia bancaria no ha podido ser aprobado.")
@@ -38,7 +38,7 @@ class PaymentRejectedNotification extends Notification implements ShouldQueue
 
         return $mail
             ->line('Por favor verifica los datos de tu transferencia e intenta nuevamente.')
-            ->action('Reintentar Pago', url('/panel/settings/billing'))
+            ->action('Reintentar pago', url('/settings/subscription'))
             ->line('Si crees que esto es un error, contacta a nuestro equipo de soporte.');
     }
 

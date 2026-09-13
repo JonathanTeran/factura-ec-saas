@@ -34,7 +34,7 @@ class SubscriptionRenewedNotification extends Notification implements ShouldQueu
             ->line("Ciclo de facturacion: {$cycle}")
             ->line("Monto: \${$this->subscription->amount} {$this->subscription->currency}")
             ->line("Proxima renovacion: {$endsAt}")
-            ->action('Ir al Panel', url('/panel'))
+            ->action('Ir a mi panel', url('/dashboard'))
             ->line('Gracias por continuar con nosotros.');
     }
 

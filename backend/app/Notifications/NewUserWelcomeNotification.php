@@ -23,7 +23,7 @@ class NewUserWelcomeNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Bienvenido a ' . config('app.name'))
+            ->subject('Bienvenido a Facturón')
             ->view('emails.welcome', [
                 'user' => $notifiable,
                 'tenant' => $notifiable->tenant,

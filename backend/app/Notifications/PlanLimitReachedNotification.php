@@ -40,7 +40,7 @@ class PlanLimitReachedNotification extends Notification implements ShouldQueue
             ->line("Has alcanzado el límite de {$limitName} de tu plan actual.")
             ->line("Uso actual: {$this->currentUsage} de {$this->maxAllowed}")
             ->line('Para continuar sin interrupciones, te recomendamos actualizar tu plan.')
-            ->action('Ver Planes', url('/panel/settings/billing'))
+            ->action('Ver planes', url('/settings/subscription'))
             ->line('Si tienes preguntas sobre los planes, estamos aquí para ayudarte.');
     }
 
