@@ -19,7 +19,7 @@ export const LANDING_FIXTURE: LandingData = {
       id: 2,
       name: "Negocio",
       slug: "negocio",
-      description: "Ideal para PyMEs con operaciones frecuentes y necesidad de control de inventario.",
+      description: "Ideal para PyMEs con operaciones frecuentes y varios usuarios.",
       price_monthly: 7.99,
       price_yearly: 79.9,
       currency: "USD",

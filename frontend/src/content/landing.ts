@@ -131,7 +131,7 @@ export const REASONS = [
 export const FAQS: FaqItem[] = [
   {
     q: "¿Tienen API para integrar mi sistema?",
-    a: "Sí. Los planes Negocio, Profesional y Enterprise incluyen una API REST con llaves por empresa para emitir comprobantes y consultar autorizaciones, RIDE y XML desde tu ERP, tienda en línea o punto de venta, con idempotencia para reintentar sin duplicar facturas. La documentación y la especificación OpenAPI están en facturon.ec/docs/api.",
+    a: "Sí. Los planes Negocio, Profesional y Enterprise incluyen una API REST con llaves por empresa para emitir comprobantes y consultar autorizaciones, RIDE y XML desde tu ERP, tu tienda en línea o tu propio sistema de ventas, con idempotencia para reintentar sin duplicar facturas. La documentación y la especificación OpenAPI están en facturon.ec/docs/api.",
   },
   {
     q: "¿Qué necesito para facturar electrónicamente en Ecuador?",

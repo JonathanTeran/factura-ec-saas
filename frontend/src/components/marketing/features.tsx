@@ -13,7 +13,7 @@ export function Features() {
             Mucho más que facturar
           </h2>
           <p className="mt-4 text-base leading-relaxed text-slate-600">
-            Emisión al SRI, punto de venta, inventario, contabilidad y portal para tus clientes: todo tu negocio en una sola plataforma hecha para la normativa ecuatoriana.
+            Emisión al SRI, contabilidad, portal para tus clientes y API para integrar tu sistema: todo tu negocio en una sola plataforma hecha para la normativa ecuatoriana.
           </p>
         </Reveal>
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
