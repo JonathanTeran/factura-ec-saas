@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, motion, useInView, useReducedMotion } from "motion/react";
 import { CheckCircle2, FileSignature, Mail, Send, ShieldCheck, type LucideIcon } from "lucide-react";
 import { claveAcceso } from "@/lib/landing/clave-acceso";
@@ -11,6 +11,12 @@ import { cn } from "@/lib/utils";
 import { BrowserFrame } from "./browser-frame";
 
 const DEMO_HOST = (process.env.NEXT_PUBLIC_APP_URL ?? "https://facturon.ec").replace(/^https?:\/\//, "");
+
+const noop = () => () => {};
+/** true solo tras hidratar: lo que dependa de la fecha local se calcula en el cliente. */
+function useMounted(): boolean {
+  return useSyncExternalStore(noop, () => true, () => false);
+}
 
 /**
  * Clave de acceso con efecto máquina de escribir. Se monta con `key` por ciclo,
@@ -45,14 +51,18 @@ export function LiveDemo() {
   const inView = useInView(ref, { amount: 0.3 });
   const reduce = useReducedMotion() ?? false;
   const { step, cycle } = useDemoSequence(inView && !reduce, reduce ? "authorized" : "draft");
+  // La fecha entra en la clave y en la etiqueta: el servidor (UTC) y el navegador
+  // pueden estar en días distintos, así que se calcula solo tras montar (sin
+  // desajuste de hidratación).
+  const mounted = useMounted();
   const clave = useMemo(
-    () => claveAcceso({ date: new Date(), ruc: DEMO_INVOICE.emitterRuc, sequential: "123" }),
-    [],
+    () => (mounted ? claveAcceso({ date: new Date(), ruc: DEMO_INVOICE.emitterRuc, sequential: "123" }) : ""),
+    [mounted],
   );
   const authorized = isAtLeast(step, "authorized");
   const authorizedAt = useMemo(
-    () => new Date().toLocaleDateString("es-EC", { day: "2-digit", month: "2-digit", year: "numeric" }),
-    [],
+    () => (mounted ? new Date().toLocaleDateString("es-EC", { day: "2-digit", month: "2-digit", year: "numeric" }) : ""),
+    [mounted],
   );
 
   return (
