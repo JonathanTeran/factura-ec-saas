@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/utils/store_policy.dart';
 import '../../core/widgets/app_scaffold.dart';
 import '../../core/widgets/error_widget.dart';
 import '../../data/models/customer_model.dart';
@@ -161,11 +162,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             name: 'settings',
             builder: (context, state) => const SettingsScreen(),
             routes: [
-              GoRoute(
-                path: 'billing',
-                name: 'billing',
-                builder: (context, state) => const BillingScreen(),
-              ),
+              // No se registra en iOS ni Android: políticas de pago de las tiendas (ver store_policy.dart).
+              if (billingFlowAvailable)
+                GoRoute(
+                  path: 'billing',
+                  name: 'billing',
+                  builder: (context, state) => const BillingScreen(),
+                ),
               GoRoute(
                 path: 'company/new',
                 name: 'company-new',

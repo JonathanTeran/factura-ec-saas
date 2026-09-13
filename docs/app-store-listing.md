@@ -17,9 +17,9 @@ caracteres de cada campo.
 | **Clasificación por edad** | 4+ |
 | **Idioma principal** | Español (México) o Español (España) |
 | **Precio** | Gratis (con suscripción dentro de la app) |
-| **URL de soporte** | https://facturacion.amephia.com |
-| **URL de marketing** (opcional) | https://amephia.com |
-| **URL de política de privacidad** | https://facturacion.amephia.com/privacy |
+| **URL de soporte** | https://facturon.ec |
+| **URL de marketing** (opcional) | https://facturon.ec |
+| **URL de política de privacidad** | https://facturon.ec/privacy |
 
 ---
 
@@ -67,7 +67,7 @@ SEGURA Y CONFIABLE
 
 Facturón EC es un producto de AmePhia. Requiere una cuenta activa; podés
 gestionar tu plan desde la app. Consultá términos y privacidad en
-facturacion.amephia.com.
+facturon.ec.
 ```
 
 ---

@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/api/v1_api_service.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/store_policy.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/section_header.dart';
@@ -102,7 +103,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     // launchUrl puede devolver false O lanzar PlatformException.
     var ok = false;
     try {
-      ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      ok = await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
+      );
     } catch (_) {
       ok = false;
     }
@@ -167,9 +171,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (mounted) context.go('/login');
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     }
   }
@@ -214,7 +218,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               subtitle: 'Cuenta, seguridad y automatizaciones',
               trailing: IconButton.filledTonal(
                 tooltip: 'Ayuda y soporte',
-                onPressed: () => _openUrl('https://facturacion.amephia.com'),
+                onPressed: () => _openUrl('https://facturon.ec'),
                 icon: const Icon(Icons.help_outline_rounded),
               ),
             ),
@@ -342,8 +346,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         : 'Ninguna empresa tiene firma vigente.',
                     style: TextStyle(
                       fontFamily: 'Avenir Next',
-                      color:
-                          hasSignature ? AppColors.success : AppColors.warning,
+                      color: hasSignature
+                          ? AppColors.success
+                          : AppColors.warning,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -365,9 +370,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           onPressed: _switchingCompany
                               ? null
                               : () => _showSwitchCompanySheet(
-                                    companies,
-                                    meAsync.valueOrNull?.currentCompanyId,
-                                  ),
+                                  companies,
+                                  meAsync.valueOrNull?.currentCompanyId,
+                                ),
                           icon: _switchingCompany
                               ? const SizedBox(
                                   width: 14,
@@ -422,8 +427,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       : 'Acceso biométrico';
                   final subtitle = canUseBiometrics
                       ? biometricStatus.enabled
-                          ? 'Desbloqueo activo para ingreso rápido y seguro.'
-                          : 'Actívalo para entrar con biometría.'
+                            ? 'Desbloqueo activo para ingreso rápido y seguro.'
+                            : 'Actívalo para entrar con biometría.'
                       : 'Configura Face ID o huella en tu dispositivo.';
                   final icon = biometricStatus.hasFace
                       ? Icons.face_unlock_rounded
@@ -543,13 +548,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     subtitle: 'Guía paso a paso para emitir con validez.',
                     onTap: () => context.push('/settings/migrate-production'),
                   ),
-                  const Divider(height: 20),
-                  _MenuTile(
-                    icon: Icons.credit_card_rounded,
-                    title: 'Facturación',
-                    subtitle: 'Plan, pagos y transferencia bancaria.',
-                    onTap: () => context.push('/settings/billing'),
-                  ),
+                  // Oculto en iOS y Android: políticas de pago de las tiendas (ver store_policy.dart).
+                  if (billingFlowAvailable) ...[
+                    const Divider(height: 20),
+                    _MenuTile(
+                      icon: Icons.credit_card_rounded,
+                      title: 'Facturación',
+                      subtitle: 'Plan, pagos y transferencia bancaria.',
+                      onTap: () => context.push('/settings/billing'),
+                    ),
+                  ],
                   const Divider(height: 20),
                   _MenuTile(
                     icon: Icons.verified_user_outlined,
@@ -576,7 +584,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     icon: Icons.support_agent_outlined,
                     title: 'Ayuda y soporte',
                     subtitle: 'Centro de ayuda y contacto.',
-                    onTap: () => _openUrl('https://facturacion.amephia.com'),
+                    onTap: () => _openUrl('https://facturon.ec'),
                   ),
                   const Divider(height: 20),
                   _MenuTile(
@@ -584,7 +592,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     title: 'Términos y condiciones',
                     subtitle: 'Suscripción, cancelación y sin devoluciones.',
                     onTap: () =>
-                        _openUrl('https://facturacion.amephia.com/terms'),
+                        _openUrl('https://facturon.ec/terms'),
                   ),
                   const Divider(height: 20),
                   _MenuTile(
@@ -592,7 +600,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     title: 'Política de privacidad',
                     subtitle: 'Cómo tratamos y protegemos tus datos.',
                     onTap: () =>
-                        _openUrl('https://facturacion.amephia.com/privacy'),
+                        _openUrl('https://facturon.ec/privacy'),
                   ),
                   const Divider(height: 20),
                   _MenuTile(
@@ -686,11 +694,11 @@ class _EnvironmentBannerState extends ConsumerState<_EnvironmentBanner> {
         content: Text(
           toProd
               ? 'A partir de ahora tus comprobantes se emitirán en PRODUCCIÓN y '
-                  'tendrán validez tributaria ante el SRI.\n\nAsegurate de tener '
-                  'tu RUC autorizado para producción y tu firma electrónica '
-                  'vigente.'
+                    'tendrán validez tributaria ante el SRI.\n\nAsegurate de tener '
+                    'tu RUC autorizado para producción y tu firma electrónica '
+                    'vigente.'
               : 'Volverás al ambiente de PRUEBAS. Los comprobantes que emitas '
-                  'dejarán de tener validez tributaria.',
+                    'dejarán de tener validez tributaria.',
         ),
         actions: [
           TextButton(
@@ -745,7 +753,7 @@ class _EnvironmentBannerState extends ConsumerState<_EnvironmentBanner> {
     final subtitle = isProd
         ? 'Tus comprobantes tienen validez tributaria ante el SRI.'
         : 'Estás emitiendo en el ambiente de pruebas del SRI. Los comprobantes '
-            'NO tienen validez tributaria.';
+              'NO tienen validez tributaria.';
 
     return Container(
       width: double.infinity,
@@ -849,7 +857,9 @@ class _EnvironmentBannerState extends ConsumerState<_EnvironmentBanner> {
             width: double.infinity,
             child: isProd
                 ? OutlinedButton.icon(
-                    onPressed: _switching ? null : () => _switchEnvironment('1'),
+                    onPressed: _switching
+                        ? null
+                        : () => _switchEnvironment('1'),
                     icon: _switching
                         ? const SizedBox(
                             width: 16,
@@ -865,7 +875,9 @@ class _EnvironmentBannerState extends ConsumerState<_EnvironmentBanner> {
                     ),
                   )
                 : FilledButton.icon(
-                    onPressed: _switching ? null : () => _switchEnvironment('2'),
+                    onPressed: _switching
+                        ? null
+                        : () => _switchEnvironment('2'),
                     icon: _switching
                         ? const SizedBox(
                             width: 16,
@@ -1036,10 +1048,7 @@ class _SwitchCompanySheet extends StatelessWidget {
               router.push('/settings/company/new');
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 12,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(

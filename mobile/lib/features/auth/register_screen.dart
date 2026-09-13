@@ -32,7 +32,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Future<void> _openLegal(String path) async {
     try {
       await launchUrl(
-        Uri.parse('https://facturacion.amephia.com$path'),
+        Uri.parse('https://facturon.ec$path'),
         mode: LaunchMode.externalApplication,
       );
     } catch (_) {

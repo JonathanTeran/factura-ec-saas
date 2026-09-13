@@ -1,0 +1,67 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Capturas App Store — Facturón EC</title>
+<style>
+  /* Lienzo exacto de iPhone 6.9" que exige App Store Connect. */
+  :root { --w: 1290px; --h: 2796px; --shot-w: 1010px; --shot-h: 2142px; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #111; }
+
+  .slide {
+    width: var(--w);
+    height: var(--h);
+    background: linear-gradient(180deg, #2154DB 0%, #2B62E6 55%, #3476EF 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .headline {
+    margin-top: 168px;
+    width: 1080px;
+    text-align: center;
+    font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-weight: 700;
+    font-size: 92px;
+    line-height: 1.1;
+    letter-spacing: -1.5px;
+    color: #fff;
+    text-wrap: balance;
+  }
+
+  /* Recorta la barra de estado de Android del PNG original (1080x2400). */
+  .shot {
+    margin-top: 62px;
+    width: var(--shot-w);
+    height: var(--shot-h);
+    border-radius: 54px;
+    overflow: hidden;
+    background: #F4F7FB;
+    box-shadow: 0 48px 90px rgba(8, 26, 74, .42), 0 0 0 1px rgba(255,255,255,.10);
+    flex: none;
+  }
+  .shot img { display: block; width: var(--shot-w); margin-top: -103px; }
+</style>
+<body></body>
+<script>
+  const SLIDES = [
+    ['01-inicio',     'Facturación SRI\nen segundos'],
+    ['02-dashboard',  'Tu negocio\nde un vistazo'],
+    ['03-documentos', 'Los 6 comprobantes\ndel SRI'],
+    ['04-detalle',    'Comparte el PDF\ncon un toque'],
+    ['05-crear',      'Emite una factura\nen tres pasos'],
+    ['06-pos-venta',  'Punto de venta\nen tu bolsillo'],
+    ['07-pos-sesion', 'Abre y cierra caja\ndesde el celular'],
+    ['08-proformas',  'Cotiza hoy,\nfactura mañana'],
+    ['09-reportes',   'Ventas e IVA\nsiempre al día'],
+  ];
+
+  document.body.innerHTML = SLIDES.map(([slug, headline]) => `
+    <section class="slide" id="s-${slug}">
+      <h1 class="headline">${headline.replace('\n', '<br>')}</h1>
+      <div class="shot"><img src="../screenshots/${slug}.png" alt=""></div>
+    </section>
+  `).join('');
+</script>

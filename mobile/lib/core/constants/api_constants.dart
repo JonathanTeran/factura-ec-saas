@@ -5,7 +5,7 @@ class ApiConstants {
     'API_BASE_URL',
     // Producción por defecto. Para desarrollo local, compilar con:
     //   flutter run --dart-define=API_BASE_URL=http://127.0.0.1:8000
-    defaultValue: 'https://facturacion.amephia.com',
+    defaultValue: 'https://facturon.ec',
   );
   static const String apiVersion = 'v1';
   static const String apiPath = '/api/$apiVersion';

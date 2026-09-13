@@ -10,7 +10,7 @@ y `store/screenshots/`.
 | Campo | Valor |
 |---|---|
 | Application ID | `com.facturaec.facturonec` (permanente, no cambiar) |
-| Versión | `1.0.0 (1)` — se sube desde `pubspec.yaml` (`version: 1.0.0+1`) |
+| Versión | `1.0.0 (5)` — se sube desde `pubspec.yaml` (`version: 1.0.0+5`) |
 | AAB firmado | `build/app/outputs/bundle/release/app-release.aab` |
 | Keystore de subida | `~/desarrollo/keys/facturon-upload.jks` (alias `upload`) |
 | Contraseña keystore | `~/desarrollo/keys/facturon-upload.INFO.txt` |
@@ -68,8 +68,7 @@ PENSADA PARA ECUADOR
   producción.
 • Notificaciones y reenvío de comprobantes a tus clientes.
 
-Facturón EC es un producto de AmePhia. Requiere una cuenta (prueba gratuita
-disponible en facturacion.amephia.com) y tu certificado de firma electrónica
+Facturón EC es un producto de AmePhia. Requiere una cuenta activa de Facturón EC y tu certificado de firma electrónica
 para emitir comprobantes con validez tributaria.
 
 AVISO IMPORTANTE: Facturón EC es una aplicación privada e independiente. NO
@@ -80,7 +79,7 @@ enviar comprobantes electrónicos a los servidores oficiales del SRI
 mediante sus webservices públicos. Para trámites, normativa y consultas
 directamente con la entidad, visita el sitio oficial: https://www.sri.gob.ec
 
-Soporte: jo.teran3@gmail.com · https://facturacion.amephia.com
+Soporte: jo.teran3@gmail.com · https://facturon.ec
 ```
 
 **Categoría:** Negocios (Business)
@@ -88,11 +87,11 @@ Soporte: jo.teran3@gmail.com · https://facturacion.amephia.com
 
 **Datos de contacto del desarrollador:**
 - Email: jo.teran3@gmail.com (obligatorio; visible en la ficha)
-- Sitio web: https://facturacion.amephia.com
+- Sitio web: https://facturon.ec
 
 **Política de privacidad (obligatoria):**
 ```
-https://facturacion.amephia.com/privacy
+https://facturon.ec/privacy
 ```
 
 ---

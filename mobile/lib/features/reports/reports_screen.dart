@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/store_policy.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../core/widgets/loading_widget.dart';
 import '../../core/widgets/money_text.dart';
@@ -90,19 +91,19 @@ class ReportsScreen extends ConsumerWidget {
               if (data.topCustomers.isNotEmpty) ...[
                 const SizedBox(height: 14),
                 _RankingCard(
-                  title: 'Top clientes',
-                  subtitle: 'Últimos 30 días · facturas autorizadas',
-                  icon: Icons.people_alt_rounded,
-                  rows: [
-                    for (final c in data.topCustomers)
-                      _RankRow(
-                        name: c.name,
-                        detail:
-                            '${c.documentCount} ${c.documentCount == 1 ? 'factura' : 'facturas'}',
-                        amount: c.totalAmount,
-                      ),
-                  ],
-                )
+                      title: 'Top clientes',
+                      subtitle: 'Últimos 30 días · facturas autorizadas',
+                      icon: Icons.people_alt_rounded,
+                      rows: [
+                        for (final c in data.topCustomers)
+                          _RankRow(
+                            name: c.name,
+                            detail:
+                                '${c.documentCount} ${c.documentCount == 1 ? 'factura' : 'facturas'}',
+                            amount: c.totalAmount,
+                          ),
+                      ],
+                    )
                     .animate()
                     .fadeIn(duration: 520.ms, delay: 200.ms)
                     .slideY(begin: 0.08, curve: Curves.easeOutCubic),
@@ -110,19 +111,19 @@ class ReportsScreen extends ConsumerWidget {
               if (data.topProducts.isNotEmpty) ...[
                 const SizedBox(height: 14),
                 _RankingCard(
-                  title: 'Top productos',
-                  subtitle: 'Últimos 30 días · más vendidos',
-                  icon: Icons.storefront_rounded,
-                  rows: [
-                    for (final p in data.topProducts)
-                      _RankRow(
-                        name: p.name,
-                        detail:
-                            '${p.quantitySold.toStringAsFixed(p.quantitySold % 1 == 0 ? 0 : 2)} vendidos',
-                        amount: p.totalAmount,
-                      ),
-                  ],
-                )
+                      title: 'Top productos',
+                      subtitle: 'Últimos 30 días · más vendidos',
+                      icon: Icons.storefront_rounded,
+                      rows: [
+                        for (final p in data.topProducts)
+                          _RankRow(
+                            name: p.name,
+                            detail:
+                                '${p.quantitySold.toStringAsFixed(p.quantitySold % 1 == 0 ? 0 : 2)} vendidos',
+                            amount: p.totalAmount,
+                          ),
+                      ],
+                    )
                     .animate()
                     .fadeIn(duration: 540.ms, delay: 240.ms)
                     .slideY(begin: 0.08, curve: Curves.easeOutCubic),
@@ -203,10 +204,7 @@ class _SpendingCard extends StatelessWidget {
     final last7 = data.daily.length <= 7
         ? data.daily
         : data.daily.sublist(data.daily.length - 7);
-    final maxV = last7.fold<double>(
-      0,
-      (m, p) => p.total > m ? p.total : m,
-    );
+    final maxV = last7.fold<double>(0, (m, p) => p.total > m ? p.total : m);
 
     return GlassPanel(
       child: Column(
@@ -261,8 +259,7 @@ class _SpendingCard extends StatelessWidget {
                                     ? Icons.arrow_upward_rounded
                                     : Icons.arrow_downward_rounded,
                                 size: 13,
-                                color:
-                                    up ? AppColors.success : AppColors.error,
+                                color: up ? AppColors.success : AppColors.error,
                               ),
                               const SizedBox(width: 2),
                               Text(
@@ -416,7 +413,10 @@ class _EvolutionCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.surfaceDark,
                   borderRadius: BorderRadius.circular(999),
@@ -488,17 +488,18 @@ class _EvolutionCard extends StatelessWidget {
     );
   }
 
-  String _fmtDate(DateTime? d) => d == null ? '' : DateFormat('dd MMM').format(d);
+  String _fmtDate(DateTime? d) =>
+      d == null ? '' : DateFormat('dd MMM').format(d);
 
   Widget _axisLabel(String text) => Text(
-        text,
-        style: const TextStyle(
-          fontFamily: 'Avenir Next',
-          color: AppColors.textMuted,
-          fontWeight: FontWeight.w600,
-          fontSize: 11,
-        ),
-      );
+    text,
+    style: const TextStyle(
+      fontFamily: 'Avenir Next',
+      color: AppColors.textMuted,
+      fontWeight: FontWeight.w600,
+      fontSize: 11,
+    ),
+  );
 }
 
 class _AreaPainter extends CustomPainter {
@@ -907,15 +908,18 @@ class _ReportsLockedView extends StatelessWidget {
                       height: 1.4,
                     ),
                   ),
-                  const SizedBox(height: 18),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: () => context.push('/settings/billing'),
-                      icon: const Icon(Icons.arrow_upward_rounded, size: 18),
-                      label: const Text('Actualizar plan'),
+                  // Oculto en iOS y Android: políticas de pago de las tiendas (ver store_policy.dart).
+                  if (billingFlowAvailable) ...[
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () => context.push('/settings/billing'),
+                        icon: const Icon(Icons.arrow_upward_rounded, size: 18),
+                        label: const Text('Actualizar plan'),
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -1101,11 +1105,14 @@ class _RankingCard extends StatelessWidget {
                               child: LinearProgressIndicator(
                                 value: maxAmount <= 0
                                     ? 0
-                                    : (rows[i].amount / maxAmount)
-                                        .clamp(0.04, 1.0),
+                                    : (rows[i].amount / maxAmount).clamp(
+                                        0.04,
+                                        1.0,
+                                      ),
                                 minHeight: 5,
-                                backgroundColor:
-                                    AppColors.border.withValues(alpha: 0.45),
+                                backgroundColor: AppColors.border.withValues(
+                                  alpha: 0.45,
+                                ),
                                 valueColor: AlwaysStoppedAnimation(
                                   AppColors.primary.withValues(
                                     alpha: i == 0 ? 1.0 : 0.45,
