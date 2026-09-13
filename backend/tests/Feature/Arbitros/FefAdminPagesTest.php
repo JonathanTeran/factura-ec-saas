@@ -77,6 +77,7 @@ class FefAdminPagesTest extends TestCase
         $tenant = Tenant::factory()->create(['status' => 'active']);
         $user = User::factory()->create(['tenant_id' => $tenant->id, 'role' => UserRole::TENANT_OWNER->value]);
 
-        $this->actingAs($user)->get('/admin/fef-sync-runs')->assertForbidden();
+        // La sesión de empresa se cierra y se envía al login del panel (antes 403).
+        $this->actingAs($user)->get('/admin/fef-sync-runs')->assertRedirect('/admin/login');
     }
 }

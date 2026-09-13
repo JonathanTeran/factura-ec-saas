@@ -91,6 +91,10 @@ class BillingServiceTest extends TestCase
             'code' => 'TEST20',
             'discount_type' => 'percentage',
             'discount_value' => 20,
+            // El factory pone topes al azar (max_discount_amount / min_purchase_amount)
+            // que hacían intermitente este test: aquí no aplican.
+            'max_discount_amount' => null,
+            'min_purchase_amount' => null,
             'max_uses' => 10,
             'current_uses' => 0,
             'is_active' => true,

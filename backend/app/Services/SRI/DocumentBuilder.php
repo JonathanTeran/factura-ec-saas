@@ -2,8 +2,9 @@
 
 namespace App\Services\SRI;
 
-use App\Models\SRI\ElectronicDocument;
 use App\Enums\DocumentType;
+use App\Models\SRI\ElectronicDocument;
+use App\Services\Settings\SriProviderSettings;
 
 class DocumentBuilder
 {
@@ -109,6 +110,7 @@ class DocumentBuilder
                 'motivo' => $doc->additional_info['motivo'] ?? 'Devolución',
             ],
             'detalles' => $this->items($doc),
+            'infoAdicional' => $this->additionalInfo($doc),
         ];
     }
 
@@ -132,6 +134,7 @@ class DocumentBuilder
                 'pagos' => $this->payments($doc),
             ],
             'motivos' => $doc->additional_info['motivos'] ?? [],
+            'infoAdicional' => $this->additionalInfo($doc),
         ];
     }
 
@@ -150,6 +153,7 @@ class DocumentBuilder
                 'periodoFiscal' => $doc->issue_date->format('m/Y'),
             ],
             'docsSustento' => $this->withholdingDetails($doc),
+            'infoAdicional' => $this->additionalInfo($doc),
         ];
     }
 
@@ -171,6 +175,7 @@ class DocumentBuilder
                 'placa' => $info['placa'] ?? '',
             ],
             'destinatarios' => $info['destinatarios'] ?? [],
+            'infoAdicional' => $this->additionalInfo($doc),
         ];
     }
 
@@ -279,19 +284,19 @@ class DocumentBuilder
 
         // Los opcionales vacíos se omiten: el XSD del SRI rechaza <plazo/> o
         // <unidadTiempo/> vacíos.
-        return array_map(fn($p) => array_filter([
+        return array_map(fn ($p) => array_filter([
             'formaPago' => $p['code'],
             'total' => $this->fmt($p['amount']),
             'plazo' => $p['term'] ?? null,
             'unidadTiempo' => $p['time_unit'] ?? null,
-        ], fn($v) => $v !== null && $v !== ''), $methods);
+        ], fn ($v) => $v !== null && $v !== ''), $methods);
     }
 
     private function items(ElectronicDocument $doc): array
     {
         // codigoAuxiliar es opcional y el XSD exige minLength 1: si no hay
         // aux_code se omite el nodo (array_filter más abajo).
-        return $doc->items->map(fn($item) => array_filter([
+        return $doc->items->map(fn ($item) => array_filter([
             'codigoPrincipal' => $item->main_code,
             'codigoAuxiliar' => $item->aux_code,
             'descripcion' => $item->description,
@@ -306,7 +311,7 @@ class DocumentBuilder
                 'baseImponible' => $this->fmt($item->tax_base),
                 'valor' => $this->fmt($item->tax_value),
             ]],
-        ], fn($v) => $v !== null && $v !== ''))->toArray();
+        ], fn ($v) => $v !== null && $v !== ''))->toArray();
     }
 
     private function additionalInfo(ElectronicDocument $doc): array
@@ -325,6 +330,19 @@ class DocumentBuilder
             $info['dirección'] = $doc->customer->address;
         }
 
+        // Resolución NAC-DGERCGC26-00000027 / Ficha Técnica 2.34: RUC del
+        // proveedor del sistema de facturación en TODOS los comprobantes.
+        // Configurable por el super admin (Sistema → RUC proveedor SRI).
+        $provider = app(SriProviderSettings::class);
+        $providerRuc = $provider->ruc();
+        if ($providerRuc !== null) {
+            $fieldName = $provider->fieldName();
+            $alreadySet = collect($info)->keys()->contains(fn ($k) => mb_strtolower(trim((string) $k)) === mb_strtolower($fieldName));
+            if (! $alreadySet) {
+                $info[$fieldName] = $providerRuc;
+            }
+        }
+
         return $info;
     }
 
@@ -340,7 +358,7 @@ class DocumentBuilder
                 'fechaEmisionDocSustento' => $first->support_doc_date->format('d/m/Y'),
                 'totalSinImpuestos' => $this->fmt($first->support_doc_total ?? 0),
                 'importeTotal' => $this->fmt($first->support_doc_total ?? 0),
-                'retenciones' => $group->map(fn($r) => [
+                'retenciones' => $group->map(fn ($r) => [
                     'codigo' => $r->tax_type === 'renta' ? '1' : '2',
                     'codigoRetencion' => $r->retention_code,
                     'baseImponible' => $this->fmt($r->tax_base),

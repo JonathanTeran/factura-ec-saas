@@ -45,6 +45,16 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | RUC del proveedor del sistema (Resolución NAC-DGERCGC26-00000027)
+    |--------------------------------------------------------------------------
+    | Valor por defecto; el super admin puede sobrescribirlo desde Filament
+    | (Sistema → RUC proveedor SRI). Se incluye en infoAdicional de todos los
+    | comprobantes como campoAdicional nombre="RUC Proveedor".
+    */
+    'provider_ruc' => env('SRI_PROVIDER_RUC', ''),
+
     'ruc_lookup' => [
         'taxpayer_url' => env(
             'SRI_RUC_LOOKUP_URL',
