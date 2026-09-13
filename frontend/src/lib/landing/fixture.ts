@@ -1,0 +1,63 @@
+import type { LandingData } from "./pricing";
+
+/** Datos de ejemplo (espejo de producción) para tests e2e y desarrollo sin backend. */
+export const LANDING_FIXTURE: LandingData = {
+  plans: [
+    {
+      id: 1,
+      name: "Emprendedor",
+      slug: "emprendedor",
+      description: "Para profesionales y negocios que empiezan.",
+      price_monthly: 2.99,
+      price_yearly: 29.9,
+      currency: "USD",
+      is_featured: false,
+      yearly_savings_percent: 17,
+      features_list: ["20 documentos/mes", "3 usuarios", "1 empresa (RUC)", "2 puntos de emisión", "Proformas", "ATS", "Acceso para contador", "Soporte por email (48h)"],
+    },
+    {
+      id: 2,
+      name: "Negocio",
+      slug: "negocio",
+      description: "Ideal para PyMEs con operaciones frecuentes y necesidad de control de inventario.",
+      price_monthly: 7.99,
+      price_yearly: 79.9,
+      currency: "USD",
+      is_featured: true,
+      yearly_savings_percent: 17,
+      features_list: ["50 documentos/mes", "10 usuarios", "1 empresa (RUC)", "5 puntos de emisión", "Proformas", "ATS", "Acceso para contador", "API REST", "Inventario", "Punto de venta", "Facturación recurrente", "Reportes avanzados", "Impresora térmica", "Portal de clientes", "Soporte por email (24h)"],
+    },
+    {
+      id: 3,
+      name: "Profesional",
+      slug: "profesional",
+      description: "Para empresas con varios RUC y más volumen.",
+      price_monthly: 14.99,
+      price_yearly: 149.9,
+      currency: "USD",
+      is_featured: false,
+      yearly_savings_percent: 17,
+      features_list: ["Documentos ilimitados", "Usuarios ilimitados", "Hasta 3 empresas (RUC)", "Puntos de emisión ilimitados", "Proformas", "ATS", "Acceso para contador", "API REST", "Inventario", "Punto de venta", "Facturación recurrente", "Reportes avanzados", "Impresora térmica", "Portal de clientes", "Multi-moneda", "RIDE personalizado", "Categorización con IA"],
+    },
+    {
+      id: 4,
+      name: "Enterprise",
+      slug: "enterprise",
+      description: "Para grupos empresariales con requisitos especiales.",
+      price_monthly: 49.99,
+      price_yearly: 499,
+      currency: "USD",
+      is_featured: false,
+      yearly_savings_percent: 17,
+      features_list: ["Documentos ilimitados", "Usuarios ilimitados", "Empresas (RUC) ilimitadas", "Puntos de emisión ilimitados", "Todo lo del plan Profesional", "Emisión prioritaria al SRI", "Operaciones masivas", "Roles personalizados", "Gerente de cuenta dedicado", "SLA"],
+    },
+  ],
+  pricing_content: {
+    eyebrow: "Planes",
+    title: "Precios transparentes, sin sorpresas",
+    subtitle: "Sin comisiones por documento. Escoge el plan que se ajuste a tu negocio.",
+    badge_enabled: true,
+    badge_text: "Administra varias empresas (RUCs) desde una sola cuenta",
+    footer_note: "Todos los planes incluyen soporte por email. Pago seguro por transferencia bancaria.",
+  },
+};
