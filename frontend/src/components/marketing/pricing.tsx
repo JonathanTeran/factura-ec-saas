@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Check } from "lucide-react";
-import { formatPrice, maxSavings, monthlyEquivalent, type LandingData, type LandingPlan } from "@/lib/landing/pricing";
+import { formatPrice, maxSavings, monthlyEquivalent, visiblePlanFeatures, type LandingData, type LandingPlan } from "@/lib/landing/pricing";
 import { cn } from "@/lib/utils";
 import { Reveal } from "./reveal";
 
@@ -39,7 +39,7 @@ function PlanCard({ plan, yearly }: { plan: LandingPlan; yearly: boolean }) {
         Crear cuenta
       </Link>
       <ul className="mt-7 space-y-2.5">
-        {plan.features_list.map((feature) => (
+        {visiblePlanFeatures(plan.features_list).map((feature) => (
           <li key={feature} className={cn("flex items-start gap-2.5 text-sm", featured ? "text-slate-200" : "text-slate-700")}>
             <Check className={cn("mt-0.5 size-4 shrink-0", featured ? "text-emerald-400" : "text-emerald-500")} aria-hidden="true" />
             {feature}

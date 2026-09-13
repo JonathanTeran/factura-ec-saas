@@ -48,3 +48,20 @@ export function maxSavings(plans: LandingPlan[]): number {
 export function monthlyEquivalent(priceYearly: number): number {
   return Math.round((priceYearly / 12) * 100) / 100;
 }
+
+/**
+ * Funcionalidades que, por ahora, no se promocionan en la landing aunque el
+ * plan las incluya (el panel sí las muestra). Comparación sin acentos ni
+ * mayúsculas para tolerar cambios de etiqueta en el backend.
+ */
+export const HIDDEN_PLAN_FEATURES = ["punto de venta", "inventario", "impresora termica"];
+
+const normalize = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+
+export function visiblePlanFeatures(features: string[]): string[] {
+  return features.filter((feature) => !HIDDEN_PLAN_FEATURES.some((hidden) => normalize(feature).includes(hidden)));
+}

@@ -39,3 +39,11 @@ describe("pricing", () => {
     expect(monthlyEquivalent(29.9)).toBe(2.49);
   });
 });
+
+describe("visiblePlanFeatures", () => {
+  it("oculta por ahora punto de venta, inventario e impresora térmica y conserva el resto", async () => {
+    const { visiblePlanFeatures } = await import("@/lib/landing/pricing");
+    const visible = visiblePlanFeatures(["API REST", "Inventario", "Punto de venta", "Impresora térmica", "Portal de clientes", "Facturación recurrente"]);
+    expect(visible).toEqual(["API REST", "Portal de clientes", "Facturación recurrente"]);
+  });
+});

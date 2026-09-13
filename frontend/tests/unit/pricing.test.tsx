@@ -22,6 +22,14 @@ describe("Pricing", () => {
     expect(screen.getByText("Ahorra hasta 17 %")).toBeInTheDocument();
   });
 
+  it("no lista punto de venta ni inventario en los planes (retirados por ahora)", () => {
+    render(<Pricing data={LANDING_FIXTURE} />);
+    expect(screen.queryByText("Punto de venta")).toBeNull();
+    expect(screen.queryByText("Inventario")).toBeNull();
+    expect(screen.queryByText("Impresora térmica")).toBeNull();
+    expect(screen.getAllByText("API REST").length).toBeGreaterThan(0);
+  });
+
   it("nunca dice gratis", () => {
     const { container } = render(<Pricing data={LANDING_FIXTURE} />);
     expect(container.textContent).not.toMatch(/gratis/i);
