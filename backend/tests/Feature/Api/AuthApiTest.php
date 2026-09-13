@@ -120,6 +120,25 @@ class AuthApiTest extends TestCase
             ]);
     }
 
+    public function test_super_admin_cannot_login_to_the_tenant_panel(): void
+    {
+        User::factory()->create([
+            'email' => 'it@facturon.ec',
+            'password' => Hash::make('Secret123!'),
+            'role' => 'super_admin',
+            'tenant_id' => null,
+            'is_active' => true,
+        ]);
+
+        $this->postJson('/api/v1/auth/login', [
+            'email' => 'it@facturon.ec',
+            'password' => 'Secret123!',
+            'device_name' => 'web',
+        ])->assertStatus(403)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', fn ($m) => str_contains($m, 'super administrador') && str_contains($m, '/admin'));
+    }
+
     public function test_login_fails_with_wrong_credentials(): void
     {
         $tenant = Tenant::factory()->create();

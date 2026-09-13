@@ -55,6 +55,9 @@ class AdminPanelProvider extends PanelProvider
                     ->label('Árbitros')
                     ->icon('heroicon-o-flag'),
                 NavigationGroup::make()
+                    ->label('Integraciones')
+                    ->icon('heroicon-o-puzzle-piece'),
+                NavigationGroup::make()
                     ->label('Monitoreo')
                     ->icon('heroicon-o-chart-bar'),
                 NavigationGroup::make()

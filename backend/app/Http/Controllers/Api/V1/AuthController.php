@@ -34,17 +34,26 @@ class AuthController extends ApiController
     {
         $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (! $user || ! Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['Las credenciales proporcionadas son incorrectas.'],
             ]);
         }
 
-        if (!$user->is_active) {
+        if (! $user->is_active) {
             return $this->forbidden('Tu cuenta ha sido desactivada.');
         }
 
-        if ($user->tenant && !$user->tenant->isAccessible()) {
+        // El super admin no es un usuario del panel de empresas: su acceso es
+        // el panel de administración (/admin). Sin este candado entraba al
+        // panel "como un usuario más" sin empresa ni datos.
+        if ($user->isSuperAdmin()) {
+            return $this->forbidden(
+                'Esta cuenta es de super administrador. Ingresa en '.rtrim((string) config('app.url'), '/').'/admin'
+            );
+        }
+
+        if ($user->tenant && ! $user->tenant->isAccessible()) {
             return $this->forbidden('Tu cuenta de empresa no está activa.');
         }
 
@@ -83,7 +92,7 @@ class AuthController extends ApiController
             // Create tenant (uuid + referral_code are set by the model on creating)
             $tenant = Tenant::create([
                 'name' => $request->company_name,
-                'slug' => Str::slug($request->company_name) . '-' . Str::random(4),
+                'slug' => Str::slug($request->company_name).'-'.Str::random(4),
                 'owner_email' => $request->email,
                 'status' => TenantStatus::ACTIVE,
                 'trial_ends_at' => null,
@@ -211,7 +220,7 @@ class AuthController extends ApiController
         return $this->success(
             null,
             'Tu cuenta fue eliminada. Los comprobantes fiscales se conservan el '
-            . 'tiempo que exige la ley y luego se eliminan definitivamente.'
+            .'tiempo que exige la ley y luego se eliminan definitivamente.'
         );
     }
 
