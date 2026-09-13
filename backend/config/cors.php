@@ -24,8 +24,7 @@ return [
     'allowed_origins_patterns' => [
         // Flutter web debug (any localhost port)
         '#^https?://localhost(:\d+)?$#',
-        // Production domains
-        '#^https://.*\.amephia\.com$#',
+        // Producción (facturacion.amephia.com se retiró el 2026-09-13: no se acepta ningún origen amephia.com)
         '#^https://(www\.)?facturon\.ec$#',
     ],
 
