@@ -3,6 +3,7 @@
 namespace App\Services\Settings;
 
 use App\Models\SystemSetting;
+use App\Services\Landing\PublicLandingCache;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
 
@@ -107,6 +108,7 @@ class PricingContentSettings
         }
 
         Cache::forget(self::CACHE_KEY);
+        PublicLandingCache::forget();
     }
 
     private function castValue(mixed $value, string $type): mixed

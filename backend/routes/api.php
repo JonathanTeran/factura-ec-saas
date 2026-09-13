@@ -1,27 +1,28 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AICategorizationController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\BranchController;
+use App\Http\Controllers\Api\V1\CatalogController;
+use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\CustomerController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DocumentController;
+use App\Http\Controllers\Api\V1\DocumentSettingsController;
+use App\Http\Controllers\Api\V1\EmissionPointController;
+use App\Http\Controllers\Api\V1\ImportController;
+use App\Http\Controllers\Api\V1\InventoryController;
+use App\Http\Controllers\Api\V1\OnboardingController;
+use App\Http\Controllers\Api\V1\PosController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ProfileController;
-use App\Http\Controllers\Api\V1\DocumentSettingsController;
-use App\Http\Controllers\Api\V1\CatalogController;
-use App\Http\Controllers\Api\V1\CategoryController;
-use App\Http\Controllers\Api\V1\BranchController;
-use App\Http\Controllers\Api\V1\EmissionPointController;
-use App\Http\Controllers\Api\V1\SubscriptionController;
-use App\Http\Controllers\Api\V1\OnboardingController;
-use App\Http\Controllers\Api\V1\SriLookupController;
-use App\Http\Controllers\Api\V1\ReportController;
-use App\Http\Controllers\Api\V1\InventoryController;
-use App\Http\Controllers\Api\V1\SupplierController;
+use App\Http\Controllers\Api\V1\PublicLandingController;
 use App\Http\Controllers\Api\V1\PurchaseController;
-use App\Http\Controllers\Api\V1\PosController;
-use App\Http\Controllers\Api\V1\AICategorizationController;
-use App\Http\Controllers\Api\V1\ImportController;
+use App\Http\Controllers\Api\V1\ReportController;
+use App\Http\Controllers\Api\V1\SriLookupController;
+use App\Http\Controllers\Api\V1\SubscriptionController;
+use App\Http\Controllers\Api\V1\SupplierController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -45,6 +46,10 @@ Route::prefix('v1')->group(function () {
         ->middleware('throttle:magic-link');
     Route::post('auth/reset-password', [AuthController::class, 'resetPassword'])
         ->middleware('throttle:magic-link');
+
+    // Landing pública (planes + textos de precios), sin autenticación.
+    Route::get('public/landing', [PublicLandingController::class, 'show'])
+        ->middleware('throttle:60,1');
 
     // Protected routes (authentication required)
     Route::middleware(['auth:sanctum', 'tenant.active', 'throttle:api'])->group(function () {

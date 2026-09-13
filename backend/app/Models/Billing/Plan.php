@@ -3,6 +3,7 @@
 namespace App\Models\Billing;
 
 use App\Models\Tenant\Tenant;
+use App\Services\Landing\PublicLandingCache;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -97,6 +98,14 @@ class Plan extends Model
 
     // ==================== SCOPES ====================
 
+    protected static function booted(): void
+    {
+        $forgetLanding = static fn () => PublicLandingCache::forget();
+
+        static::saved($forgetLanding);
+        static::deleted($forgetLanding);
+    }
+
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
@@ -127,6 +136,7 @@ class Plan extends Model
     public function getYearlySavings(): float
     {
         $yearlyIfMonthly = $this->price_monthly * 12;
+
         return $yearlyIfMonthly - $this->price_yearly;
     }
 
@@ -137,6 +147,7 @@ class Plan extends Model
         }
 
         $yearlyIfMonthly = $this->price_monthly * 12;
+
         return round((($yearlyIfMonthly - $this->price_yearly) / $yearlyIfMonthly) * 100);
     }
 
@@ -161,20 +172,20 @@ class Plan extends Model
         if ($this->max_documents_per_month === -1) {
             $features[] = 'Documentos ilimitados';
         } else {
-            $features[] = $this->max_documents_per_month . ' documentos/mes';
+            $features[] = $this->max_documents_per_month.' documentos/mes';
         }
 
         if ($this->max_users === -1) {
             $features[] = 'Usuarios ilimitados';
         } else {
-            $features[] = $this->max_users . ' usuario' . ($this->max_users > 1 ? 's' : '');
+            $features[] = $this->max_users.' usuario'.($this->max_users > 1 ? 's' : '');
         }
 
         // Multi-empresa: valor agregado visible en todos los planes.
         if ($this->max_companies === -1) {
             $features[] = 'Empresas (RUC) ilimitadas';
         } elseif ($this->max_companies > 1) {
-            $features[] = 'Hasta ' . $this->max_companies . ' empresas (RUCs)';
+            $features[] = 'Hasta '.$this->max_companies.' empresas (RUCs)';
         } else {
             $features[] = '1 empresa (RUC)';
         }
@@ -182,40 +193,80 @@ class Plan extends Model
         if ($this->max_emission_points === -1) {
             $features[] = 'Puntos de emision ilimitados';
         } elseif ($this->max_emission_points > 1) {
-            $features[] = $this->max_emission_points . ' puntos de emision';
+            $features[] = $this->max_emission_points.' puntos de emision';
         }
 
         // Boolean features
         // La firma electronica NO se anuncia como incluida: el cliente usa su
         // propio certificado (no lo vendemos). Firmamos por el con su .p12.
-        if ($this->has_proformas) $features[] = 'Proformas';
-        if ($this->has_ats) $features[] = 'ATS';
-        if ($this->has_accountant_access) $features[] = 'Acceso para contador';
-        if ($this->has_api_access) $features[] = 'API REST';
-        if ($this->has_inventory) $features[] = 'Inventario';
-        if ($this->has_pos) $features[] = 'Punto de venta';
-        if ($this->has_recurring_invoices) $features[] = 'Facturacion recurrente';
-        if ($this->has_advanced_reports) $features[] = 'Reportes avanzados';
-        if ($this->has_thermal_printer) $features[] = 'Impresora termica';
+        if ($this->has_proformas) {
+            $features[] = 'Proformas';
+        }
+        if ($this->has_ats) {
+            $features[] = 'ATS';
+        }
+        if ($this->has_accountant_access) {
+            $features[] = 'Acceso para contador';
+        }
+        if ($this->has_api_access) {
+            $features[] = 'API REST';
+        }
+        if ($this->has_inventory) {
+            $features[] = 'Inventario';
+        }
+        if ($this->has_pos) {
+            $features[] = 'Punto de venta';
+        }
+        if ($this->has_recurring_invoices) {
+            $features[] = 'Facturacion recurrente';
+        }
+        if ($this->has_advanced_reports) {
+            $features[] = 'Reportes avanzados';
+        }
+        if ($this->has_thermal_printer) {
+            $features[] = 'Impresora termica';
+        }
         // Webhooks aún no está implementado en el backend: no se anuncia.
-        if ($this->has_client_portal) $features[] = 'Portal de clientes';
-        if ($this->has_multi_currency) $features[] = 'Multi-moneda';
-        if ($this->has_whitelabel_ride) $features[] = 'RIDE personalizado';
-        if ($this->has_ai_categorization) $features[] = 'Categorizacion con IA';
-        if ($this->has_priority_queue) $features[] = 'Emision prioritaria al SRI';
-        if ($this->has_bulk_operations) $features[] = 'Emision y carga masiva';
-        if ($this->has_custom_roles) $features[] = 'Roles y permisos personalizados';
-        if ($this->has_sso) $features[] = 'Inicio de sesion SSO/SAML';
-        if ($this->has_dedicated_manager) $features[] = 'Ejecutivo de cuenta dedicado';
-        if ($this->has_custom_integrations) $features[] = 'Integraciones a medida';
-        if ($this->has_sla) $features[] = 'SLA de disponibilidad garantizado';
+        if ($this->has_client_portal) {
+            $features[] = 'Portal de clientes';
+        }
+        if ($this->has_multi_currency) {
+            $features[] = 'Multi-moneda';
+        }
+        if ($this->has_whitelabel_ride) {
+            $features[] = 'RIDE personalizado';
+        }
+        if ($this->has_ai_categorization) {
+            $features[] = 'Categorizacion con IA';
+        }
+        if ($this->has_priority_queue) {
+            $features[] = 'Emision prioritaria al SRI';
+        }
+        if ($this->has_bulk_operations) {
+            $features[] = 'Emision y carga masiva';
+        }
+        if ($this->has_custom_roles) {
+            $features[] = 'Roles y permisos personalizados';
+        }
+        if ($this->has_sso) {
+            $features[] = 'Inicio de sesion SSO/SAML';
+        }
+        if ($this->has_dedicated_manager) {
+            $features[] = 'Ejecutivo de cuenta dedicado';
+        }
+        if ($this->has_custom_integrations) {
+            $features[] = 'Integraciones a medida';
+        }
+        if ($this->has_sla) {
+            $features[] = 'SLA de disponibilidad garantizado';
+        }
 
         // Support
         $supportLabels = [
             'community' => 'Soporte comunitario',
-            'email' => 'Soporte por email (' . $this->support_response_hours . 'h)',
-            'priority' => 'Soporte prioritario (' . $this->support_response_hours . 'h)',
-            'dedicated' => 'Soporte dedicado (' . $this->support_response_hours . 'h)',
+            'email' => 'Soporte por email ('.$this->support_response_hours.'h)',
+            'priority' => 'Soporte prioritario ('.$this->support_response_hours.'h)',
+            'dedicated' => 'Soporte dedicado ('.$this->support_response_hours.'h)',
         ];
         $features[] = $supportLabels[$this->support_level] ?? 'Soporte';
 
