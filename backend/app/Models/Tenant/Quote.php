@@ -12,9 +12,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * Proforma / cotización. Flujo: borrador → enviada → aceptada|rechazada →
+ * facturada (convertida en factura electrónica). Las no resueltas vencen por
+ * comando diario (quotes:expire) al pasar expiry_date.
+ */
 class Quote extends Model
 {
-    use HasFactory, SoftDeletes, BelongsToTenant;
+    use BelongsToTenant, HasFactory, SoftDeletes;
 
     protected $fillable = [
         'tenant_id',
@@ -32,16 +37,25 @@ class Quote extends Model
         'notes',
         'payment_terms',
         'converted_to_document_id',
+        'sent_at',
+        'sent_to',
+        'accepted_at',
+        'rejected_at',
+        'converted_at',
     ];
 
     protected $casts = [
-        'status'      => QuoteStatus::class,
-        'issue_date'  => 'date',
+        'status' => QuoteStatus::class,
+        'issue_date' => 'date',
         'expiry_date' => 'date',
-        'subtotal'    => 'decimal:2',
+        'subtotal' => 'decimal:2',
         'total_discount' => 'decimal:2',
-        'total_tax'   => 'decimal:2',
-        'total'       => 'decimal:2',
+        'total_tax' => 'decimal:2',
+        'total' => 'decimal:2',
+        'sent_at' => 'datetime',
+        'accepted_at' => 'datetime',
+        'rejected_at' => 'datetime',
+        'converted_at' => 'datetime',
     ];
 
     // ==================== RELACIONES ====================
@@ -105,11 +119,40 @@ class Quote extends Model
     public function isExpired(): bool
     {
         return $this->status === QuoteStatus::EXPIRED
-            || ($this->expiry_date && $this->expiry_date->isPast() && !in_array($this->status, [QuoteStatus::INVOICED, QuoteStatus::REJECTED]));
+            || ($this->expiry_date && $this->expiry_date->isPast() && ! $this->expiry_date->isToday()
+                && ! in_array($this->status, [QuoteStatus::INVOICED, QuoteStatus::REJECTED, QuoteStatus::ACCEPTED], true));
+    }
+
+    /** Borrador o enviada: aún se puede corregir. */
+    public function canBeEdited(): bool
+    {
+        return in_array($this->status, [QuoteStatus::DRAFT, QuoteStatus::SENT], true);
+    }
+
+    /** Se puede enviar (o reenviar) al cliente mientras no esté resuelta. */
+    public function canBeSent(): bool
+    {
+        return in_array($this->status, [QuoteStatus::DRAFT, QuoteStatus::SENT, QuoteStatus::ACCEPTED], true);
+    }
+
+    public function canBeAccepted(): bool
+    {
+        return in_array($this->status, [QuoteStatus::DRAFT, QuoteStatus::SENT], true);
+    }
+
+    public function canBeRejected(): bool
+    {
+        return in_array($this->status, [QuoteStatus::DRAFT, QuoteStatus::SENT, QuoteStatus::ACCEPTED], true);
     }
 
     public function canBeConverted(): bool
     {
-        return $this->status === QuoteStatus::ACCEPTED && $this->converted_to_document_id === null;
+        return $this->converted_to_document_id === null
+            && in_array($this->status, [QuoteStatus::DRAFT, QuoteStatus::SENT, QuoteStatus::ACCEPTED], true);
+    }
+
+    public function canBeDeleted(): bool
+    {
+        return $this->converted_to_document_id === null;
     }
 }

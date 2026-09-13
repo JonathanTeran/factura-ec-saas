@@ -33,6 +33,7 @@ class TenantFactory extends Factory
             'has_inventory' => false,
             'has_pos' => false,
             'has_recurring_invoices' => false,
+            'has_proformas' => true,
             'has_advanced_reports' => false,
             'has_whitelabel_ride' => false,
             'has_client_portal' => true,

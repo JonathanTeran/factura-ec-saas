@@ -3,15 +3,15 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\DocumentStatus;
-use App\Enums\DocumentType;
+use App\Exceptions\DocumentCreationException;
+use App\Exceptions\DocumentSendException;
 use App\Http\Requests\Api\DocumentRequest;
 use App\Http\Resources\DocumentResource;
-use App\Jobs\SRI\ProcessDocumentJob;
 use App\Jobs\SRI\SendDocumentToClientJob;
 use App\Models\SRI\ElectronicDocument;
-use App\Models\Tenant\Company;
-use App\Models\Tenant\EmissionPoint;
 use App\Services\Cache\TenantCacheService;
+use App\Services\Document\DocumentCreator;
+use App\Services\Document\DocumentSender;
 use App\Services\SRI\AccessKeyService;
 use App\Services\SRI\RIDEGenerator;
 use Illuminate\Http\JsonResponse;
@@ -99,190 +99,20 @@ class DocumentController extends ApiController
     public function store(DocumentRequest $request): JsonResponse
     {
         $user = $request->user();
-        $tenant = TenantCacheService::tenantWithSubscription($user->tenant_id) ?? $user->tenant;
 
-        if (! $tenant->activeSubscription) {
-            // El caché dura 10 min: si el super admin acaba de aprobar el
-            // pago, la copia cacheada puede estar desactualizada. Antes de
-            // rechazar, se invalida y se consulta una vez en fresco.
-            TenantCacheService::invalidateTenant($user->tenant_id);
-            $tenant = TenantCacheService::tenantWithSubscription($user->tenant_id) ?? $user->tenant;
-        }
-
-        if (! $tenant->activeSubscription) {
-            return $this->error(
-                'Necesitas una suscripción activa para crear documentos.',
-                403
+        // Toda la lógica de creación (suscripción, límite del plan, checklist
+        // de la empresa, secuencial atómico, clave de acceso, ítems) vive en
+        // DocumentCreator: el mismo camino que usan las proformas convertidas
+        // y las facturas recurrentes.
+        try {
+            $document = app(DocumentCreator::class)->createDraft(
+                $user->tenant,
+                $request->validated(),
+                $user
             );
+        } catch (DocumentCreationException $e) {
+            return $this->error($e->getMessage(), $e->status, $e->errors);
         }
-
-        // Check plan limits
-        if (! $tenant->canIssueDocuments()) {
-            return $this->error(
-                'Has alcanzado el límite de documentos de tu plan. Actualiza tu suscripción para continuar.',
-                403
-            );
-        }
-
-        // Validate company belongs to tenant
-        $company = Company::where('id', $request->company_id)
-            ->where('tenant_id', $tenant->id)
-            ->firstOrFail();
-
-        $checklist = $company->emissionReadinessChecklist();
-
-        if (! $checklist['basic_data']) {
-            return $this->error(
-                'La empresa no tiene completos los datos fiscales del emisor.',
-                422
-            );
-        }
-
-        if (! $checklist['establishments']) {
-            return $this->error(
-                'Configura al menos un establecimiento con punto de emisión antes de crear documentos.',
-                422
-            );
-        }
-
-        // Get emission point and generate sequential number
-        $emissionPoint = EmissionPoint::where('id', $request->emission_point_id)
-            ->where('tenant_id', $tenant->id)
-            ->whereHas('branch', fn ($query) => $query->where('company_id', $company->id))
-            ->firstOrFail();
-
-        // No se puede emitir sobre un punto de emisión o establecimiento
-        // inactivo (candado extra; la app ya los oculta).
-        if (! $emissionPoint->is_active || ! optional($emissionPoint->branch)->is_active) {
-            return $this->error(
-                'El punto de emisión o el establecimiento está inactivo. Actívalo para poder emitir.',
-                422
-            );
-        }
-        // Nota de crédito / débito: persistir el documento modificado y el
-        // motivo donde el generador XML los lee (related_document_* y
-        // additional_info['motivo'|'motivos']). Antes solo se validaba la
-        // referencia y se descartaba, dejando la nota sin documento sustento.
-        $relatedDocumentData = [];
-        $additionalInfo = is_array($request->additional_info)
-            ? $request->additional_info
-            : [];
-        if ($request->filled('reference_document_id')) {
-            $reference = ElectronicDocument::where('id', $request->reference_document_id)
-                ->where('tenant_id', $tenant->id)
-                ->firstOrFail();
-            $relatedDocumentData = [
-                'related_document_id' => $reference->id,
-                'related_document_type' => $reference->document_type->value,
-                'related_document_number' => $reference->getDocumentNumber(),
-                'related_document_date' => $reference->issue_date,
-            ];
-            $reason = trim((string) $request->input('modification_reason', ''));
-            if ($reason !== '') {
-                if ($request->document_type === DocumentType::NOTA_DEBITO->value) {
-                    $additionalInfo['motivos'] = [[
-                        'razon' => $reason,
-                        'valor' => (float) $request->total,
-                    ]];
-                } else {
-                    $additionalInfo['motivo'] = $reason;
-                }
-            }
-        }
-
-        $sequential = $emissionPoint->getNextSequential($request->document_type);
-        $formattedSequential = str_pad((string) $sequential, 9, '0', STR_PAD_LEFT);
-        $series = $emissionPoint->branch->code.'-'.$emissionPoint->code;
-        $totalTax = $request->total_tax ?? (($request->tax_12 ?? 0) + ($request->tax_15 ?? 0));
-        $totalDiscount = $request->total_discount ?? ($request->discount ?? 0);
-
-        $paymentMethods = $request->payment_methods;
-        if (! $paymentMethods && $request->filled('payment_method')) {
-            $paymentMethods = [[
-                'code' => (string) $request->payment_method,
-                'amount' => (float) $request->total,
-                'term' => (int) ($request->payment_term ?? 0),
-                'time_unit' => 'dias',
-            ]];
-        }
-
-        // Create document
-        $document = ElectronicDocument::create([
-            'tenant_id' => $tenant->id,
-            'company_id' => $company->id,
-            'branch_id' => $emissionPoint->branch_id,
-            'emission_point_id' => $emissionPoint->id,
-            'customer_id' => $request->customer_id,
-            'document_type' => $request->document_type,
-            'environment' => $company->sri_environment,
-            'series' => $series,
-            'sequential' => $formattedSequential,
-            'issue_date' => $request->issue_date ?? now(),
-            'currency' => 'DOLAR',
-            'subtotal_no_tax' => $request->subtotal_no_tax ?? 0,
-            'subtotal_0' => $request->subtotal_0 ?? 0,
-            'subtotal_5' => $request->subtotal_5 ?? 0,
-            'subtotal_12' => $request->subtotal_12 ?? 0,
-            'subtotal_15' => $request->subtotal_15 ?? 0,
-            'subtotal_8' => $request->subtotal_8 ?? 0,
-            'subtotal_13' => $request->subtotal_13 ?? 0,
-            'total_discount' => $totalDiscount,
-            'total_tax' => $totalTax,
-            'tip' => $request->tip ?? 0,
-            'total' => $request->total,
-            'payment_methods' => $paymentMethods,
-            'status' => DocumentStatus::DRAFT,
-            'additional_info' => $additionalInfo,
-            'created_by' => $user->id,
-            ...$relatedDocumentData,
-        ]);
-
-        // La clave de acceso es determinística (Módulo 11): se genera desde
-        // el borrador para mostrarla en el detalle y la vista previa del PDF.
-        $document->update(['access_key' => app(AccessKeyService::class)->generate($document)]);
-
-        // Create document items
-        foreach ($request->items ?? [] as $item) {
-            $document->items()->create([
-                'product_id' => $item['product_id'] ?? null,
-                'main_code' => $item['main_code'],
-                'aux_code' => $item['aux_code'] ?? null,
-                'description' => $item['description'],
-                'quantity' => $item['quantity'],
-                'unit_price' => $item['unit_price'],
-                'discount' => $item['discount'] ?? 0,
-                'subtotal' => $item['subtotal'],
-                'tax_code' => $item['tax_code'] ?? '2',
-                'tax_percentage_code' => $item['tax_percentage_code'] ?? '2',
-                'tax_rate' => $item['tax_rate'] ?? 12,
-                'tax_base' => $item['tax_base'],
-                'tax_value' => $item['tax_value'],
-            ]);
-        }
-
-        // Create withholding details (comprobante de retención)
-        if ($request->document_type === DocumentType::RETENCION->value) {
-            foreach ($request->withholding_details ?? [] as $detail) {
-                $document->withholdingDetails()->create([
-                    'tenant_id' => $tenant->id,
-                    'support_doc_code' => $detail['support_doc_code'],
-                    'support_doc_number' => $detail['support_doc_number'],
-                    'support_doc_date' => $detail['support_doc_date'],
-                    'support_doc_total' => $detail['support_doc_total'] ?? 0,
-                    'support_reason_code' => $detail['support_reason_code'] ?? '01',
-                    'tax_type' => $detail['tax_type'],
-                    'retention_code' => $detail['retention_code'],
-                    'tax_base' => $detail['tax_base'],
-                    'retention_rate' => $detail['retention_rate'],
-                    'retained_value' => $detail['retained_value'],
-                ]);
-            }
-        }
-
-        // Increment tenant document counter
-        $tenant->incrementDocumentCount();
-
-        TenantCacheService::invalidateDashboard($tenant->id);
 
         return $this->created([
             'document' => new DocumentResource($document->load(['customer', 'company', 'items', 'withholdingDetails'])),
@@ -369,88 +199,16 @@ class DocumentController extends ApiController
     {
         $this->authorizeDocument($request, $document);
 
-        // Borradores nuevos + reintento de los que fallaron o fueron rechazados.
-        $sendable = [
-            DocumentStatus::DRAFT,
-            DocumentStatus::FAILED,
-            DocumentStatus::REJECTED,
-        ];
-        if (! in_array($document->status, $sendable, true)) {
-            return $this->error(
-                'Solo se pueden enviar borradores o reintentar documentos fallidos/rechazados.',
-                400
-            );
+        // Estado enviable, checklist fiscal/firma y pre-validación SRI viven
+        // en DocumentSender (compartido con proformas y recurrentes).
+        try {
+            $document = app(DocumentSender::class)->send($document);
+        } catch (DocumentSendException $e) {
+            return $this->error($e->getMessage(), $e->status, $e->errors);
         }
-
-        $checklist = $document->company->emissionReadinessChecklist();
-
-        if (! $checklist['basic_data']) {
-            return $this->error(
-                'La empresa no tiene completos los datos fiscales del emisor.',
-                400
-            );
-        }
-
-        if (! $checklist['establishments']) {
-            return $this->error(
-                'La empresa no tiene establecimientos/puntos de emisión configurados.',
-                400
-            );
-        }
-
-        // Validate company has signature
-        if (! $checklist['digital_signature']) {
-            $company = $document->company;
-            if ($company->hasValidSignature() && ! $company->hasSignatureFile()) {
-                return $this->error(
-                    'El archivo de tu firma electrónica (.p12) no se encuentra. '
-                    .'Volvé a subirlo en Firma electrónica y reintentá.',
-                    400
-                );
-            }
-
-            return $this->error(
-                'La empresa no tiene una firma electrónica válida configurada.',
-                400
-            );
-        }
-
-        // La clave del SRI (portal "SRI en línea") no participa en la emisión:
-        // la firma usa el certificado .p12 y el webservice de recepción/
-        // autorización no la requiere. No debe bloquear el envío.
-
-        // Validación local de reglas del SRI ANTES de enviar: evita gastar
-        // llamadas al webservice y que el comprobante sea devuelto por errores
-        // que podemos detectar aquí (ej. factura > $50 a Consumidor Final,
-        // identificación inválida, sin detalle).
-        $preErrors = app(\App\Services\SRI\SriPreValidator::class)->validate($document);
-        if (! empty($preErrors)) {
-            $document->update([
-                'status' => DocumentStatus::REJECTED,
-                'sri_errors' => ['validation' => $preErrors],
-            ]);
-            TenantCacheService::invalidateDashboard($document->tenant_id);
-
-            return $this->error(
-                'El documento no cumple las reglas del SRI y no se envió: '
-                .implode(' ', $preErrors),
-                422,
-                $preErrors
-            );
-        }
-
-        // Dispatch job to process document. Se limpia el error anterior para no
-        // arrastrar el detalle de un intento fallido previo.
-        $document->update([
-            'status' => DocumentStatus::PROCESSING,
-            'sri_errors' => null,
-        ]);
-        ProcessDocumentJob::dispatch($document);
-
-        TenantCacheService::invalidateDashboard($document->tenant_id);
 
         return $this->success([
-            'document' => new DocumentResource($document->fresh()),
+            'document' => new DocumentResource($document),
         ], 'Documento enviado a procesar. Recibirás una notificación cuando esté listo.');
     }
 

@@ -2,37 +2,70 @@
 
 namespace App\Services;
 
+use App\Enums\DocumentStatus;
 use App\Enums\DocumentType;
-use App\Models\SRI\DocumentItem;
+use App\Exceptions\DocumentCreationException;
+use App\Exceptions\DocumentSendException;
 use App\Models\SRI\ElectronicDocument;
 use App\Models\Tenant\RecurringInvoice;
-use App\Models\Tenant\Tenant;
+use App\Models\User;
+use App\Notifications\RecurringInvoiceNotification;
+use App\Services\Document\DocumentCreator;
+use App\Services\Document\DocumentSender;
+use App\Services\Document\DocumentTotals;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 
+/**
+ * Emisión de facturas recurrentes.
+ *
+ * Genera cada factura por el mismo camino que el panel (DocumentCreator:
+ * secuencial atómico, clave de acceso, contadores del plan) y, si la
+ * empresa está lista y la recurrente lo pide, la envía al SRI
+ * (DocumentSender). Un error en una recurrente no tumba el lote: se guarda
+ * en last_error y se avisa al dueño.
+ */
 class RecurringInvoiceService
 {
+    public function __construct(
+        private readonly DocumentCreator $creator,
+        private readonly DocumentSender $sender,
+    ) {}
+
+    /**
+     * Procesa todas las recurrentes vencidas (next_issue_date <= hoy).
+     *
+     * @return array{processed: int, sent: int, failed: int, skipped: int}
+     */
     public function processAllDue(): array
     {
-        $results = ['processed' => 0, 'failed' => 0, 'skipped' => 0];
+        $results = ['processed' => 0, 'sent' => 0, 'failed' => 0, 'skipped' => 0];
 
-        $dueInvoices = RecurringInvoice::withoutTenantScope()
+        $due = RecurringInvoice::withoutTenantScope()
             ->dueToday()
-            ->with(['company', 'branch', 'emissionPoint', 'customer', 'tenant'])
+            ->with(['company', 'branch', 'emissionPoint', 'customer', 'tenant', 'createdBy'])
+            ->orderBy('id')
             ->get();
 
-        foreach ($dueInvoices as $recurring) {
+        foreach ($due as $recurring) {
             try {
-                if (!$this->canProcess($recurring)) {
+                if (! $recurring->canIssue()) {
+                    // Activa pero fuera de rango (end_date pasado / máximo
+                    // alcanzado): se cierra para que no vuelva a evaluarse.
+                    $recurring->update(['status' => 'completed']);
                     $results['skipped']++;
+
                     continue;
                 }
 
-                $this->generateDocument($recurring);
+                $document = $this->generateDocument($recurring);
                 $results['processed']++;
-
-            } catch (\Exception $e) {
-                Log::error("Failed to process recurring invoice {$recurring->id}: {$e->getMessage()}");
+                if ($document->status === DocumentStatus::PROCESSING) {
+                    $results['sent']++;
+                }
+            } catch (\Throwable $e) {
+                $this->recordFailure($recurring, $e);
                 $results['failed']++;
             }
         }
@@ -40,112 +73,215 @@ class RecurringInvoiceService
         return $results;
     }
 
-    public function generateDocument(RecurringInvoice $recurring): ElectronicDocument
+    /**
+     * Genera (y opcionalmente envía al SRI) la factura de una recurrente y
+     * avanza su calendario. Lo usan el lote diario y "Emitir ahora".
+     *
+     * @throws DocumentCreationException|\Throwable
+     */
+    public function generateDocument(RecurringInvoice $recurring, ?bool $send = null): ElectronicDocument
     {
-        return DB::transaction(function () use ($recurring) {
-            $sequential = $this->getNextSequential($recurring);
+        $recurring->loadMissing(['tenant', 'company', 'branch', 'emissionPoint', 'customer', 'createdBy']);
 
-            $document = ElectronicDocument::create([
-                'tenant_id' => $recurring->tenant_id,
-                'company_id' => $recurring->company_id,
-                'branch_id' => $recurring->branch_id,
-                'emission_point_id' => $recurring->emission_point_id,
-                'customer_id' => $recurring->customer_id,
-                'created_by' => $recurring->created_by,
-                'document_type' => DocumentType::FACTURA->value,
-                'environment' => $recurring->company->sri_environment ?? '1',
-                'series' => sprintf(
-                    '%s-%s',
-                    $recurring->branch->code ?? '001',
-                    $recurring->emissionPoint->code ?? '001'
-                ),
-                'sequential' => $sequential,
-                'status' => 'draft',
-                'issue_date' => now()->toDateString(),
-                'due_date' => $recurring->payment_methods[0]['due_days'] ?? null
-                    ? now()->addDays($recurring->payment_methods[0]['due_days'])->toDateString()
-                    : null,
-                'currency' => $recurring->currency,
-                'payment_methods' => $recurring->payment_methods,
-                'additional_info' => $recurring->additional_info,
-                'notes' => $recurring->notes,
-                'recurring_invoice_id' => $recurring->id,
-            ]);
+        $tenant = $recurring->tenant;
+        if (! $tenant) {
+            throw new DocumentCreationException('La recurrente no tiene una cuenta asociada.', 422);
+        }
+        if (! $tenant->hasFeature('recurring_invoices')) {
+            throw new DocumentCreationException('Tu plan no incluye facturación recurrente. Actualiza tu suscripción para continuar.', 403);
+        }
+        if (! $recurring->company || (int) $recurring->company->tenant_id !== (int) $tenant->id) {
+            throw new DocumentCreationException('La empresa de la recurrente no existe o no pertenece a la cuenta.', 422);
+        }
 
-            // Create items
-            $this->createDocumentItems($document, $recurring->items);
+        $calc = DocumentTotals::fromItems($recurring->items ?? []);
+        if ($calc['items'] === []) {
+            throw new DocumentCreationException('La recurrente no tiene ítems: agrega al menos un producto o servicio.', 422);
+        }
 
-            // Calculate totals
-            $document->load('items');
-            $document->calculateTotals();
+        // Fecha de emisión: la programada, salvo que se emita antes a mano
+        // (el SRI no acepta fechas futuras).
+        $scheduled = $recurring->next_issue_date ?? now();
+        $issueDate = $scheduled->greaterThan(now()) ? now() : $scheduled;
 
-            // Advance recurring schedule
+        $total = $calc['totals']['total'];
+        $paymentMethods = $this->normalizePaymentMethods($recurring->payment_methods, $total);
+        $term = (int) ($paymentMethods[0]['term'] ?? 0);
+
+        $data = [
+            'company_id' => $recurring->company_id,
+            'customer_id' => $recurring->customer_id,
+            'emission_point_id' => $recurring->emission_point_id,
+            'document_type' => DocumentType::FACTURA->value,
+            'issue_date' => $issueDate->toDateString(),
+            'due_date' => $term > 0 ? $issueDate->copy()->addDays($term)->toDateString() : null,
+            'currency' => $recurring->currency ?: 'DOLAR',
+            'payment_methods' => $paymentMethods,
+            'additional_info' => $recurring->additional_info ?? [],
+            'notes' => $recurring->notes,
+            'items' => $calc['items'],
+            'recurring_invoice_id' => $recurring->id,
+            ...$calc['totals'],
+        ];
+
+        $document = DB::transaction(function () use ($recurring, $tenant, $data) {
+            $document = $this->creator->createDraft($tenant, $data, $this->actorFor($recurring));
+
             $recurring->advanceToNextIssue();
-
-            Log::info("Generated document {$document->id} from recurring invoice {$recurring->id}");
+            $recurring->forceFill(['last_error' => null, 'last_error_at' => null])->save();
 
             return $document;
         });
+
+        $shouldSend = $send ?? (bool) $recurring->auto_send;
+        $sendError = null;
+
+        if ($shouldSend) {
+            try {
+                $document = $this->sender->send($document);
+            } catch (DocumentSendException $e) {
+                $sendError = $e->getMessage();
+                Log::warning("Recurrente #{$recurring->id}: factura #{$document->id} generada pero no enviada al SRI", [
+                    'error' => $sendError,
+                ]);
+            }
+        }
+
+        Log::info("Recurrente #{$recurring->id}: factura #{$document->id} generada", [
+            'sent' => $shouldSend && $sendError === null,
+        ]);
+
+        $this->notify(
+            $recurring,
+            $sendError ? RecurringInvoiceNotification::SEND_FAILED : RecurringInvoiceNotification::GENERATED,
+            $document,
+            $sendError
+        );
+
+        return $document;
     }
 
-    protected function canProcess(RecurringInvoice $recurring): bool
+    /**
+     * Recordatorio previo a la emisión (notify_days_before). Se envía una
+     * sola vez por fecha programada (reminder_sent_for).
+     */
+    public function sendReminders(): int
     {
-        $tenant = $recurring->tenant;
+        $today = now()->startOfDay();
+        $sent = 0;
 
-        if (!$tenant || !$tenant->hasFeature('recurring_invoices')) {
-            Log::info("Tenant {$recurring->tenant_id} does not have recurring invoices feature");
-            return false;
+        $candidates = RecurringInvoice::withoutTenantScope()
+            ->active()
+            ->where('notify_before_issue', true)
+            ->where('notify_days_before', '>', 0)
+            ->whereNotNull('next_issue_date')
+            ->whereDate('next_issue_date', '>', $today->toDateString())
+            ->whereDate('next_issue_date', '<=', $today->copy()->addDays(31)->toDateString())
+            ->with(['customer', 'tenant', 'createdBy'])
+            ->get();
+
+        foreach ($candidates as $recurring) {
+            $reminderDate = $recurring->reminderDate();
+            if (! $reminderDate || $reminderDate->greaterThan($today)) {
+                continue;
+            }
+            if ($recurring->reminder_sent_for && $recurring->reminder_sent_for->equalTo($recurring->next_issue_date)) {
+                continue;
+            }
+
+            try {
+                $this->notify($recurring, RecurringInvoiceNotification::UPCOMING);
+                $recurring->forceFill(['reminder_sent_for' => $recurring->next_issue_date])->save();
+                $sent++;
+            } catch (\Throwable $e) {
+                Log::error("Recurrente #{$recurring->id}: no se pudo enviar el recordatorio", ['error' => $e->getMessage()]);
+            }
         }
 
-        if (!$recurring->canIssue()) {
-            return false;
-        }
-
-        if (!$tenant->canIssueDocuments()) {
-            Log::info("Tenant {$recurring->tenant_id} has reached document limit");
-            return false;
-        }
-
-        return true;
+        return $sent;
     }
 
-    protected function getNextSequential(RecurringInvoice $recurring): string
+    /**
+     * Guarda el error en la recurrente y avisa al dueño (solo cuando el
+     * mensaje cambia, para no repetir el mismo aviso cada día).
+     */
+    public function recordFailure(RecurringInvoice $recurring, \Throwable $e): void
     {
-        $lastSequential = ElectronicDocument::withoutTenantScope()
-            ->where('tenant_id', $recurring->tenant_id)
-            ->where('company_id', $recurring->company_id)
-            ->where('emission_point_id', $recurring->emission_point_id)
-            ->where('document_type', DocumentType::FACTURA->value)
-            ->max('sequential');
+        $message = $e->getMessage() ?: get_class($e);
 
-        $next = $lastSequential ? (int) $lastSequential + 1 : 1;
+        Log::error("Recurrente #{$recurring->id}: falló la generación", [
+            'error' => $message,
+            'exception' => get_class($e),
+        ]);
 
-        return str_pad($next, 9, '0', STR_PAD_LEFT);
+        $changed = $recurring->last_error !== $message;
+
+        $recurring->forceFill([
+            'last_error' => mb_substr($message, 0, 2000),
+            'last_error_at' => now(),
+        ])->save();
+
+        if ($changed) {
+            try {
+                $this->notify($recurring, RecurringInvoiceNotification::FAILED, null, $message);
+            } catch (\Throwable $notifyError) {
+                Log::error("Recurrente #{$recurring->id}: no se pudo notificar el fallo", ['error' => $notifyError->getMessage()]);
+            }
+        }
     }
 
-    protected function createDocumentItems(ElectronicDocument $document, array $items): void
+    /**
+     * Formas de pago del comprobante. Acepta la forma completa del panel
+     * ([{code, amount, term, time_unit}]) o una abreviada ([{method|code,
+     * term|due_days}]); el monto siempre es el total calculado.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalizePaymentMethods(?array $methods, float $total): array
     {
-        foreach ($items as $index => $item) {
-            DocumentItem::create([
-                'electronic_document_id' => $document->id,
-                'product_id' => $item['product_id'] ?? null,
-                'main_code' => $item['main_code'] ?? '',
-                'aux_code' => $item['aux_code'] ?? null,
-                'description' => $item['description'],
-                'quantity' => $item['quantity'],
-                'unit_price' => $item['unit_price'],
-                'discount' => $item['discount'] ?? 0,
-                'subtotal' => ($item['quantity'] * $item['unit_price']) - ($item['discount'] ?? 0),
-                'tax_code' => $item['tax_code'] ?? '2',
-                'tax_percentage_code' => $item['tax_percentage_code'] ?? '2',
-                'tax_rate' => $item['tax_rate'] ?? 15,
-                'tax_base' => ($item['quantity'] * $item['unit_price']) - ($item['discount'] ?? 0),
-                'tax_value' => round(
-                    (($item['quantity'] * $item['unit_price']) - ($item['discount'] ?? 0)) * (($item['tax_rate'] ?? 15) / 100),
-                    2
-                ),
-                'sort_order' => $index,
-            ]);
+        $methods = array_values(array_filter($methods ?? [], 'is_array'));
+
+        if ($methods === []) {
+            return [['code' => '20', 'amount' => $total, 'term' => 0, 'time_unit' => 'dias']];
         }
+
+        $normalized = [];
+        foreach ($methods as $method) {
+            $code = (string) ($method['code'] ?? $method['method'] ?? '20');
+            $term = (int) ($method['term'] ?? $method['due_days'] ?? 0);
+            $normalized[] = [
+                'code' => $code !== '' ? $code : '20',
+                'amount' => count($methods) === 1 ? $total : (float) ($method['amount'] ?? 0),
+                'term' => $term,
+                'time_unit' => (string) ($method['time_unit'] ?? 'dias'),
+            ];
+        }
+
+        return $normalized;
+    }
+
+    /** Usuario que figura como creador de la factura generada. */
+    private function actorFor(RecurringInvoice $recurring): ?User
+    {
+        $creator = $recurring->createdBy;
+        if ($creator && $creator->is_active) {
+            return $creator;
+        }
+
+        return $recurring->tenant?->owner ?? $creator;
+    }
+
+    private function notify(RecurringInvoice $recurring, string $event, ?ElectronicDocument $document = null, ?string $error = null): void
+    {
+        $recipients = collect([$recurring->tenant?->owner, $recurring->createdBy])
+            ->filter(fn ($user) => $user && $user->is_active && filled($user->email))
+            ->unique('id')
+            ->values();
+
+        if ($recipients->isEmpty()) {
+            return;
+        }
+
+        Notification::send($recipients, new RecurringInvoiceNotification($event, $recurring, $document, $error));
     }
 }

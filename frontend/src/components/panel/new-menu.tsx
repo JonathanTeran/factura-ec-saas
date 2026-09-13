@@ -11,6 +11,7 @@ import {
   Truck,
   FileBox,
   ClipboardList,
+  RefreshCw,
   UserPlus,
   Package,
   Settings2,
@@ -33,6 +34,7 @@ const DOCUMENTS = [
   { label: "Guía de remisión", href: "/guides/new", icon: Truck },
   { label: "Liquidación de compra", href: "/documents/new?type=03", icon: FileBox },
   { label: "Cotización", href: "/quotes/new", icon: ClipboardList },
+  { label: "Factura recurrente", href: "/recurring-invoices/new", icon: RefreshCw },
 ];
 
 const ENTITIES = [

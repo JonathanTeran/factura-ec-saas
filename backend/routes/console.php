@@ -61,6 +61,13 @@ Schedule::command('model:prune', [
     ->weekly()
     ->onOneServer();
 
+// Proformas: vencer las abiertas cuya fecha de validez pasó
+Schedule::command('quotes:expire')
+    ->dailyAt('00:30')
+    ->name('quotes-expire')
+    ->withoutOverlapping()
+    ->onOneServer();
+
 // Process recurring invoices - daily at 6 AM
 Schedule::job(new ProcessRecurringInvoicesJob)
     ->dailyAt('06:00')

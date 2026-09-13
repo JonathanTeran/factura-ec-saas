@@ -20,6 +20,8 @@ class RecurringInvoiceFactory extends Factory
 
     public function definition(): array
     {
+        $start = now()->toDateString();
+
         return [
             'tenant_id' => Tenant::factory(),
             'company_id' => Company::factory(),
@@ -27,38 +29,41 @@ class RecurringInvoiceFactory extends Factory
             'emission_point_id' => EmissionPoint::factory(),
             'customer_id' => Customer::factory(),
             'created_by' => User::factory(),
-            'name' => fake()->sentence(3),
-            'frequency' => fake()->randomElement(['weekly', 'biweekly', 'monthly', 'quarterly', 'semiannual', 'annual']),
-            'next_issue_date' => fake()->dateTimeBetween('now', '+1 month'),
-            'end_date' => fake()->optional()->dateTimeBetween('+6 months', '+2 years'),
-            'max_issues' => fake()->optional()->numberBetween(6, 24),
-            'issues_count' => 0,
-            'items_json' => [
+            'name' => fake()->words(3, true),
+            'frequency' => fake()->randomElement(RecurringInvoice::FREQUENCIES),
+            'start_date' => $start,
+            'next_issue_date' => $start,
+            'end_date' => null,
+            'status' => 'active',
+            'items' => [
                 [
+                    'product_id' => null,
+                    'main_code' => 'SERV-001',
                     'description' => fake()->words(3, true),
                     'quantity' => 1,
                     'unit_price' => fake()->randomFloat(2, 10, 500),
-                    'tax_percentage_code' => '4',
+                    'discount' => 0,
                     'tax_rate' => 15,
+                    'tax_percentage_code' => '4',
                 ],
             ],
-            'payment_methods_json' => [['method' => '20', 'term' => 30]],
-            'is_active' => true,
-            'notify_before_days' => 3,
+            'payment_methods' => [['code' => '20', 'term' => 0, 'time_unit' => 'dias']],
+            'currency' => 'DOLAR',
+            'total_issued' => 0,
+            'max_issues' => null,
+            'notify_before_issue' => true,
+            'notify_days_before' => 1,
+            'auto_send' => true,
         ];
     }
 
     public function inactive(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'is_active' => false,
-        ]);
+        return $this->state(fn (array $attributes) => ['status' => 'paused']);
     }
 
     public function monthly(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'frequency' => 'monthly',
-        ]);
+        return $this->state(fn (array $attributes) => ['frequency' => 'monthly']);
     }
 }

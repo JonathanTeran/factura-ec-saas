@@ -12,17 +12,24 @@ use Livewire\Component;
 class QuoteForm extends Component
 {
     public ?int $quoteId = null;
+
     public int $companyId = 0;
+
     public int $customerId = 0;
+
     public string $issueDate = '';
+
     public string $expiryDate = '';
+
     public string $notes = '';
+
     public string $paymentTerms = '';
+
     public array $items = [];
 
     public function mount(?int $quote = null): void
     {
-        $this->issueDate  = now()->format('Y-m-d');
+        $this->issueDate = now()->format('Y-m-d');
         $this->expiryDate = now()->addDays(30)->format('Y-m-d');
 
         if ($quote) {
@@ -31,20 +38,20 @@ class QuoteForm extends Component
                 ->with('items')
                 ->findOrFail($quote);
 
-            $this->companyId    = $q->company_id;
-            $this->customerId   = $q->customer_id;
-            $this->issueDate    = $q->issue_date->format('Y-m-d');
-            $this->expiryDate   = $q->expiry_date?->format('Y-m-d') ?? '';
-            $this->notes        = $q->notes ?? '';
+            $this->companyId = $q->company_id;
+            $this->customerId = $q->customer_id;
+            $this->issueDate = $q->issue_date->format('Y-m-d');
+            $this->expiryDate = $q->expiry_date?->format('Y-m-d') ?? '';
+            $this->notes = $q->notes ?? '';
             $this->paymentTerms = $q->payment_terms ?? '';
 
             $this->items = $q->items->map(fn ($item) => [
                 'description' => $item->description,
-                'quantity'    => (float) $item->quantity,
-                'unit_price'  => (float) $item->unit_price,
-                'discount'    => (float) $item->discount,
-                'tax_rate'    => (float) $item->tax_rate,
-                'product_id'  => $item->product_id,
+                'quantity' => (float) $item->quantity,
+                'unit_price' => (float) $item->unit_price,
+                'discount' => (float) $item->discount,
+                'tax_rate' => (float) $item->tax_rate,
+                'product_id' => $item->product_id,
             ])->toArray();
         }
 
@@ -57,11 +64,11 @@ class QuoteForm extends Component
     {
         $this->items[] = [
             'description' => '',
-            'quantity'    => 1,
-            'unit_price'  => 0,
-            'discount'    => 0,
-            'tax_rate'    => 15,
-            'product_id'  => null,
+            'quantity' => 1,
+            'unit_price' => 0,
+            'discount' => 0,
+            'tax_rate' => 15,
+            'product_id' => null,
         ];
     }
 
@@ -84,6 +91,7 @@ class QuoteForm extends Component
     {
         return collect($this->items)->sum(function ($item) {
             $sub = ($item['quantity'] ?? 0) * ($item['unit_price'] ?? 0) - ($item['discount'] ?? 0);
+
             return $sub * (($item['tax_rate'] ?? 0) / 100);
         });
     }
@@ -106,25 +114,25 @@ class QuoteForm extends Component
     protected function rules(): array
     {
         return [
-            'companyId'               => ['required', 'integer', 'min:1'],
-            'customerId'              => ['required', 'integer', 'min:1'],
-            'issueDate'               => ['required', 'date'],
-            'expiryDate'              => ['nullable', 'date', 'after_or_equal:issueDate'],
-            'items'                   => ['required', 'array', 'min:1'],
-            'items.*.description'     => ['required', 'string', 'max:300'],
-            'items.*.quantity'        => ['required', 'numeric', 'min:0.01'],
-            'items.*.unit_price'      => ['required', 'numeric', 'min:0'],
+            'companyId' => ['required', 'integer', 'min:1'],
+            'customerId' => ['required', 'integer', 'min:1'],
+            'issueDate' => ['required', 'date'],
+            'expiryDate' => ['nullable', 'date', 'after_or_equal:issueDate'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.description' => ['required', 'string', 'max:300'],
+            'items.*.quantity' => ['required', 'numeric', 'min:0.01'],
+            'items.*.unit_price' => ['required', 'numeric', 'min:0'],
         ];
     }
 
     protected function messages(): array
     {
         return [
-            'companyId.required'           => 'Selecciona una empresa.',
-            'customerId.required'          => 'Selecciona un cliente.',
-            'issueDate.required'           => 'La fecha de emisión es obligatoria.',
+            'companyId.required' => 'Selecciona una empresa.',
+            'customerId.required' => 'Selecciona un cliente.',
+            'issueDate.required' => 'La fecha de emisión es obligatoria.',
             'items.*.description.required' => 'La descripción del item es obligatoria.',
-            'items.*.quantity.min'         => 'La cantidad debe ser mayor a 0.',
+            'items.*.quantity.min' => 'La cantidad debe ser mayor a 0.',
         ];
     }
 
@@ -133,18 +141,18 @@ class QuoteForm extends Component
         $this->validate();
 
         $tenantId = auth()->user()->tenant_id;
-        $service  = new QuoteService();
+        $service = app(QuoteService::class);
 
         $data = [
-            'tenant_id'    => $tenantId,
-            'company_id'   => $this->companyId,
-            'customer_id'  => $this->customerId,
-            'created_by'   => auth()->id(),
-            'issue_date'   => $this->issueDate,
-            'expiry_date'  => $this->expiryDate ?: null,
-            'notes'        => $this->notes ?: null,
+            'tenant_id' => $tenantId,
+            'company_id' => $this->companyId,
+            'customer_id' => $this->customerId,
+            'created_by' => auth()->id(),
+            'issue_date' => $this->issueDate,
+            'expiry_date' => $this->expiryDate ?: null,
+            'notes' => $this->notes ?: null,
             'payment_terms' => $this->paymentTerms ?: null,
-            'status'       => QuoteStatus::DRAFT->value,
+            'status' => QuoteStatus::DRAFT->value,
         ];
 
         if ($this->quoteId) {

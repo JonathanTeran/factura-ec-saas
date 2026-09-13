@@ -327,11 +327,15 @@ Route::prefix('v1')->group(function () {
             });
         });
 
-        // Quotes
-        Route::apiResource('quotes', \App\Http\Controllers\Api\V1\QuoteController::class);
-        Route::post('quotes/{quote}/send', [\App\Http\Controllers\Api\V1\QuoteController::class, 'send']);
-        Route::post('quotes/{quote}/accept', [\App\Http\Controllers\Api\V1\QuoteController::class, 'accept']);
-        Route::post('quotes/{quote}/reject', [\App\Http\Controllers\Api\V1\QuoteController::class, 'reject']);
+        // Quotes / proformas (solo planes con has_proformas)
+        Route::middleware('plan.feature:proformas')->group(function () {
+            Route::apiResource('quotes', \App\Http\Controllers\Api\V1\QuoteController::class);
+            Route::post('quotes/{quote}/send', [\App\Http\Controllers\Api\V1\QuoteController::class, 'send']);
+            Route::post('quotes/{quote}/accept', [\App\Http\Controllers\Api\V1\QuoteController::class, 'accept']);
+            Route::post('quotes/{quote}/reject', [\App\Http\Controllers\Api\V1\QuoteController::class, 'reject']);
+            Route::post('quotes/{quote}/convert', [\App\Http\Controllers\Api\V1\QuoteController::class, 'convert']);
+            Route::get('quotes/{quote}/pdf', [\App\Http\Controllers\Api\V1\QuoteController::class, 'pdf']);
+        });
 
         // Received documents (compras electrónicas)
         Route::apiResource('received-documents', \App\Http\Controllers\Api\V1\ReceivedDocumentController::class);
@@ -347,6 +351,8 @@ Route::prefix('v1')->group(function () {
             Route::apiResource('recurring-invoices', \App\Http\Controllers\Api\V1\RecurringInvoiceController::class);
             Route::post('recurring-invoices/{recurring_invoice}/pause', [\App\Http\Controllers\Api\V1\RecurringInvoiceController::class, 'pause']);
             Route::post('recurring-invoices/{recurring_invoice}/resume', [\App\Http\Controllers\Api\V1\RecurringInvoiceController::class, 'resume']);
+            Route::post('recurring-invoices/{recurring_invoice}/generate', [\App\Http\Controllers\Api\V1\RecurringInvoiceController::class, 'generate']);
+            Route::get('recurring-invoices/{recurring_invoice}/documents', [\App\Http\Controllers\Api\V1\RecurringInvoiceController::class, 'documents']);
         });
 
         // Support tickets
@@ -365,6 +371,8 @@ Route::prefix('v1')->group(function () {
         ->name('documents.ride.public');
     Route::get('public/documents/{document}/xml', [DocumentController::class, 'streamXmlPublic'])
         ->name('documents.xml.public');
+    Route::get('public/quotes/{quote}/pdf', [\App\Http\Controllers\Api\V1\QuoteController::class, 'streamPdfPublic'])
+        ->name('quotes.pdf.public');
 });
 
 // ============================================================================

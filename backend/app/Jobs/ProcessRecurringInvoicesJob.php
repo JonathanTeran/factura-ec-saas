@@ -10,12 +10,17 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * Lote diario (06:00): emite las recurrentes vencidas y envía los
+ * recordatorios previos. Ver RecurringInvoiceService.
+ */
 class ProcessRecurringInvoicesJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 1;
-    public int $timeout = 300;
+
+    public int $timeout = 600;
 
     public function __construct()
     {
@@ -24,11 +29,12 @@ class ProcessRecurringInvoicesJob implements ShouldQueue
 
     public function handle(RecurringInvoiceService $service): void
     {
-        Log::info('Processing recurring invoices...');
+        Log::info('Recurrentes: procesando vencidas...');
 
         $results = $service->processAllDue();
+        $results['reminders'] = $service->sendReminders();
 
-        Log::info('Recurring invoices processed', $results);
+        Log::info('Recurrentes: lote terminado', $results);
     }
 
     public function failed(\Throwable $exception): void

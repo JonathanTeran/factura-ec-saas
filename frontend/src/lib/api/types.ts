@@ -238,6 +238,35 @@ export type PosTransaction = {
   items?: PosTransactionItem[];
 };
 
+export type QuoteItem = {
+  id: number;
+  product_id: number | null;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  discount: number;
+  tax_rate: number;
+  subtotal: number;
+  tax_value: number;
+  total: number;
+};
+
+export type QuoteCompany = {
+  id: number;
+  business_name: string;
+  trade_name?: string | null;
+  ruc: string;
+};
+
+export type QuoteConvertedDocument = {
+  id: number;
+  document_number?: string | null;
+  status?: string | null;
+  status_label?: string | null;
+  issue_date?: string | null;
+  total: number;
+};
+
 export type Quote = {
   id: number;
   quote_number: string;
@@ -245,6 +274,7 @@ export type Quote = {
   status_label?: string | null;
   issue_date: string;
   expiry_date?: string | null;
+  is_expired?: boolean;
   subtotal: number;
   total_discount: number;
   total_tax: number;
@@ -252,21 +282,24 @@ export type Quote = {
   notes?: string | null;
   payment_terms?: string | null;
   converted_to_document_id?: number | null;
+  sent_at?: string | null;
+  sent_to?: string | null;
+  accepted_at?: string | null;
+  rejected_at?: string | null;
+  converted_at?: string | null;
+  can_edit?: boolean;
+  can_send?: boolean;
+  can_accept?: boolean;
+  can_reject?: boolean;
+  can_convert?: boolean;
+  can_delete?: boolean;
   customer?: Customer;
+  company?: QuoteCompany | null;
+  converted_document?: QuoteConvertedDocument | null;
   company_id: number;
   customer_id: number;
-  items?: Array<{
-    id: number;
-    product_id: number | null;
-    description: string;
-    quantity: number;
-    unit_price: number;
-    discount: number;
-    tax_rate: number;
-    subtotal: number;
-    tax_value: number;
-    total: number;
-  }>;
+  items?: QuoteItem[];
+  created_at?: string;
 };
 
 export type ReceivedDocument = {
@@ -307,28 +340,58 @@ export type PersonalExpense = {
 
 export type RecurringInvoiceItem = {
   product_id?: number | null;
+  main_code?: string | null;
+  aux_code?: string | null;
   description: string;
   quantity: number;
   unit_price: number;
+  discount?: number;
   tax_rate?: number;
+  tax_percentage_code?: string | null;
+};
+
+export type RecurringInvoicePaymentMethod = {
+  code: string;
+  term?: number;
+  time_unit?: string;
 };
 
 export type RecurringInvoice = {
   id: number;
+  name?: string | null;
   company_id: number;
   branch_id: number;
   emission_point_id: number;
   customer_id: number;
   frequency: string;
+  frequency_label?: string;
   start_date: string;
   end_date?: string | null;
-  next_issue_date: string;
+  next_issue_date?: string | null;
   status: string;
+  status_label?: string;
   items: RecurringInvoiceItem[];
+  payment_methods?: RecurringInvoicePaymentMethod[];
+  additional_info?: Record<string, string>;
+  notes?: string | null;
+  currency?: string;
   total_issued: number;
   max_issues?: number | null;
-  notes?: string | null;
+  last_issued_at?: string | null;
+  notify_before_issue?: boolean;
+  notify_days_before?: number;
+  auto_send?: boolean;
+  last_error?: string | null;
+  last_error_at?: string | null;
+  estimated_total?: number;
+  can_issue?: boolean;
   customer?: Customer;
+  company?: QuoteCompany | null;
+  branch?: { id: number; code: string; name: string } | null;
+  emission_point?: { id: number; code: string; description?: string | null } | null;
+  generated_documents_count?: number;
+  recent_documents?: Document[];
+  created_at?: string;
 };
 
 export type SupportTicket = {
