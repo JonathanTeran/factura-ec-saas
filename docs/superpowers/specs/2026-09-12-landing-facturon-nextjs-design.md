@@ -245,7 +245,7 @@ frontend/src/lib/landing/demo-machine.ts     # estados, duraciones, next()
 frontend/src/lib/landing/config.ts           # WHATSAPP, CONTACT_EMAIL, STORE_PLAY_URL, STORE_APPSTORE_URL, APP_URL
 frontend/src/components/marketing/*.tsx      # nav, nav-client, hero, live-demo, trust-strip, documents,
                                              # showcase, features, how-it-works, pricing, arbitros, why,
-                                             # faq, cta, footer, whatsapp-button, reveal, browser-frame, phone-frame
+                                             # faq, cta, footer, whatsapp-button, store-badges, reveal, browser-frame, phone-frame
 frontend/public/marketing/                   # capturas, og.png, logo-facturon.svg, icon-facturon.svg
 frontend/scripts/capture-screenshots.ts      # Playwright: login demo local + capturas del panel
 frontend/scripts/og/og.html + build-og.ts    # genera public/marketing/og.png (1200×630)
