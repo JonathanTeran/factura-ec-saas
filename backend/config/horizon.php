@@ -130,7 +130,9 @@ return [
             'maxJobs' => 0,
             'memory' => 128,
             'tries' => 3,
-            'timeout' => 60,
+            // Horizon fusiona 'defaults' en cada entorno: este supervisor también corre en
+            // producción sobre la cola default, así que debe tolerar el sync FEF (~1-2 min).
+            'timeout' => 300,
             'nice' => 0,
         ],
     ],
