@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AICategorizationController;
+use App\Http\Controllers\Api\V1\ApiKeyController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BranchController;
 use App\Http\Controllers\Api\V1\CatalogController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DocumentController;
 use App\Http\Controllers\Api\V1\DocumentSettingsController;
 use App\Http\Controllers\Api\V1\EmissionPointController;
+use App\Http\Controllers\Api\V1\Ext;
 use App\Http\Controllers\Api\V1\ImportController;
 use App\Http\Controllers\Api\V1\InventoryController;
 use App\Http\Controllers\Api\V1\OnboardingController;
@@ -53,6 +55,14 @@ Route::prefix('v1')->group(function () {
 
     // Protected routes (authentication required)
     Route::middleware(['auth:sanctum', 'tenant.active', 'throttle:api'])->group(function () {
+        // Llaves de la API de integración (solo planes con acceso API).
+        Route::middleware('plan.feature:api_access')->group(function () {
+            Route::get('api-keys', [ApiKeyController::class, 'index']);
+            Route::post('api-keys', [ApiKeyController::class, 'store']);
+            Route::match(['put', 'patch'], 'api-keys/{id}', [ApiKeyController::class, 'update']);
+            Route::post('api-keys/{id}/rotate', [ApiKeyController::class, 'rotate']);
+            Route::delete('api-keys/{id}', [ApiKeyController::class, 'destroy']);
+        });
 
         // Auth
         Route::prefix('auth')->group(function () {
@@ -357,23 +367,56 @@ Route::prefix('v1')->group(function () {
         ->name('documents.xml.public');
 });
 
-// API Key authenticated routes (for external integrations)
-Route::prefix('v1/ext')->name('apikey.')->middleware(['api.key', 'api.rate'])->group(function () {
-    // Documents via API Key
-    Route::apiResource('documents', DocumentController::class)->only(['index', 'store', 'show']);
-    Route::get('documents/{document}/ride', [DocumentController::class, 'downloadRide'])->name('documents.ride');
-    Route::get('documents/{document}/xml', [DocumentController::class, 'downloadXml'])->name('documents.xml');
+// ============================================================================
+// API de integración (llaves fec_…): /api/v1/ext — documentación en /docs/api
+// ============================================================================
+Route::prefix('v1/ext')->name('ext.')->middleware(['api.key', 'api.rate'])->group(function () {
+    Route::get('me', [Ext\MeController::class, 'show'])->name('me');
+    Route::get('companies', [Ext\CompanyController::class, 'index'])
+        ->middleware('api.scope:documents:read')->name('companies');
 
-    // Customers via API Key
-    Route::apiResource('customers', CustomerController::class)->only(['index', 'store', 'show', 'update']);
+    // Documentos
+    Route::middleware('api.scope:documents:read')->group(function () {
+        Route::get('documents', [Ext\DocumentController::class, 'index'])->name('documents.index');
+        Route::get('documents/{document}', [Ext\DocumentController::class, 'show'])->name('documents.show');
+        Route::get('documents/{document}/status', [Ext\DocumentController::class, 'status'])->name('documents.status');
+        Route::get('documents/{document}/ride', [Ext\DocumentController::class, 'ride'])->name('documents.ride');
+        Route::get('documents/{document}/xml', [Ext\DocumentController::class, 'xml'])->name('documents.xml');
+    });
+    Route::middleware('api.scope:documents:write')->group(function () {
+        Route::post('documents', [Ext\DocumentController::class, 'store'])->name('documents.store');
+        Route::post('documents/{document}/send', [Ext\DocumentController::class, 'send'])->name('documents.send');
+        Route::post('documents/{document}/void', [Ext\DocumentController::class, 'void'])->name('documents.void');
+        Route::post('documents/{document}/email', [Ext\DocumentController::class, 'email'])->name('documents.email');
+    });
 
-    // Products via API Key
-    Route::apiResource('products', ProductController::class)->only(['index', 'show']);
+    // Clientes
+    Route::middleware('api.scope:customers:read')->group(function () {
+        Route::get('customers', [Ext\CustomerController::class, 'index'])->name('customers.index');
+        Route::get('customers/lookup', [Ext\CustomerController::class, 'lookup'])->name('customers.lookup');
+        Route::get('customers/{customer}', [Ext\CustomerController::class, 'show'])->name('customers.show');
+    });
+    Route::middleware('api.scope:customers:write')->group(function () {
+        Route::post('customers', [Ext\CustomerController::class, 'store'])->name('customers.store');
+        Route::match(['put', 'patch'], 'customers/{customer}', [Ext\CustomerController::class, 'update'])->name('customers.update');
+    });
 
-    // Catalogs via API Key
-    Route::prefix('catalogs')->group(function () {
-        Route::get('identification-types', [CatalogController::class, 'identificationTypes'])->name('catalogs.id-types');
-        Route::get('tax-rates', [CatalogController::class, 'taxRates'])->name('catalogs.tax-rates');
-        Route::get('payment-methods', [CatalogController::class, 'paymentMethods'])->name('catalogs.payment-methods');
+    // Productos
+    Route::middleware('api.scope:products:read')->group(function () {
+        Route::get('products', [Ext\ProductController::class, 'index'])->name('products.index');
+        Route::get('products/{product}', [Ext\ProductController::class, 'show'])->name('products.show');
+    });
+    Route::middleware('api.scope:products:write')->group(function () {
+        Route::post('products', [Ext\ProductController::class, 'store'])->name('products.store');
+        Route::match(['put', 'patch'], 'products/{product}', [Ext\ProductController::class, 'update'])->name('products.update');
+    });
+
+    // Catálogos del SRI (alcance implícito en toda llave)
+    Route::prefix('catalogs')->name('catalogs.')->middleware('api.scope:catalogs:read')->group(function () {
+        Route::get('identification-types', [CatalogController::class, 'identificationTypes'])->name('identification-types');
+        Route::get('document-types', [CatalogController::class, 'documentTypes'])->name('document-types');
+        Route::get('payment-methods', [CatalogController::class, 'paymentMethods'])->name('payment-methods');
+        Route::get('tax-rates', [CatalogController::class, 'taxRates'])->name('tax-rates');
+        Route::get('retention-codes', [CatalogController::class, 'retentionCodes'])->name('retention-codes');
     });
 });

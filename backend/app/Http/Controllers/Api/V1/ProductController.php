@@ -27,12 +27,12 @@ class ProductController extends ApiController
     public function index(Request $request): JsonResponse
     {
         $query = Product::select([
-                'id', 'tenant_id', 'category_id', 'main_code', 'aux_code', 'name',
-                'description', 'type', 'unit_price', 'cost_price',
-                'tax_code', 'tax_percentage_code', 'tax_rate',
-                'track_inventory', 'current_stock', 'min_stock',
-                'is_active', 'created_at', 'updated_at',
-            ])
+            'id', 'tenant_id', 'category_id', 'main_code', 'aux_code', 'name',
+            'description', 'type', 'unit_price', 'cost_price',
+            'tax_code', 'tax_percentage_code', 'tax_rate',
+            'track_inventory', 'current_stock', 'min_stock',
+            'is_active', 'created_at', 'updated_at',
+        ])
             ->with('category')
             ->where('tenant_id', $request->user()->tenant_id)
             ->orderBy('name');
@@ -67,21 +67,7 @@ class ProductController extends ApiController
      */
     public function store(ProductRequest $request): JsonResponse
     {
-        $data = $request->validated();
-
-        // Map API field names to model column names
-        if (isset($data['code'])) {
-            $data['main_code'] = $data['code'];
-            unset($data['code']);
-        }
-        if (isset($data['cost'])) {
-            $data['cost_price'] = $data['cost'];
-            unset($data['cost']);
-        }
-        if (isset($data['stock'])) {
-            $data['current_stock'] = $data['stock'];
-            unset($data['stock']);
-        }
+        $data = $this->mapProductInput($request->validated());
 
         $tenantId = $request->user()->tenant_id;
 
@@ -120,7 +106,7 @@ class ProductController extends ApiController
     {
         $this->authorizeProduct($request, $product);
 
-        $product->update($request->validated());
+        $product->update($this->mapProductInput($request->validated()));
 
         Cache::tags(["tenant:{$request->user()->tenant_id}", 'products'])->flush();
 
@@ -163,7 +149,7 @@ class ProductController extends ApiController
     public function search(Request $request, string $query): JsonResponse
     {
         $tenantId = $request->user()->tenant_id;
-        $cacheKey = "search:products:{$tenantId}:" . md5($query);
+        $cacheKey = "search:products:{$tenantId}:".md5($query);
 
         $products = Cache::tags(["tenant:{$tenantId}", 'products'])->remember(
             $cacheKey,
@@ -194,7 +180,7 @@ class ProductController extends ApiController
     {
         $this->authorizeProduct($request, $product);
 
-        if (!$product->track_inventory) {
+        if (! $product->track_inventory) {
             return $this->error('Este producto no tiene control de inventario activo.', 400);
         }
 
@@ -225,6 +211,22 @@ class ProductController extends ApiController
         return $this->success([
             'product' => new ProductResource($product->fresh()),
         ], 'Stock ajustado exitosamente');
+    }
+
+    /**
+     * Traduce los nombres públicos de la API a las columnas del modelo
+     * (code→main_code, sku→aux_code, cost→cost_price, stock→current_stock).
+     */
+    protected function mapProductInput(array $data): array
+    {
+        foreach (['code' => 'main_code', 'sku' => 'aux_code', 'cost' => 'cost_price', 'stock' => 'current_stock'] as $from => $to) {
+            if (array_key_exists($from, $data)) {
+                $data[$to] = $data[$from];
+                unset($data[$from]);
+            }
+        }
+
+        return $data;
     }
 
     protected function authorizeProduct(Request $request, Product $product): void

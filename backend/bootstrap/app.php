@@ -33,7 +33,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'onboarding' => \App\Http\Middleware\CheckOnboarding::class,
             'security.headers' => \App\Http\Middleware\SecurityHeaders::class,
             'api.key' => \App\Http\Middleware\VerifyApiKey::class,
-            'api.rate' => \Illuminate\Routing\Middleware\ThrottleRequests::class.':api',
+            'api.rate' => \App\Http\Middleware\ApiRateLimiting::class,
+            'api.scope' => \App\Http\Middleware\RequireApiScope::class,
         ]);
 
         $middleware->api(append: [
@@ -148,6 +149,7 @@ return Application::configure(basePath: dirname(__DIR__))
                     'used' => $e->used,
                 ], 403);
             }
+
             return redirect()->route('panel.settings.billing')
                 ->with('error', $e->getMessage());
         });
@@ -160,6 +162,7 @@ return Application::configure(basePath: dirname(__DIR__))
                     'feature' => $e->feature,
                 ], 403);
             }
+
             return redirect()->route('panel.settings.billing')
                 ->with('error', $e->getMessage());
         });
@@ -174,11 +177,26 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
+        // Ruta o recurso inexistente (abort(404) / binding fallido): mismo
+        // envoltorio que ModelNotFound para que los clientes de la API lo
+        // traten igual.
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, \Illuminate\Http\Request $request) {
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'not_found',
+                    'message' => $e->getMessage() !== '' ? $e->getMessage() : 'Recurso no encontrado',
+                    'errors' => [],
+                ], 404);
+            }
+        });
+
         // Model not found
         $exceptions->render(function (\Illuminate\Database\Eloquent\ModelNotFoundException $e, \Illuminate\Http\Request $request) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,
+                    'error' => 'not_found',
                     'message' => 'Recurso no encontrado',
                     'errors' => [],
                 ], 404);
@@ -190,6 +208,7 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,
+                    'error' => 'validation_error',
                     'message' => $e->getMessage(),
                     'errors' => $e->errors(),
                 ], 422);
@@ -201,6 +220,7 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,
+                    'error' => 'unauthenticated',
                     'message' => 'No autenticado',
                     'errors' => [],
                 ], 401);
@@ -220,7 +240,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Catch-all for unexpected errors (must be last)
         $exceptions->render(function (\Throwable $e, \Illuminate\Http\Request $request) {
-            if ($request->expectsJson() && !app()->hasDebugModeEnabled()) {
+            if ($request->expectsJson() && ! app()->hasDebugModeEnabled()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Error interno del servidor',

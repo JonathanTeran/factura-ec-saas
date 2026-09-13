@@ -59,6 +59,10 @@ class DocumentController extends ApiController
             $query->where('customer_id', $request->input('customer_id'));
         }
 
+        if ($request->filled('access_key')) {
+            $query->where('access_key', $request->input('access_key'));
+        }
+
         if ($request->has('date_from')) {
             $query->whereDate('issue_date', '>=', $request->input('date_from'));
         }
@@ -94,7 +98,7 @@ class DocumentController extends ApiController
      */
     public function store(DocumentRequest $request): JsonResponse
     {
-        $user   = $request->user();
+        $user = $request->user();
         $tenant = TenantCacheService::tenantWithSubscription($user->tenant_id) ?? $user->tenant;
 
         if (! $tenant->activeSubscription) {
@@ -678,7 +682,7 @@ class DocumentController extends ApiController
             return $this->error('Solo se pueden reenviar documentos autorizados.', 400);
         }
 
-        $email = $validated['email'] ?? $document->customer->email;
+        $email = $validated['email'] ?? $document->customer?->email;
 
         if (! $email) {
             return $this->error('No se especificó un correo electrónico.', 400);

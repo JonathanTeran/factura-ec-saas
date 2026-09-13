@@ -26,6 +26,10 @@ class DocumentRequest extends FormRequest
             'subtotal_5' => ['nullable', 'numeric', 'min:0'],
             'subtotal_12' => ['nullable', 'numeric', 'min:0'],
             'subtotal_15' => ['nullable', 'numeric', 'min:0'],
+            'subtotal_8' => ['nullable', 'numeric', 'min:0'],
+            'subtotal_13' => ['nullable', 'numeric', 'min:0'],
+            // Solo API de integración: enviar al SRI en la misma llamada (default true).
+            'send' => ['nullable', 'boolean'],
             'total_tax' => ['nullable', 'numeric', 'min:0'],
             'total_discount' => ['nullable', 'numeric', 'min:0'],
             // Compatibilidad con clientes existentes

@@ -73,6 +73,8 @@ class ElectronicDocument extends Model
         'currency',
         'notes',
         'recurring_invoice_id',
+        'voided_at',
+        'void_reason',
     ];
 
     protected $casts = [
@@ -98,6 +100,7 @@ class ElectronicDocument extends Model
         'email_sent' => 'boolean',
         'email_sent_at' => 'datetime',
         'whatsapp_sent' => 'boolean',
+        'voided_at' => 'datetime',
         'whatsapp_sent_at' => 'datetime',
         'payment_methods' => 'array',
         'additional_info' => 'array',

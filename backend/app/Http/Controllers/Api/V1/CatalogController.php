@@ -14,7 +14,8 @@ class CatalogController extends ApiController
         $types = collect(IdentificationType::cases())->map(fn ($type) => [
             'code' => $type->value,
             'name' => $type->label(),
-            'length' => $type->length(),
+            'max_length' => $type->maxLength(),
+            'length' => $type->maxLength(),
         ]);
 
         return $this->success([
@@ -27,7 +28,7 @@ class CatalogController extends ApiController
         $types = collect(DocumentType::cases())->map(fn ($type) => [
             'code' => $type->value,
             'name' => $type->label(),
-            'sri_code' => $type->sriCode(),
+            'sri_code' => $type->value,
         ]);
 
         return $this->success([

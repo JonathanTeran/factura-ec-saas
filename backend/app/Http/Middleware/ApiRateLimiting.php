@@ -2,81 +2,56 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Tenant\ApiKey;
+use App\Support\ApiError;
 use Closure;
 use Illuminate\Cache\RateLimiter;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * Límite de peticiones por minuto de la API de integración, por llave:
+ * el menor entre el límite propio de la llave y el del plan
+ * (ver ApiKey::PLAN_RATE_LIMITS). Debe ir después de `api.key`.
+ */
 class ApiRateLimiting
 {
-    protected RateLimiter $limiter;
+    public function __construct(protected RateLimiter $limiter) {}
 
-    public function __construct(RateLimiter $limiter)
-    {
-        $this->limiter = $limiter;
-    }
-
-    /**
-     * Rate limiting por tenant para la API.
-     * Los límites dependen del plan contratado.
-     */
     public function handle(Request $request, Closure $next): Response
     {
-        $user = $request->user();
-        $tenant = $user?->tenant ?? $request->get('tenant');
+        $apiKey = $request->attributes->get('api_key');
 
-        if (!$tenant) {
-            return $next($request);
+        if (! $apiKey instanceof ApiKey) {
+            // Falla cerrado: este middleware solo tiene sentido tras api.key.
+            return ApiError::json('missing_api_key', 'Petición sin API key.', 401);
         }
 
-        $key = 'api_rate_limit:' . $tenant->id;
+        $bucket = 'api_rate:'.$apiKey->id;
+        $max = $apiKey->effectiveRateLimit();
 
-        // Límites por plan
-        $maxAttempts = $this->getMaxAttempts($tenant);
-        $decayMinutes = 1;
+        if ($this->limiter->tooManyAttempts($bucket, $max)) {
+            $retryAfter = max(1, $this->limiter->availableIn($bucket));
 
-        if ($this->limiter->tooManyAttempts($key, $maxAttempts)) {
-            $retryAfter = $this->limiter->availableIn($key);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Demasiadas solicitudes. Intenta de nuevo en ' . $retryAfter . ' segundos.',
-                'error' => 'rate_limit_exceeded',
-                'retry_after' => $retryAfter,
-            ], 429)->withHeaders([
-                'X-RateLimit-Limit' => $maxAttempts,
+            return ApiError::json(
+                'rate_limit_exceeded',
+                "Demasiadas solicitudes. Intenta de nuevo en {$retryAfter} segundos.",
+                429,
+                ['retry_after' => $retryAfter]
+            )->withHeaders([
+                'X-RateLimit-Limit' => $max,
                 'X-RateLimit-Remaining' => 0,
                 'Retry-After' => $retryAfter,
             ]);
         }
 
-        $this->limiter->hit($key, $decayMinutes * 60);
+        $this->limiter->hit($bucket, 60);
 
         $response = $next($request);
 
-        return $response->withHeaders([
-            'X-RateLimit-Limit' => $maxAttempts,
-            'X-RateLimit-Remaining' => $this->limiter->remaining($key, $maxAttempts),
-        ]);
-    }
+        $response->headers->set('X-RateLimit-Limit', (string) $max);
+        $response->headers->set('X-RateLimit-Remaining', (string) max(0, $this->limiter->remaining($bucket, $max)));
 
-    /**
-     * Obtiene el límite de requests por minuto según el plan.
-     */
-    protected function getMaxAttempts($tenant): int
-    {
-        $plan = $tenant->currentPlan;
-
-        if (!$plan) {
-            return 30; // Plan gratis
-        }
-
-        // Configurar según el tipo de plan
-        return match (true) {
-            $plan->slug === 'empresarial' => 300,
-            $plan->slug === 'profesional' => 120,
-            $plan->slug === 'emprendedor' => 60,
-            default => 30,
-        };
+        return $response;
     }
 }
