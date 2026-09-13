@@ -14,7 +14,7 @@ describe("páginas de error de marca", () => {
     expect(screen.getByRole("link", { name: "Ir al inicio" })).toHaveAttribute("href", "/");
     expect(screen.getByRole("link", { name: "Ir a mi panel" })).toHaveAttribute("href", "/dashboard");
     expect(screen.getByRole("link", { name: /Facturón, ir al inicio/ })).toBeInTheDocument();
-    expect(screen.getByText(/info@amephia.com/)).toBeInTheDocument();
+    expect(screen.getByText(/info@facturon.ec/)).toBeInTheDocument();
   });
 
   it("error de la app: muestra el código de referencia y permite reintentar", () => {

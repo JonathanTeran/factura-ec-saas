@@ -85,7 +85,7 @@
                 <div class="footer">
                     @yield('footer')
                     <p>Facturón · Facturación electrónica del Ecuador · <a href="https://facturon.ec">facturon.ec</a></p>
-                    <p>Correo automático. Para ayuda escribe a <a href="mailto:info@amephia.com">info@amephia.com</a>.</p>
+                    <p>Correo automático. Para ayuda escribe a <a href="mailto:{{ config('support.email') }}">{{ config('support.email') }}</a>.</p>
                 </div>
             </td>
         </tr>

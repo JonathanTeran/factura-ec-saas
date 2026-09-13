@@ -53,7 +53,7 @@ class ErrorPagesTest extends TestCase
 
             $this->assertStringContainsString('Facturón', $html, "vista {$status}");
             $this->assertStringContainsString('#0B1220', $html, "vista {$status}");
-            $this->assertStringContainsString('info@amephia.com', $html, "vista {$status}");
+            $this->assertStringContainsString('info@facturon.ec', $html, "vista {$status}");
         }
 
         $this->assertStringContainsString('Estamos actualizando Facturón', view('errors.503', ['exception' => new HttpException(503)])->render());

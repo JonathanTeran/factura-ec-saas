@@ -9,7 +9,7 @@
 */
 
 return [
-    'email' => env('LANDING_CONTACT_EMAIL', 'info@amephia.com'),
+    'email' => env('LANDING_CONTACT_EMAIL', 'info@facturon.ec'),
 
     // Solo dígitos, con código de país (wa.me).
     'whatsapp' => env('LANDING_WHATSAPP', '13347324056'),

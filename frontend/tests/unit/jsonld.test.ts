@@ -8,7 +8,7 @@ const input = {
   plans: LANDING_FIXTURE.plans,
   faqs: FAQS,
   featureList: FEATURE_LIST_FOR_SEO,
-  contactEmail: "info@amephia.com",
+  contactEmail: "info@facturon.ec",
   whatsappDigits: "13347324056",
   description: SITE_DESCRIPTION,
 };
@@ -27,7 +27,7 @@ describe("buildJsonLd", () => {
     const org = byType("Organization");
     expect(org.name).toBe("AmePhia Systems Inc.");
     const contact = (org.contactPoint as Array<Record<string, unknown>>)[0];
-    expect(contact.email).toBe("info@amephia.com");
+    expect(contact.email).toBe("info@facturon.ec");
     expect(contact.telephone).toBe("+13347324056");
     expect((byType("SoftwareApplication").publisher as { "@id": string })["@id"]).toBe("https://facturon.ec/#organization");
   });

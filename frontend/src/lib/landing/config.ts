@@ -8,7 +8,7 @@ export function digitsOnly(value: string): string {
 
 export const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/+$/, "");
 export const WHATSAPP_DIGITS = digitsOnly(process.env.NEXT_PUBLIC_WHATSAPP ?? "13347324056");
-export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "info@amephia.com";
+export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "info@facturon.ec";
 export const STORE_PLAY_URL = process.env.NEXT_PUBLIC_STORE_PLAY_URL ?? "";
 export const STORE_APPSTORE_URL = process.env.NEXT_PUBLIC_STORE_APPSTORE_URL ?? "";
 export const WHATSAPP_DEFAULT_TEXT = "Hola, quiero información sobre Facturón";

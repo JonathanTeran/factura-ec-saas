@@ -12,7 +12,7 @@ import {
 describe("config", () => {
   it("tiene los defaults acordados", () => {
     expect(WHATSAPP_DIGITS).toBe("13347324056");
-    expect(CONTACT_EMAIL).toBe("info@amephia.com");
+    expect(CONTACT_EMAIL).toBe("info@facturon.ec");
     expect(STORE_PLAY_URL).toBe("");
     expect(STORE_APPSTORE_URL).toBe("");
   });

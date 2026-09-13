@@ -48,7 +48,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
             </a>
           </div>
           <p style={{ fontSize: 13.5, color: "#8B98AF", marginTop: 32 }}>
-            ¿Necesitas ayuda? <a href="mailto:info@amephia.com" style={{ color: "#C7D2FE" }}>info@amephia.com</a>
+            ¿Necesitas ayuda? <a href="mailto:info@facturon.ec" style={{ color: "#C7D2FE" }}>info@facturon.ec</a>
           </p>
         </div>
       </body>
