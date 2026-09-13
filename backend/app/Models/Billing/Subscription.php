@@ -135,7 +135,7 @@ class Subscription extends Model
 
     public function daysUntilExpiration(): int
     {
-        if (!$this->ends_at) {
+        if (! $this->ends_at) {
             return PHP_INT_MAX;
         }
 
@@ -144,7 +144,7 @@ class Subscription extends Model
 
     public function daysOnTrial(): int
     {
-        if (!$this->trial_ends_at) {
+        if (! $this->trial_ends_at) {
             return 0;
         }
 
@@ -163,7 +163,7 @@ class Subscription extends Model
 
     public function resume(): void
     {
-        if ($this->isCanceled() && !$this->hasEnded()) {
+        if ($this->isCanceled() && ! $this->hasEnded()) {
             $this->update([
                 'status' => SubscriptionStatus::ACTIVE,
                 'canceled_at' => null,
@@ -185,6 +185,12 @@ class Subscription extends Model
         $this->update([
             'status' => SubscriptionStatus::EXPIRED,
         ]);
+
+        // Sin otra suscripción vigente, el tenant pierde el plan y sus features.
+        $tenant = $this->tenant;
+        if ($tenant && ! $tenant->activeSubscription()->exists()) {
+            $tenant->revokePlanAccess();
+        }
     }
 
     public function renew(): void
@@ -215,7 +221,7 @@ class Subscription extends Model
      */
     public function getPriceAttribute(): float
     {
-        if (!$this->plan) {
+        if (! $this->plan) {
             return (float) $this->amount;
         }
 

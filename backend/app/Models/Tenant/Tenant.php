@@ -2,17 +2,17 @@
 
 namespace App\Models\Tenant;
 
-use App\Enums\TenantStatus;
 use App\Enums\SubscriptionStatus;
-use App\Models\User;
+use App\Enums\TenantStatus;
+use App\Models\Billing\Payment;
 use App\Models\Billing\Plan;
 use App\Models\Billing\Subscription;
-use App\Models\Billing\Payment;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
@@ -22,6 +22,7 @@ class Tenant extends Model
 
     /** Tipos de negocio (verticales). 'generic' = facturador normal. */
     public const BUSINESS_TYPE_GENERIC = 'generic';
+
     public const BUSINESS_TYPE_REFEREE = 'referee';
 
     public const BUSINESS_TYPES = [
@@ -168,10 +169,21 @@ class Tenant extends Model
         return $this->hasMany(Subscription::class);
     }
 
+    /**
+     * Suscripción con la que el tenant opera hoy. Una suscripción CANCELADA
+     * (no renovar) sigue contando mientras no llegue a ends_at: el período ya
+     * está pagado. Al expirar, billing:check-expired la marca EXPIRED.
+     */
     public function activeSubscription(): HasOne
     {
         return $this->hasOne(Subscription::class)
-            ->whereIn('status', [SubscriptionStatus::ACTIVE, SubscriptionStatus::TRIALING])
+            ->where(function ($query) {
+                $query->whereIn('status', [SubscriptionStatus::ACTIVE, SubscriptionStatus::TRIALING])
+                    ->orWhere(function ($cancelled) {
+                        $cancelled->where('status', SubscriptionStatus::CANCELLED)
+                            ->where('ends_at', '>', now());
+                    });
+            })
             ->latest('created_at');
     }
 
@@ -273,7 +285,7 @@ class Tenant extends Model
 
     public function daysLeftInTrial(): int
     {
-        if (!$this->isInTrial()) {
+        if (! $this->isInTrial()) {
             return 0;
         }
 
@@ -349,6 +361,41 @@ class Tenant extends Model
         ]);
     }
 
+    /**
+     * Quita el plan y todas sus features/límites (suscripción expirada sin
+     * reemplazo). Espejo de syncPlanLimits().
+     */
+    public function revokePlanAccess(): void
+    {
+        $this->update([
+            'current_plan_id' => null,
+            'max_documents_per_month' => 0,
+            'max_users' => 1,
+            'max_companies' => 1,
+            'max_emission_points' => 1,
+            'has_api_access' => false,
+            'has_inventory' => false,
+            'has_pos' => false,
+            'has_recurring_invoices' => false,
+            'has_advanced_reports' => false,
+            'has_whitelabel_ride' => false,
+            'has_webhooks' => false,
+            'has_ai_categorization' => false,
+            'has_client_portal' => false,
+            'has_multi_currency' => false,
+            'has_thermal_printer' => false,
+            'has_priority_queue' => false,
+            'has_bulk_operations' => false,
+            'has_custom_roles' => false,
+            'has_sso' => false,
+            'has_dedicated_manager' => false,
+            'has_custom_integrations' => false,
+            'has_sla' => false,
+        ]);
+
+        \App\Services\Cache\TenantCacheService::invalidateTenant($this->id);
+    }
+
     // ==================== ADDITIONAL HELPERS ====================
 
     public function plan(): BelongsTo
@@ -379,7 +426,7 @@ class Tenant extends Model
     public function isAccessible(): bool
     {
         // Check if tenant can access the platform
-        if (!$this->status) {
+        if (! $this->status) {
             return false;
         }
 
@@ -397,12 +444,12 @@ class Tenant extends Model
     public function canIssueDocuments(): bool
     {
         // Must be accessible
-        if (!$this->isAccessible()) {
+        if (! $this->isAccessible()) {
             return false;
         }
 
         // Check document limits
-        return !$this->hasReachedDocumentLimit();
+        return ! $this->hasReachedDocumentLimit();
     }
 
     public function getDocumentsIssuedThisMonthAttribute(): int
@@ -414,7 +461,7 @@ class Tenant extends Model
     {
         // Reset counter if new month
         $resetDate = $this->documents_month_reset_at;
-        if (!$resetDate || $resetDate->month !== now()->month) {
+        if (! $resetDate || $resetDate->month !== now()->month) {
             $this->resetMonthlyCounters();
         }
 

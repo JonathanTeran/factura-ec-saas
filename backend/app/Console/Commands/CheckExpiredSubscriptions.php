@@ -10,14 +10,16 @@ use Illuminate\Console\Command;
 class CheckExpiredSubscriptions extends Command
 {
     protected $signature = 'billing:check-expired';
+
     protected $description = 'Marca como expiradas las suscripciones activas cuya fecha de fin ya paso y notifica al owner';
 
     public function handle(): int
     {
         $this->info('Buscando suscripciones activas expiradas...');
 
+        // Activas y canceladas (no renovar) cuyo período pagado ya terminó.
         $subscriptions = Subscription::query()
-            ->where('status', SubscriptionStatus::ACTIVE)
+            ->whereIn('status', [SubscriptionStatus::ACTIVE, SubscriptionStatus::CANCELLED])
             ->whereNotNull('ends_at')
             ->where('ends_at', '<', now())
             ->with(['tenant.owner', 'plan'])
@@ -25,6 +27,7 @@ class CheckExpiredSubscriptions extends Command
 
         if ($subscriptions->isEmpty()) {
             $this->info('No se encontraron suscripciones expiradas.');
+
             return self::SUCCESS;
         }
 

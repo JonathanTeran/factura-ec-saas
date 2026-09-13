@@ -7,9 +7,9 @@ use App\Enums\PaymentStatus;
 use App\Enums\SubscriptionStatus;
 use App\Enums\UserRole;
 use App\Http\Requests\Api\SubscriptionRequest;
-use App\Http\Resources\SubscriptionResource;
 use App\Http\Resources\PaymentResource;
 use App\Http\Resources\PlanResource;
+use App\Http\Resources\SubscriptionResource;
 use App\Models\Billing\BankAccount;
 use App\Models\Billing\Coupon;
 use App\Models\Billing\Payment;
@@ -60,7 +60,7 @@ class SubscriptionController extends ApiController
         // "pendiente" y bloquean el envío de otro comprobante.
         $pendingPayment = $this->pendingTransferPayment($tenant->id);
 
-        if (!$subscription) {
+        if (! $subscription) {
             return $this->success([
                 'subscription' => null,
                 'plan' => $tenant->currentPlan ? new PlanResource($tenant->currentPlan) : null,
@@ -129,8 +129,14 @@ class SubscriptionController extends ApiController
         $tenant = $request->user()->tenant;
         $subscription = $tenant->activeSubscription;
 
-        if (!$subscription) {
+        if (! $subscription) {
             return $this->error('No tienes una suscripción activa.', 400);
+        }
+
+        if ($subscription->status === SubscriptionStatus::CANCELLED) {
+            $hasta = $subscription->ends_at ? ' Conservas el acceso hasta '.$subscription->ends_at->format('d/m/Y').'.' : '';
+
+            return $this->error('Tu suscripción ya está cancelada.'.$hasta, 400);
         }
 
         try {
@@ -141,7 +147,7 @@ class SubscriptionController extends ApiController
 
             $message = 'Suscripción cancelada.';
             if ($subscription->ends_at) {
-                $message .= ' Tendrás acceso hasta ' . $subscription->ends_at->format('d/m/Y');
+                $message .= ' Tendrás acceso hasta '.$subscription->ends_at->format('d/m/Y');
             }
 
             TenantCacheService::invalidateTenant($tenant->id);
@@ -169,7 +175,7 @@ class SubscriptionController extends ApiController
             ->latest('created_at')
             ->first();
 
-        if (!$subscription) {
+        if (! $subscription) {
             return $this->error('No tienes una suscripción cancelada para reactivar.', 400);
         }
 
@@ -205,7 +211,7 @@ class SubscriptionController extends ApiController
         $tenant = $request->user()->tenant;
         $subscription = $tenant->activeSubscription;
 
-        if (!$subscription) {
+        if (! $subscription) {
             return $this->error('No tienes una suscripción activa.', 400);
         }
 
@@ -433,15 +439,15 @@ class SubscriptionController extends ApiController
 
         $coupon = Coupon::findByCode($request->code);
 
-        if (!$coupon || !$coupon->isValid()) {
+        if (! $coupon || ! $coupon->isValid()) {
             return $this->error('Cupón inválido o expirado.', 400);
         }
 
-        if (!$coupon->canBeUsedByTenant($request->user()->tenant_id)) {
+        if (! $coupon->canBeUsedByTenant($request->user()->tenant_id)) {
             return $this->error('Ya has utilizado este cupón.', 400);
         }
 
-        if ($request->plan_id && !$coupon->isApplicableToPlan($request->plan_id)) {
+        if ($request->plan_id && ! $coupon->isApplicableToPlan($request->plan_id)) {
             return $this->error('Este cupón no aplica al plan seleccionado.', 400);
         }
 
