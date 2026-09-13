@@ -26,6 +26,7 @@ return [
         '#^https?://localhost(:\d+)?$#',
         // Production domains
         '#^https://.*\.amephia\.com$#',
+        '#^https://(www\.)?facturon\.ec$#',
     ],
 
     'allowed_headers' => ['*'],
