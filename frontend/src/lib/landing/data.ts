@@ -1,6 +1,6 @@
 import type { ApiSuccess } from "@/lib/api/types";
 import { LANDING_FIXTURE } from "./fixture";
-import type { LandingData, LandingPlan, PricingContent } from "./pricing";
+import { visiblePlanFeatures, type LandingData, type LandingPlan, type PricingContent } from "./pricing";
 
 export const LANDING_REVALIDATE_SECONDS = 300;
 
@@ -45,8 +45,16 @@ export async function getLandingData(fetcher: typeof fetch = fetch): Promise<Lan
     });
     if (!res.ok) return null;
     const json = (await res.json()) as ApiSuccess<unknown>;
-    return isLandingData(json.data) ? json.data : null;
+    return isLandingData(json.data) ? withVisibleFeatures(json.data) : null;
   } catch {
     return null;
   }
+}
+
+/** Quita de cada plan las funcionalidades que la landing no promociona por ahora. */
+export function withVisibleFeatures(data: LandingData): LandingData {
+  return {
+    ...data,
+    plans: data.plans.map((plan) => ({ ...plan, features_list: visiblePlanFeatures(plan.features_list) })),
+  };
 }

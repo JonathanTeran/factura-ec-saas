@@ -44,3 +44,16 @@ describe("isLandingData", () => {
     expect(isLandingData(null)).toBe(false);
   });
 });
+
+describe("withVisibleFeatures", () => {
+  it("la API puede incluir punto de venta e inventario, pero la landing no los recibe", async () => {
+    const fetcher = vi.fn(async () => okResponse(LANDING_FIXTURE));
+    const data = await getLandingData(fetcher as unknown as typeof fetch);
+    const negocio = data?.plans.find((p) => p.slug === "negocio");
+    expect(negocio).toBeDefined();
+    expect(negocio?.features_list).toContain("API REST");
+    expect(negocio?.features_list).not.toContain("Punto de venta");
+    expect(negocio?.features_list).not.toContain("Inventario");
+    expect(negocio?.features_list).not.toContain("Impresora térmica");
+  });
+});
