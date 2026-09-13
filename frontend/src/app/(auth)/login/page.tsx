@@ -42,7 +42,7 @@ export default async function LoginPage({
             href="/register"
             className="font-medium text-primary underline-offset-4 hover:underline"
           >
-            Regístrate gratis
+            Regístrate
           </Link>
         </div>
       </div>

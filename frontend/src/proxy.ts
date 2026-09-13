@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const PUBLIC_PATHS = [
-  "/login",
-  "/register",
-  "/forgot-password",
-  "/reset-password",
-];
+/** Páginas de autenticación: sin sesión se ven; con sesión mandan al panel. */
+const AUTH_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
+
+/** Páginas públicas para todos (la landing). Con sesión también se muestran. */
+const MARKETING_PATHS = ["/"];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -13,26 +12,27 @@ export function proxy(request: NextRequest) {
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/") ||
-    pathname.includes(".")
+    pathname.includes(".") ||
+    MARKETING_PATHS.includes(pathname)
   ) {
     return NextResponse.next();
   }
 
   const sessionCookie = request.cookies.get("factura_session")?.value;
-  const isPublic = PUBLIC_PATHS.some(
+  const isAuthPage = AUTH_PATHS.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
 
-  if (!sessionCookie && !isPublic) {
+  if (!sessionCookie && !isAuthPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
 
-  if (sessionCookie && isPublic) {
+  if (sessionCookie && isAuthPage) {
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    url.pathname = "/dashboard";
     url.search = "";
     return NextResponse.redirect(url);
   }
