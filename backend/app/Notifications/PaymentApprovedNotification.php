@@ -24,14 +24,20 @@ class PaymentApprovedNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         $planName = $this->payment->subscription?->plan?->name ?? 'N/A';
+        $isPayPal = $this->payment->payment_method === \App\Enums\PaymentMethod::PAYPAL;
+        $reference = $this->payment->transaction_id ?: $this->payment->invoice_number;
+        $endsAt = $this->payment->subscription?->ends_at?->format('d/m/Y');
 
         return (new MailMessage)
-            ->subject('Pago aprobado: tu suscripción está activa')
+            ->subject($isPayPal ? 'Pago recibido: tu suscripción está activa' : 'Pago aprobado: tu suscripción está activa')
             ->greeting("Hola {$notifiable->name},")
-            ->line("Tu pago por transferencia bancaria ha sido verificado y aprobado.")
+            ->line($isPayPal
+                ? 'Recibimos tu pago con PayPal.'
+                : 'Tu pago por transferencia bancaria ha sido verificado y aprobado.')
             ->line("Plan: {$planName}")
             ->line("Monto: \${$this->payment->total_amount} {$this->payment->currency}")
-            ->line("Referencia: {$this->payment->transaction_id}")
+            ->line("Referencia: {$reference}")
+            ->lineIf($endsAt !== null, "Tu plan está vigente hasta el {$endsAt}.")
             ->line('Tu suscripción ya se encuentra activa.')
             ->action('Ir a mi panel', url('/dashboard'))
             ->line('Gracias por tu confianza.');

@@ -25,6 +25,8 @@ export type PricingContent = {
 export type LandingData = {
   plans: LandingPlan[];
   pricing_content: PricingContent;
+  /** Métodos con los que se puede pagar un plan (PayPal solo si está activo). */
+  payment_methods?: { bank_transfer: boolean; paypal: boolean };
 };
 
 export function formatPrice(amount: number, currency = "USD"): string {

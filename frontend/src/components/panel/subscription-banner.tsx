@@ -39,7 +39,10 @@ export function SubscriptionBanner({ initial }: { initial: CurrentSubscriptionRa
     icon = Clock;
     wrap = "border-warning/40 bg-warning/5 text-warning";
     title = "Pago en revisión";
-    body = `Recibimos tu comprobante el ${formatDate(data.pendingPayment.created_at)}. Te avisamos por correo cuando tu plan quede activo (normalmente en menos de 24 horas).`;
+    body =
+      data.pendingPayment.payment_method === "paypal"
+        ? `PayPal está revisando tu pago del ${formatDate(data.pendingPayment.created_at)}. Te avisamos por correo cuando tu plan quede activo.`
+        : `Recibimos tu comprobante el ${formatDate(data.pendingPayment.created_at)}. Te avisamos por correo cuando tu plan quede activo (normalmente en menos de 24 horas).`;
     cta = "Ver estado";
   } else if (active && sub?.status === "cancelled") {
     icon = Info;
@@ -51,7 +54,7 @@ export function SubscriptionBanner({ initial }: { initial: CurrentSubscriptionRa
     cta = "Reanudar";
   } else {
     title = "Tu cuenta no tiene un plan activo";
-    body = "Sin suscripción no puedes emitir comprobantes al SRI. Elige un plan y envía el comprobante de tu transferencia.";
+    body = "Sin suscripción no puedes emitir comprobantes al SRI. Elige un plan y completa el pago para activarla.";
     cta = data.intendedPlan ? `Contratar ${data.intendedPlan.name}` : "Elegir plan";
   }
 

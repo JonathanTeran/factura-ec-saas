@@ -20,6 +20,15 @@ class PaymentMethodSettingSeeder extends Seeder
                 'sort_order' => 1,
             ],
             [
+                'code' => 'paypal',
+                'name' => 'PayPal',
+                'description' => 'Pago con cuenta PayPal o con tarjeta a través de PayPal. La suscripción se activa al confirmarse el cobro.',
+                'is_enabled' => false,
+                'requires_gateway' => true,
+                'instructions' => 'Configura las credenciales en Sistema → PayPal antes de activarlo.',
+                'sort_order' => 2,
+            ],
+            [
                 'code' => 'credit_card',
                 'name' => 'Tarjeta de Crédito',
                 'description' => 'Pago con tarjeta de crédito',
@@ -85,6 +94,12 @@ class PaymentMethodSettingSeeder extends Seeder
         ];
 
         foreach ($methods as $method) {
+            // PayPal: no pisar la activación que decidió el super admin.
+            $existing = PaymentMethodSetting::where('code', $method['code'])->first();
+            if ($existing && $method['code'] === 'paypal') {
+                continue;
+            }
+
             PaymentMethodSetting::updateOrCreate(
                 ['code' => $method['code']],
                 $method

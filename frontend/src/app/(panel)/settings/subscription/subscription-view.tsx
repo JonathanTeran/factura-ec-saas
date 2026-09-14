@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { CheckCircle2, Clock, CreditCard, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -27,7 +28,9 @@ import {
 } from "@/components/ui/table";
 import {
   useBankAccounts,
+  useCancelPayPalOrder,
   useCancelSubscription,
+  useCheckoutOptions,
   useChangePlan,
   useCurrentSubscription,
   usePayments,
@@ -47,8 +50,25 @@ function errMessage(err: unknown): string {
   return err instanceof Error ? err.message : "Error inesperado";
 }
 
-export function SubscriptionView() {
+export function SubscriptionView({
+  paypalCancelledOrder = null,
+}: {
+  /** Orden que el cliente canceló en PayPal ("" si PayPal no mandó token). */
+  paypalCancelledOrder?: string | null;
+} = {}) {
+  const router = useRouter();
   const currentQ = useCurrentSubscription();
+  const optionsQ = useCheckoutOptions();
+  const { mutate: cancelPayPalOrder } = useCancelPayPalOrder();
+  const cancelHandled = useRef(false);
+
+  useEffect(() => {
+    if (paypalCancelledOrder === null || cancelHandled.current) return;
+    cancelHandled.current = true;
+    toast.info("Cancelaste el pago con PayPal. No se realizó ningún cobro.");
+    if (paypalCancelledOrder) cancelPayPalOrder(paypalCancelledOrder);
+    router.replace("/settings/subscription");
+  }, [paypalCancelledOrder, cancelPayPalOrder, router]);
   const plansQ = usePlans();
   const paymentsQ = usePayments();
   const banksQ = useBankAccounts();
@@ -74,6 +94,8 @@ export function SubscriptionView() {
   // Comprobante de transferencia esperando verificación: se muestra el aviso
   // y se bloquea enviar otro (el backend también lo rechaza con 422).
   const pendingPayment = currentQ.data?.pendingPayment;
+  const pendingIsPayPal = pendingPayment?.payment_method === "paypal";
+  const paypalEnabled = optionsQ.data?.paypal.enabled === true;
 
   // Sin suscripción y con un plan elegido en la web: se abre directamente el
   // formulario de pago para ese plan (una sola vez por visita).
@@ -93,11 +115,9 @@ export function SubscriptionView() {
                 Pago en revisión
               </p>
               <p className="text-sm text-amber-800 dark:text-amber-300 mt-1">
-                Recibimos tu comprobante de transferencia el{" "}
-                {formatDate(pendingPayment.created_at)}. Estamos verificando el
-                pago — te avisaremos por correo cuando tu plan quede activo
-                (normalmente en menos de 24 horas). No es necesario enviar otro
-                comprobante.
+                {pendingIsPayPal
+                  ? `PayPal está revisando el pago que hiciste el ${formatDate(pendingPayment.created_at)}. Tu plan se activará apenas se confirme y te avisaremos por correo. No es necesario pagar de nuevo.`
+                  : `Recibimos tu comprobante de transferencia el ${formatDate(pendingPayment.created_at)}. Estamos verificando el pago y te avisaremos por correo cuando tu plan quede activo, normalmente en menos de 24 horas. No es necesario enviar otro comprobante.`}
               </p>
             </div>
           </CardContent>
@@ -112,8 +132,9 @@ export function SubscriptionView() {
               <div>
                 <p className="font-medium">Aún no tienes una suscripción activa</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Elige un plan y envía el comprobante de tu transferencia. Activamos tu
-                  cuenta en menos de 24 horas y desde ese momento puedes emitir al SRI.
+                  {paypalEnabled
+                    ? "Elige un plan y paga con PayPal para activarlo al instante, o por transferencia bancaria (activación en menos de 24 horas). Desde ese momento puedes emitir al SRI."
+                    : "Elige un plan y envía el comprobante de tu transferencia. Activamos tu cuenta en menos de 24 horas y desde ese momento puedes emitir al SRI."}
                 </p>
               </div>
             </div>
@@ -337,16 +358,16 @@ export function SubscriptionView() {
                             ? formatDate(p.paid_at)
                             : formatDate(p.created_at)}
                         </TableCell>
-                        <TableCell className="text-sm capitalize">
-                          {p.payment_method ?? "—"}
+                        <TableCell className="text-sm">
+                          {p.payment_method_label ?? p.payment_method ?? "—"}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="secondary" className="capitalize">
-                            {p.status}
+                          <Badge variant="secondary">
+                            {p.status_label ?? p.status}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right font-medium">
-                          {formatMoney(p.amount)}
+                          {formatMoney(p.total_amount ?? p.amount)}
                         </TableCell>
                       </TableRow>
                     ))}

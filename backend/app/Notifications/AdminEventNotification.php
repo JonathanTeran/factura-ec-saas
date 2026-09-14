@@ -63,6 +63,10 @@ class AdminEventNotification extends Notification implements ShouldQueue
             'document.failed' => 'Documento rechazado por el SRI',
             'fef_sync.failed' => 'Sincronización FEF fallida (árbitros)',
             'fef_sync.stale' => 'Sincronización FEF sin corridas correctas',
+            'paypal.payment_completed' => 'Pago recibido por PayPal',
+            'paypal.review_required' => 'Pago de PayPal requiere revisión',
+            'paypal.payment_failed' => 'Pago de PayPal rechazado',
+            'paypal.refunded' => 'Reembolso o contracargo en PayPal',
             default => "Evento: {$this->event}",
         };
     }
@@ -108,6 +112,32 @@ class AdminEventNotification extends Notification implements ShouldQueue
                 'Origen: '.($this->data['trigger'] ?? 'N/A').' · Inicio: '.($this->data['started_at'] ?? 'N/A'),
                 'Error: '.($this->data['error'] ?? 'Desconocido'),
                 'Horizon reintentará; si persiste, revisa el historial en Árbitros → Sincronización FEF.',
+            ],
+            'paypal.payment_completed' => [
+                'Tenant: '.($this->data['tenant_name'] ?? 'N/A'),
+                'Plan: '.($this->data['plan_name'] ?? 'N/A'),
+                'Monto: $'.($this->data['amount'] ?? '0.00').' (IVA incluido)',
+                'Pago: '.($this->data['invoice_number'] ?? 'N/A').' · Captura PayPal: '.($this->data['capture_id'] ?? 'N/A'),
+                'La suscripción se activó automáticamente; no requiere aprobación.',
+            ],
+            'paypal.review_required' => [
+                'Tenant: '.($this->data['tenant_name'] ?? 'N/A'),
+                'Monto esperado: $'.($this->data['amount'] ?? '0.00').(isset($this->data['captured']) ? ' · Cobrado: '.$this->data['captured'] : ''),
+                'Motivo: '.($this->data['reason'] ?? 'No especificado'),
+                'Orden PayPal: '.($this->data['order_id'] ?? 'N/A').' · Pago: '.($this->data['invoice_number'] ?? 'N/A'),
+                'Revisa el cobro en PayPal y activa o reembolsa desde Facturación → Pagos.',
+            ],
+            'paypal.payment_failed' => [
+                'Tenant: '.($this->data['tenant_name'] ?? 'N/A'),
+                'Monto: $'.($this->data['amount'] ?? '0.00'),
+                'Motivo: '.($this->data['reason'] ?? 'No especificado'),
+                'Orden PayPal: '.($this->data['order_id'] ?? 'N/A'),
+            ],
+            'paypal.refunded' => [
+                'Tenant: '.($this->data['tenant_name'] ?? 'N/A'),
+                'Tipo: '.($this->data['kind'] ?? 'Reembolso').' · Monto devuelto: $'.($this->data['refunded'] ?? '0.00').' de $'.($this->data['amount'] ?? '0.00'),
+                'Pago: '.($this->data['invoice_number'] ?? 'N/A').' · Captura PayPal: '.($this->data['capture_id'] ?? 'N/A'),
+                'La suscripción no se cancela sola: decide si corresponde cancelarla.',
             ],
             'fef_sync.stale' => [
                 'No hay una sincronización FEF correcta en las últimas '.($this->data['hours'] ?? '?').' horas.',

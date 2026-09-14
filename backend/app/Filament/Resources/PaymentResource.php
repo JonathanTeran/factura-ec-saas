@@ -332,7 +332,12 @@ class PaymentResource extends Resource
                             ->numeric()
                             ->prefix('$')
                             ->required()
-                            ->default(fn ($record) => $record->amount),
+                            ->minValue(0.01)
+                            // PayPal cobró el total (IVA incluido): ese es el reembolso completo.
+                            ->default(fn ($record) => $record->payment_method === PaymentMethod::PAYPAL ? $record->total_amount : $record->amount)
+                            ->helperText(fn ($record) => $record->payment_method === PaymentMethod::PAYPAL
+                                ? 'Se devuelve al cliente en PayPal. Reembolso completo: $'.number_format((float) $record->total_amount, 2).' (IVA incluido).'
+                                : null),
                         Forms\Components\Textarea::make('refund_reason')
                             ->label('Motivo del reembolso')
                             ->required()
@@ -349,6 +354,18 @@ class PaymentResource extends Resource
                             (float) $data['refund_amount'],
                             $data['refund_reason']
                         );
+
+                        // PayPal: si la API no devolvió el dinero, NO marcar como reembolsado.
+                        if (! $success && $record->payment_method === PaymentMethod::PAYPAL) {
+                            Notification::make()
+                                ->danger()
+                                ->title('PayPal no procesó el reembolso')
+                                ->body($paymentService->lastError() ?? 'Revisa el cobro en tu cuenta de PayPal.')
+                                ->persistent()
+                                ->send();
+
+                            return;
+                        }
 
                         if (!$success) {
                             // Fallback: update record manually if service couldn't handle it
@@ -469,8 +486,16 @@ class PaymentResource extends Resource
                         Infolists\Components\TextEntry::make('gateway')
                             ->label('Gateway'),
                         Infolists\Components\TextEntry::make('gateway_transaction_id')
-                            ->label('ID de Gateway')
+                            ->label(fn ($record) => $record->payment_method === PaymentMethod::PAYPAL ? 'Captura PayPal' : 'ID de Gateway')
                             ->copyable(),
+                        Infolists\Components\TextEntry::make('gateway_payment_id')
+                            ->label('Orden PayPal')
+                            ->copyable()
+                            ->visible(fn ($record) => $record->payment_method === PaymentMethod::PAYPAL),
+                        Infolists\Components\TextEntry::make('failure_reason')
+                            ->label('Observación')
+                            ->color('danger')
+                            ->visible(fn ($record) => $record->payment_method === PaymentMethod::PAYPAL && filled($record->failure_reason)),
                     ])->columns(3),
 
                 Infolists\Components\Section::make('Comprobante de Transferencia')

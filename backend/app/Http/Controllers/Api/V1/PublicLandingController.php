@@ -18,6 +18,11 @@ class PublicLandingController extends ApiController
     {
         $data = Cache::remember(PublicLandingCache::KEY, PublicLandingCache::TTL_SECONDS, fn () => [
             'plans' => $this->plans(),
+            // Métodos con los que se puede pagar un plan (la landing lo menciona).
+            'payment_methods' => [
+                'bank_transfer' => true,
+                'paypal' => app(\App\Services\Settings\PayPalSettings::class)->isAvailable(),
+            ],
             'pricing_content' => $this->pricingContent(),
         ]);
 

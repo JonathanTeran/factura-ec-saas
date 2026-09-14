@@ -116,7 +116,11 @@ export function Pricing({ data }: { data: LandingData }) {
             )}
           </span>
         </div>
-        <p className="mt-4 text-center text-sm text-slate-500">Sin comisión por documento. Pago por transferencia bancaria; tu cuenta se activa al confirmarlo.</p>
+        <p className="mt-4 text-center text-sm text-slate-500">
+          {data.payment_methods?.paypal
+            ? "Sin comisión por documento. Paga con PayPal y tu cuenta se activa al instante, o por transferencia bancaria."
+            : "Sin comisión por documento. Pago por transferencia bancaria; tu cuenta se activa al confirmarlo."}
+        </p>
 
         <div className="-mx-5 mt-12 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-4">
           {plans.map((plan) => (

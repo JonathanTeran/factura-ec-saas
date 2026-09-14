@@ -19,11 +19,15 @@ export type BankAccount = {
 export type Payment = {
   id: number;
   amount: number;
+  total_amount?: number;
   status: string;
+  status_label?: string;
   payment_method?: string;
+  payment_method_label?: string;
   paid_at?: string | null;
   receipt_url?: string | null;
   created_at: string;
+  subscription?: (Subscription & { plan?: RawPlan | null }) | null;
 };
 
 // La API devuelve los planes con otra forma (price_monthly/price_yearly,
@@ -222,6 +226,95 @@ export function useChangePlan() {
         billing_cycle: input.billingCycle,
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: subscriptionKeys.all }),
+  });
+}
+
+/** Métodos con los que el tenant puede pagar un plan. */
+export type CheckoutOptions = {
+  bank_transfer: { enabled: boolean };
+  paypal: { enabled: boolean; sandbox: boolean };
+  tax_rate: number;
+};
+
+export function useCheckoutOptions() {
+  return useQuery({
+    queryKey: [...subscriptionKeys.all, "checkout-options"] as const,
+    queryFn: () => api.get<ApiSuccess<CheckoutOptions>>("subscription/checkout-options"),
+    select: (raw) => raw.data,
+    staleTime: 60_000,
+  });
+}
+
+/**
+ * Subtotal, IVA y total con el mismo cálculo del backend (centavos enteros):
+ * es lo que se cobra por PayPal o se debe transferir.
+ */
+export function quoteAmounts(price: number, taxRate = 15) {
+  const subtotalCents = Math.round(price * 100);
+  const taxCents = Math.round((subtotalCents * taxRate) / 100);
+  return {
+    subtotal: subtotalCents / 100,
+    tax: taxCents / 100,
+    total: (subtotalCents + taxCents) / 100,
+  };
+}
+
+export type PayPalOrderInput = {
+  planId: number;
+  billingCycle: "monthly" | "yearly";
+  billingName: string;
+  billingEmail: string;
+  billingIdentification?: string;
+  couponCode?: string;
+};
+
+export type PayPalOrder = {
+  payment_id: number;
+  order_id: string;
+  approve_url: string;
+  amounts: { subtotal: number; discount: number; tax: number; total: number; currency: string };
+};
+
+/** Crea la orden en PayPal; el panel redirige a `approve_url`. */
+export function useCreatePayPalOrder() {
+  return useMutation({
+    mutationFn: (input: PayPalOrderInput) =>
+      api.post<ApiSuccess<PayPalOrder>>("subscription/paypal/orders", {
+        plan_id: input.planId,
+        billing_cycle: input.billingCycle,
+        billing_name: input.billingName,
+        billing_email: input.billingEmail,
+        billing_identification: input.billingIdentification,
+        coupon_code: input.couponCode,
+      }),
+  });
+}
+
+export type PayPalCapture = {
+  status: "completed" | "processing";
+  payment: Payment;
+};
+
+/** Confirma el pago al volver de PayPal (idempotente). */
+export function useCapturePayPalOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (orderId: string) =>
+      api.post<ApiSuccess<PayPalCapture>>(
+        `subscription/paypal/orders/${encodeURIComponent(orderId)}/capture`,
+      ),
+    onSettled: () => qc.invalidateQueries({ queryKey: subscriptionKeys.all }),
+  });
+}
+
+export function useCancelPayPalOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (orderId: string) =>
+      api.post<ApiSuccess<unknown>>(
+        `subscription/paypal/orders/${encodeURIComponent(orderId)}/cancel`,
+      ),
+    onSettled: () => qc.invalidateQueries({ queryKey: subscriptionKeys.all }),
   });
 }
 

@@ -1,4 +1,4 @@
-import { FAQS, FEATURE_LIST_FOR_SEO, SITE_DESCRIPTION } from "@/content/landing";
+import { FEATURE_LIST_FOR_SEO, SITE_DESCRIPTION, faqsForPaymentMethods } from "@/content/landing";
 import { APP_URL, CONTACT_EMAIL, WHATSAPP_DIGITS } from "@/lib/landing/config";
 import { getLandingData } from "@/lib/landing/data";
 import { buildJsonLd } from "@/lib/landing/jsonld";
@@ -23,10 +23,11 @@ export const dynamic = "force-dynamic";
 export default async function LandingPage() {
   const data = await getLandingData();
   const plans = data?.plans ?? [];
+  const faqs = faqsForPaymentMethods(data?.payment_methods?.paypal === true);
   const jsonLd = buildJsonLd({
     baseUrl: APP_URL,
     plans,
-    faqs: FAQS,
+    faqs,
     featureList: FEATURE_LIST_FOR_SEO,
     contactEmail: CONTACT_EMAIL,
     whatsappDigits: WHATSAPP_DIGITS,
@@ -46,7 +47,7 @@ export default async function LandingPage() {
         {data && <Pricing data={data} />}
         <Arbitros />
         <Why />
-        <Faq />
+        <Faq items={faqs} />
         <FinalCta />
       </main>
       <SiteFooter />

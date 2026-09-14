@@ -123,6 +123,18 @@ class Payment extends Model
         return $query->where('status', PaymentStatus::REFUNDED);
     }
 
+    /**
+     * Pagos esperando confirmación: transferencia por verificar o PayPal en
+     * revisión. Mientras exista uno no se acepta otro pago del tenant.
+     */
+    public function scopeInReview($query)
+    {
+        return $query->where(function ($q) {
+            $q->where(fn ($t) => $t->where('payment_method', PaymentMethod::BANK_TRANSFER)->where('status', PaymentStatus::PENDING))
+                ->orWhere(fn ($p) => $p->where('payment_method', PaymentMethod::PAYPAL)->where('status', PaymentStatus::PROCESSING));
+        });
+    }
+
     public function scopeForPeriod($query, $startDate, $endDate)
     {
         return $query->whereBetween('paid_at', [$startDate, $endDate]);

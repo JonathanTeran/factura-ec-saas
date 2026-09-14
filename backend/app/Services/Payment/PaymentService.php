@@ -24,6 +24,14 @@ class PaymentService
 {
     protected ?PaymentGatewayInterface $gateway = null;
 
+    /** Motivo del último reembolso fallido (se muestra en el admin). */
+    protected ?string $lastError = null;
+
+    public function lastError(): ?string
+    {
+        return $this->lastError;
+    }
+
     public function __construct()
     {
         // Gateway is resolved lazily to avoid requiring SDK in test environments
@@ -216,8 +224,33 @@ class PaymentService
      */
     public function processRefund(Payment $payment, float $amount, string $reason): bool
     {
+        $this->lastError = null;
+
         if (!$payment->canRefund()) {
+            $this->lastError = 'El pago no se puede reembolsar: debe estar completado y tener menos de 30 días.';
             return false;
+        }
+
+        // PayPal: el dinero se devuelve con la API de PayPal; si falla, el pago
+        // NO se marca como reembolsado.
+        if ($payment->payment_method === PaymentMethod::PAYPAL) {
+            try {
+                app(\App\Services\Payment\PayPal\PayPalCheckoutService::class)->refund($payment, $amount, $reason);
+
+                Log::info('PayPal payment refunded', ['payment_id' => $payment->id, 'amount' => $amount]);
+
+                return true;
+            } catch (\App\Services\Payment\PayPal\PayPalException $e) {
+                $this->lastError = $e->getMessage();
+
+                Log::error('PayPal refund failed', [
+                    'payment_id' => $payment->id,
+                    'issue' => $e->issue,
+                    'debug_id' => $e->debugId,
+                ]);
+
+                return false;
+            }
         }
 
         return DB::transaction(function () use ($payment, $amount, $reason) {

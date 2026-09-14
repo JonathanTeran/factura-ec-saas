@@ -86,13 +86,13 @@ class SubscriptionController extends ApiController
     }
 
     /**
-     * Último pago por transferencia pendiente de verificación del tenant.
+     * Último pago del tenant esperando confirmación: transferencia por
+     * verificar o cobro de PayPal en revisión.
      */
     private function pendingTransferPayment(int $tenantId): ?Payment
     {
         return Payment::where('tenant_id', $tenantId)
-            ->where('status', PaymentStatus::PENDING)
-            ->where('payment_method', PaymentMethod::BANK_TRANSFER)
+            ->inReview()
             ->with('subscription.plan')
             ->latest()
             ->first();
@@ -311,8 +311,10 @@ class SubscriptionController extends ApiController
         // Evita suscripciones INCOMPLETE duplicadas y pagos dobles del tenant.
         if ($pending = $this->pendingTransferPayment($tenant->id)) {
             return $this->error(
-                'Ya tienes un comprobante de transferencia en revisión. '
-                .'Te avisaremos por correo cuando sea verificado (normalmente en menos de 24 horas).',
+                $pending->payment_method === PaymentMethod::PAYPAL
+                    ? 'Ya tienes un pago con PayPal en revisión. Te avisaremos por correo cuando se confirme.'
+                    : 'Ya tienes un comprobante de transferencia en revisión. '
+                        .'Te avisaremos por correo cuando sea verificado (normalmente en menos de 24 horas).',
                 422,
                 ['pending_payment_id' => $pending->id]
             );

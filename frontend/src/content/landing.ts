@@ -128,6 +128,17 @@ export const REASONS = [
   { title: "Sin trabajo manual", text: "Creas el documento; nosotros lo firmamos, lo enviamos al SRI y se lo mandamos a tu cliente.", icon: "Zap" as IconName },
 ] as const;
 
+const PAYMENT_FAQ_QUESTION = "¿Cómo funciona el registro y el pago?";
+
+const PAYMENT_FAQ_WITH_PAYPAL =
+  "Te registras en 2 minutos, eliges el plan y pagas con PayPal o por transferencia bancaria. Con PayPal tu cuenta se activa al instante; con transferencia, cuando confirmamos el pago. Hoy no ofrecemos período de prueba.";
+
+/** Preguntas frecuentes según los métodos de pago activos (PayPal lo activa el super admin). */
+export function faqsForPaymentMethods(paypal: boolean): FaqItem[] {
+  if (!paypal) return FAQS;
+  return FAQS.map((item) => (item.q === PAYMENT_FAQ_QUESTION ? { ...item, a: PAYMENT_FAQ_WITH_PAYPAL } : item));
+}
+
 export const FAQS: FaqItem[] = [
   {
     q: "¿Tienen API para integrar mi sistema?",
@@ -146,7 +157,7 @@ export const FAQS: FaqItem[] = [
     a: "Los planes empiezan en $2.99 al mes y ninguno cobra comisión por documento. El plan anual tiene descuento. Puedes ver todos los planes y lo que incluye cada uno en la tabla de precios.",
   },
   {
-    q: "¿Cómo funciona el registro y el pago?",
+    q: PAYMENT_FAQ_QUESTION,
     a: "Te registras en 2 minutos, eliges el plan y pagas por transferencia bancaria. Cuando confirmamos el pago, tu cuenta se activa con todas las funciones del plan. Hoy no ofrecemos período de prueba.",
   },
   {

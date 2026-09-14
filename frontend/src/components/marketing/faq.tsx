@@ -1,9 +1,9 @@
 import { ChevronDown } from "lucide-react";
-import { FAQS } from "@/content/landing";
+import { FAQS, type FaqItem } from "@/content/landing";
 import { CONTACT_EMAIL, whatsappUrl } from "@/lib/landing/config";
 import { Reveal } from "./reveal";
 
-export function Faq() {
+export function Faq({ items = FAQS }: { items?: FaqItem[] }) {
   return (
     <section id="faq" aria-labelledby="faq-titulo" className="scroll-mt-16 bg-white py-24 sm:py-32">
       <div className="mx-auto max-w-3xl px-5 sm:px-8">
@@ -12,7 +12,7 @@ export function Faq() {
           <h2 id="faq-titulo" className="mt-3 font-display text-3xl font-bold tracking-tight text-navy sm:text-4xl">Resolvemos tus dudas</h2>
         </Reveal>
         <div className="mt-12 space-y-3">
-          {FAQS.map((item, i) => (
+          {items.map((item, i) => (
             <details
               key={item.q}
               name="faq"

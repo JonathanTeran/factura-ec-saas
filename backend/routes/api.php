@@ -53,6 +53,11 @@ Route::prefix('v1')->group(function () {
     Route::get('public/landing', [PublicLandingController::class, 'show'])
         ->middleware('throttle:60,1');
 
+    // Webhook de PayPal (público; la firma se verifica con la API de PayPal).
+    Route::post('webhooks/paypal', \App\Http\Controllers\Api\V1\PayPalWebhookController::class)
+        ->middleware('throttle:120,1')
+        ->name('webhooks.paypal');
+
     // Protected routes (authentication required)
     Route::middleware(['auth:sanctum', 'tenant.active', 'throttle:api'])->group(function () {
         // Llaves de la API de integración (solo planes con acceso API).
@@ -218,6 +223,14 @@ Route::prefix('v1')->group(function () {
             Route::get('payments', [SubscriptionController::class, 'payments']);
             Route::get('usage', [SubscriptionController::class, 'usage']);
             Route::post('validate-coupon', [SubscriptionController::class, 'validateCoupon']);
+
+            // PayPal (pago único por periodo; se activa al capturar).
+            Route::get('checkout-options', [\App\Http\Controllers\Api\V1\PayPalCheckoutController::class, 'options']);
+            Route::post('paypal/orders', [\App\Http\Controllers\Api\V1\PayPalCheckoutController::class, 'createOrder'])
+                ->middleware('throttle:10,1');
+            Route::post('paypal/orders/{orderId}/capture', [\App\Http\Controllers\Api\V1\PayPalCheckoutController::class, 'capture'])
+                ->middleware('throttle:20,1');
+            Route::post('paypal/orders/{orderId}/cancel', [\App\Http\Controllers\Api\V1\PayPalCheckoutController::class, 'cancel']);
         });
 
         // Reports. ATS está incluido en todos los planes; los reportes

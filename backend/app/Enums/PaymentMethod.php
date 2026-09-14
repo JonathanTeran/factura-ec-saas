@@ -10,6 +10,7 @@ enum PaymentMethod: string
     case PAYPHONE = 'payphone';
     case KUSHKI = 'kushki';
     case STRIPE = 'stripe';
+    case PAYPAL = 'paypal';
     case CASH = 'cash';
     case OTHER = 'other';
 
@@ -22,6 +23,7 @@ enum PaymentMethod: string
             self::PAYPHONE => 'PayPhone',
             self::KUSHKI => 'Kushki',
             self::STRIPE => 'Stripe',
+            self::PAYPAL => 'PayPal',
             self::CASH => 'Efectivo',
             self::OTHER => 'Otro',
         };
@@ -36,6 +38,7 @@ enum PaymentMethod: string
             self::PAYPHONE => 'heroicon-o-device-phone-mobile',
             self::KUSHKI => 'heroicon-o-currency-dollar',
             self::STRIPE => 'heroicon-o-currency-dollar',
+            self::PAYPAL => 'heroicon-o-globe-alt',
             self::CASH => 'heroicon-o-banknotes',
             self::OTHER => 'heroicon-o-ellipsis-horizontal-circle',
         };
@@ -49,6 +52,7 @@ enum PaymentMethod: string
             self::PAYPHONE,
             self::KUSHKI,
             self::STRIPE,
+            self::PAYPAL,
         ]);
     }
 
@@ -69,6 +73,8 @@ enum PaymentMethod: string
             self::PAYPHONE => '20',
             self::KUSHKI => '20',
             self::STRIPE => '19',
+            // PayPal: "otros con utilización del sistema financiero".
+            self::PAYPAL => '20',
             self::CASH => '01',
             self::OTHER => '20',
         };
