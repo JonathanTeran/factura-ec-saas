@@ -426,8 +426,12 @@ export function GuideForm() {
               id="issue_date"
               type="date"
               value={state.issueDate}
-              onChange={(e) => setField("issueDate", e.target.value)}
+              disabled
+              readOnly
             />
+            <p className="text-xs text-muted-foreground">
+              El SRI autoriza en el momento del envío: siempre es la fecha de hoy.
+            </p>
           </div>
         </CardContent>
       </Card>

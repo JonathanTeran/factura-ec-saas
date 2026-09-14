@@ -76,6 +76,92 @@ class DocumentApiTest extends TestCase
         ]);
     }
 
+    private function invoicePayload(array $overrides = []): array
+    {
+        return array_merge([
+            'company_id' => $this->company->id,
+            'customer_id' => $this->createCustomer()->id,
+            'emission_point_id' => $this->emissionPoint->id,
+            'document_type' => '01',
+            'subtotal_12' => 100.00,
+            'total_tax' => 12.00,
+            'total' => 112.00,
+            'payment_method' => '01',
+            'items' => [
+                [
+                    'main_code' => 'PROD001',
+                    'description' => 'Servicio de consultoría',
+                    'quantity' => 1,
+                    'unit_price' => 100.00,
+                    'discount' => 0,
+                    'subtotal' => 100.00,
+                    'tax_code' => '2',
+                    'tax_percentage_code' => '2',
+                    'tax_rate' => 12,
+                    'tax_base' => 100.00,
+                    'tax_value' => 12.00,
+                ],
+            ],
+        ], $overrides);
+    }
+
+    /**
+     * El SRI autoriza en el momento del envío: no se puede emitir un
+     * comprobante con una fecha distinta a hoy, ni antes ni después.
+     */
+    public function test_create_invoice_rejects_a_past_or_future_issue_date(): void
+    {
+        foreach (['ayer' => now()->subDay(), 'mañana' => now()->addDay()] as $label => $date) {
+            $response = $this->postJson('/api/v1/documents', $this->invoicePayload([
+                'issue_date' => $date->toDateString(),
+            ]));
+
+            $response->assertUnprocessable()
+                ->assertJsonValidationErrors(['issue_date']);
+            $this->assertStringContainsString(
+                'fecha actual',
+                $response->json('errors.issue_date.0'),
+                "debía rechazar la fecha de {$label}",
+            );
+        }
+    }
+
+    public function test_create_invoice_accepts_todays_issue_date_explicitly(): void
+    {
+        $response = $this->postJson('/api/v1/documents', $this->invoicePayload([
+            'issue_date' => now()->toDateString(),
+        ]));
+
+        $response->assertCreated();
+        $document = ElectronicDocument::findOrFail($response->json('data.document.id'));
+        $this->assertTrue($document->issue_date->isSameDay(now()));
+    }
+
+    public function test_updating_a_draft_also_rejects_a_non_today_issue_date(): void
+    {
+        $document = $this->createDocument();
+
+        $response = $this->putJson("/api/v1/documents/{$document->id}", array_merge(
+            $document->only(['company_id', 'customer_id', 'emission_point_id', 'total']),
+            [
+                'document_type' => $document->document_type->value,
+                'issue_date' => now()->subDay()->toDateString(),
+                'items' => [[
+                    'main_code' => 'PROD001',
+                    'description' => 'Servicio de consultoría',
+                    'quantity' => 1,
+                    'unit_price' => 100.00,
+                    'discount' => 0,
+                    'subtotal' => 100.00,
+                    'tax_base' => 100.00,
+                    'tax_value' => 0,
+                ]],
+            ],
+        ));
+
+        $response->assertUnprocessable()->assertJsonValidationErrors(['issue_date']);
+    }
+
     public function test_credit_note_persists_reference_and_reason(): void
     {
         $customer = $this->createCustomer();

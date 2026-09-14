@@ -94,9 +94,9 @@ export function RetentionForm() {
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerSearch, setCustomerSearch] = useState("");
-  const [issueDate, setIssueDate] = useState(
-    new Date().toISOString().slice(0, 10),
-  );
+  // El SRI autoriza en el momento del envío: siempre es la fecha de hoy, sin
+  // input para cambiarla (el campo de abajo va deshabilitado).
+  const [issueDate] = useState(new Date().toISOString().slice(0, 10));
 
   // Documento sustento (compartido por todas las líneas)
   const [supportDocCode, setSupportDocCode] = useState("01");
@@ -355,8 +355,12 @@ export function RetentionForm() {
               id="issue_date"
               type="date"
               value={issueDate}
-              onChange={(e) => setIssueDate(e.target.value)}
+              disabled
+              readOnly
             />
+            <p className="text-xs text-muted-foreground">
+              El SRI autoriza en el momento del envío: siempre es la fecha de hoy.
+            </p>
           </div>
 
           <div className="space-y-2">

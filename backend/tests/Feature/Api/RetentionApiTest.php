@@ -26,7 +26,10 @@ class RetentionApiTest extends TestCase
             'customer_id' => $customer->id,
             'emission_point_id' => $this->emissionPoint->id,
             'document_type' => '07',
-            'issue_date' => '2026-06-15',
+            // La retención (el comprobante que se emite) siempre lleva la
+            // fecha de hoy; el documento sustento (support_doc_date, abajo)
+            // sí puede ser de una fecha anterior.
+            'issue_date' => now()->toDateString(),
             'subtotal_no_tax' => 0,
             'subtotal_0' => 0,
             'subtotal_5' => 0,

@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api;
 
 use App\Enums\DocumentType;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 class DocumentRequest extends FormRequest
@@ -20,7 +21,19 @@ class DocumentRequest extends FormRequest
             'customer_id' => ['required', Rule::exists('customers', 'id')->where('tenant_id', $this->user()->tenant_id)],
             'emission_point_id' => ['required', Rule::exists('emission_points', 'id')->where('tenant_id', $this->user()->tenant_id)],
             'document_type' => ['required', Rule::enum(DocumentType::class)],
-            'issue_date' => ['nullable', 'date'],
+            // El SRI autoriza el comprobante en el momento del envío: la fecha
+            // de emisión no puede ser otro día (ni antes ni después), incluso
+            // al editar un borrador que se creó otro día — al enviarlo, la
+            // fecha real de emisión es la de hoy.
+            'issue_date' => [
+                'nullable',
+                'date',
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    if ($value !== null && ! Carbon::parse($value)->isSameDay(now())) {
+                        $fail('La fecha de emisión debe ser la fecha actual (hoy); no se pueden emitir comprobantes con otra fecha.');
+                    }
+                },
+            ],
             'subtotal_no_tax' => ['nullable', 'numeric', 'min:0'],
             'subtotal_0' => ['nullable', 'numeric', 'min:0'],
             'subtotal_5' => ['nullable', 'numeric', 'min:0'],

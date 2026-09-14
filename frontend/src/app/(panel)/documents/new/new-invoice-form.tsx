@@ -142,7 +142,10 @@ function fromDocument(doc: Document): FormState {
     branchId: null,
     emissionPointId: null,
     customerId: doc.customer?.id ?? null,
-    issueDate: (doc.issue_date ?? new Date().toISOString().slice(0, 10)).slice(0, 10),
+    // El SRI autoriza en el momento del envío: la fecha de emisión de un
+    // borrador siempre se reemplaza por la de hoy, sin importar el día en
+    // que se haya creado el borrador (ver DocumentRequest en el backend).
+    issueDate: new Date().toISOString().slice(0, 10),
     paymentMethod: doc.payment_methods?.[0]?.code ?? "20",
     paymentTerm: doc.payment_methods?.[0]?.term ?? 0,
     tip: Number(doc.tip ?? 0),
@@ -520,8 +523,12 @@ export function NewInvoiceForm({
               id="issue_date"
               type="date"
               value={state.issueDate}
-              onChange={(e) => setField("issueDate", e.target.value)}
+              disabled
+              readOnly
             />
+            <p className="text-xs text-muted-foreground">
+              El SRI autoriza en el momento del envío: siempre es la fecha de hoy.
+            </p>
           </div>
 
           <div className="space-y-2 sm:col-span-2 lg:col-span-3">
