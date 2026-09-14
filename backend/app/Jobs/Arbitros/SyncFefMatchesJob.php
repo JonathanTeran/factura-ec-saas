@@ -30,7 +30,12 @@ class SyncFefMatchesJob implements ShouldQueue
 
     public function middleware(): array
     {
-        return [(new WithoutOverlapping('arbitros-sync'))->releaseAfter(300)];
+        // expireAfter: si el worker muere a mitad de corrida (timeout, OOM,
+        // reinicio) el lock no se libera; sin expiración quedaba tomado para
+        // siempre y cada corrida horaria fallaba con MaxAttemptsExceeded.
+        return [(new WithoutOverlapping('arbitros-sync'))
+            ->releaseAfter(300)
+            ->expireAfter($this->timeout * 2)];
     }
 
     public function handle(FefSyncService $sync): void
