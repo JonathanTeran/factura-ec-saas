@@ -58,8 +58,33 @@ class AppServiceProvider extends ServiceProvider
             \App\Observers\Arbitros\DocumentStatusObserver::class
         );
 
+        $this->forceUrlRootFromAppUrl();
         $this->configureRateLimiting();
         $this->ensureStorageBucket();
+    }
+
+    /**
+     * Las URLs absolutas (asset(), url(), route(): logo de la empresa, avatar,
+     * paginación…) se arman con APP_URL y no con el Host de la petición.
+     *
+     * El panel Next.js llama al backend por la red interna de Docker
+     * (http://nginx), así que con el Host de la petición los enlaces salían
+     * como http://nginx/… y el navegador no podía cargarlos (logo en blanco).
+     * También evita que un Host o X-Forwarded-Host arbitrario (confiamos en
+     * todos los proxies) decida los enlaces que genera la app.
+     */
+    protected function forceUrlRootFromAppUrl(): void
+    {
+        $appUrl = rtrim((string) config('app.url'), '/');
+        $scheme = parse_url($appUrl, PHP_URL_SCHEME);
+
+        if (! in_array($scheme, ['http', 'https'], true)) {
+            return;
+        }
+
+        \Illuminate\Support\Facades\URL::forceRootUrl($appUrl);
+        // Sin esto el esquema sale de la petición (http en la red interna).
+        \Illuminate\Support\Facades\URL::forceScheme($scheme);
     }
 
     /**
