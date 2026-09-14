@@ -500,12 +500,23 @@ class PaymentResource extends Resource
 
                 Infolists\Components\Section::make('Comprobante de Transferencia')
                     ->schema([
+                        // El cliente puede subir el comprobante como imagen o como PDF
+                        // (lo más común en los bancos ecuatorianos): se previsualiza si
+                        // es imagen, o se ofrece como enlace si es PDF.
                         Infolists\Components\ImageEntry::make('transfer_receipt_path')
                             ->label('Comprobante')
                             ->disk('public')
                             ->visibility('public')
                             ->height(300)
-                            ->extraImgAttributes(['class' => 'rounded-lg']),
+                            ->extraImgAttributes(['class' => 'rounded-lg'])
+                            ->visible(fn ($record) => $record->transfer_receipt_path && ! str_ends_with(strtolower($record->transfer_receipt_path), '.pdf')),
+                        Infolists\Components\TextEntry::make('transfer_receipt_path')
+                            ->label('Comprobante')
+                            ->icon('heroicon-o-document-text')
+                            ->formatStateUsing(fn () => 'Ver comprobante (PDF)')
+                            ->url(fn ($record) => \Illuminate\Support\Facades\Storage::disk('public')->url($record->transfer_receipt_path))
+                            ->openUrlInNewTab()
+                            ->visible(fn ($record) => $record->transfer_receipt_path && str_ends_with(strtolower($record->transfer_receipt_path), '.pdf')),
                         Infolists\Components\TextEntry::make('transfer_reference')
                             ->label('Referencia'),
                     ])->columns(2)

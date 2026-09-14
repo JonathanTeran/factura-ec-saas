@@ -99,6 +99,34 @@ class BankTransferPaymentTest extends TestCase
         ]);
     }
 
+    public function test_can_subscribe_with_a_pdf_receipt(): void
+    {
+        // Los bancos ecuatorianos suelen entregar el comprobante en PDF, no
+        // solo como imagen (regresión: antes esto se rechazaba con
+        // "El comprobante debe ser una imagen" sin que el panel dijera por qué).
+        $plan = Plan::factory()->create([
+            'trial_days' => 0,
+            'price_monthly' => 29.99,
+        ]);
+
+        $response = $this->postJson('/api/v1/subscription/subscribe-bank-transfer', [
+            'plan_id' => $plan->id,
+            'billing_cycle' => 'monthly',
+            'transfer_receipt' => UploadedFile::fake()->create('comprobante.pdf', 500, 'application/pdf'),
+            'transfer_reference' => 'REF-20260914-002',
+            'billing_name' => 'Jonathan Teran',
+            'billing_email' => 'jo-teran@hotmail.com',
+        ]);
+
+        $response->assertCreated()->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('payments', [
+            'tenant_id' => $this->tenant->id,
+            'status' => PaymentStatus::PENDING->value,
+            'transfer_reference' => 'REF-20260914-002',
+        ]);
+    }
+
     public function test_cannot_submit_second_transfer_while_one_is_pending(): void
     {
         $plan = Plan::factory()->create([

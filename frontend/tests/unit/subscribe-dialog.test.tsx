@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { formatMoney } from "@/lib/format";
 import type { Plan } from "@/lib/api/types";
 
@@ -20,7 +20,16 @@ vi.mock("@/lib/api/client", async (importOriginal) => {
 vi.mock("@/lib/navigation", () => ({ redirectTo: redirectMock }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
+import { toast } from "sonner";
 import { SubscribeDialog } from "@/app/(panel)/settings/subscription/subscribe-dialog";
+
+const ONE_BANK = [
+  { id: 1, bank_name: "Banco Pichincha", account_type: "Ahorros", account_number: "2200123456", holder_name: "AmePhia Systems", holder_identification: "1790012345001" },
+];
+const TWO_BANKS = [
+  ...ONE_BANK,
+  { id: 2, bank_name: "Banco Guayaquil", account_type: "Corriente", account_number: "3300654321", holder_name: "AmePhia Systems" },
+];
 
 const PLAN: Plan = {
   id: 7,
@@ -41,7 +50,11 @@ const COMPANIES = [
   { id: 9, ruc: "1790012345001", legal_name: "Mi Negocio S.A.", sri_environment: "2" },
 ];
 
-function mockApi(paypalEnabled: boolean, companies: typeof COMPANIES | [] = COMPANIES) {
+function mockApi(
+  paypalEnabled: boolean,
+  companies: typeof COMPANIES | [] = COMPANIES,
+  bankAccounts: typeof TWO_BANKS | [] = [],
+) {
   apiMock.get.mockImplementation((path: string) => {
     if (path === "subscription/checkout-options") {
       return Promise.resolve({
@@ -70,10 +83,14 @@ function mockApi(paypalEnabled: boolean, companies: typeof COMPANIES | [] = COMP
       return Promise.resolve({ success: true, data: { companies } });
     }
     if (path === "subscription/bank-accounts") {
-      return Promise.resolve({ success: true, data: { bank_accounts: [] } });
+      return Promise.resolve({ success: true, data: { bank_accounts: bankAccounts } });
     }
     return Promise.reject(new Error(`GET inesperado: ${path}`));
   });
+}
+
+function pdfFile() {
+  return new File(["contenido"], "comprobante.pdf", { type: "application/pdf" });
 }
 
 function renderDialog() {
@@ -86,11 +103,20 @@ function renderDialog() {
 }
 
 describe("SubscribeDialog", () => {
+  // La transferencia bancaria manda el comprobante con fetch crudo (FormData),
+  // no con el cliente `api` mockeado arriba: subscription.ts lo hace así a
+  // propósito para no serializar el archivo como JSON.
+  const fetchMock = vi.fn();
+
   beforeEach(() => {
     apiMock.get.mockReset();
     apiMock.post.mockReset();
     redirectMock.mockReset();
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
   });
+
+  afterEach(() => vi.unstubAllGlobals());
 
   it("con PayPal activo lo preselecciona, muestra el total con IVA y redirige a PayPal", async () => {
     mockApi(true);
@@ -183,5 +209,65 @@ describe("SubscribeDialog", () => {
     expect(screen.queryByRole("radiogroup", { name: "Método de pago" })).toBeNull();
     expect(screen.getByText("Cuenta para transferir")).toBeInTheDocument();
     expect(apiMock.post).not.toHaveBeenCalled();
+  });
+
+  it("el comprobante acepta imagen o PDF y, con una sola cuenta, la selecciona sola", async () => {
+    mockApi(false, COMPANIES, ONE_BANK);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: {} }),
+    });
+
+    renderDialog();
+
+    // El diálogo se porta fuera del contenedor de render, a document.body.
+    // Antes de este fix el input filtraba solo imágenes: un comprobante en
+    // PDF (lo usual en bancos ecuatorianos) no se podía ni seleccionar.
+    const fileInput = await waitFor(() => {
+      const input = document.querySelector<HTMLInputElement>('input[type="file"]');
+      if (!input) throw new Error("input de archivo no encontrado todavía");
+      return input;
+    });
+    expect(fileInput).toHaveAttribute("accept", "image/*,application/pdf");
+
+    // Con una sola cuenta configurada no hace falta hacer clic en ella.
+    await waitFor(() => expect(screen.getByText("Banco Pichincha · Ahorros").closest("button")).toHaveClass("border-primary"));
+
+    fireEvent.change(screen.getByLabelText(/Número de referencia/), { target: { value: "REF-001" } });
+    fireEvent.change(fileInput, { target: { files: [pdfFile()] } });
+    expect(await screen.findByText("comprobante.pdf")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Enviar comprobante" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(toast.error).not.toHaveBeenCalled();
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/proxy/subscription/subscribe-bank-transfer");
+    const body = init.body as FormData;
+    expect(body.get("transfer_reference")).toBe("REF-001");
+    expect((body.get("transfer_receipt") as File).name).toBe("comprobante.pdf");
+    expect((body.get("transfer_receipt") as File).type).toBe("application/pdf");
+  });
+
+  it("avisa puntualmente qué falta en vez de un mensaje genérico", async () => {
+    mockApi(false, COMPANIES, TWO_BANKS);
+
+    renderDialog();
+    await screen.findByText("Banco Pichincha · Ahorros");
+
+    // Con dos cuentas ninguna se preselecciona: hay que elegir una.
+    fireEvent.click(screen.getByRole("button", { name: "Enviar comprobante" }));
+    expect(toast.error).toHaveBeenLastCalledWith("Elige la cuenta a la que hiciste la transferencia.");
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText("Banco Pichincha · Ahorros"));
+    fireEvent.click(screen.getByRole("button", { name: "Enviar comprobante" }));
+    expect(toast.error).toHaveBeenLastCalledWith("Escribe el número de referencia de la transferencia.");
+
+    fireEvent.change(screen.getByLabelText(/Número de referencia/), { target: { value: "REF-002" } });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar comprobante" }));
+    expect(toast.error).toHaveBeenLastCalledWith("Adjunta el comprobante de la transferencia.");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

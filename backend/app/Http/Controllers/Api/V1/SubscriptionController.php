@@ -284,7 +284,11 @@ class SubscriptionController extends ApiController
         $request->validate([
             'plan_id' => 'required|exists:plans,id',
             'billing_cycle' => 'required|in:monthly,yearly',
-            'transfer_receipt' => 'required|image|max:5120',
+            // Los bancos ecuatorianos suelen entregar el comprobante en PDF, no
+            // solo como imagen: antes de este fix una transferencia con
+            // comprobante PDF era rechazada aquí sin que el mensaje genérico
+            // del panel dijera cuál era el problema.
+            'transfer_receipt' => 'required|mimes:jpg,jpeg,png,webp,pdf|max:5120',
             'transfer_reference' => 'required|string|max:100',
             'billing_name' => 'required|string|max:300',
             'billing_email' => 'required|email',
@@ -296,7 +300,7 @@ class SubscriptionController extends ApiController
             'billing_cycle.required' => 'El ciclo de facturación es requerido.',
             'billing_cycle.in' => 'El ciclo debe ser mensual o anual.',
             'transfer_receipt.required' => 'El comprobante de transferencia es requerido.',
-            'transfer_receipt.image' => 'El comprobante debe ser una imagen.',
+            'transfer_receipt.mimes' => 'El comprobante debe ser una imagen (JPG, PNG, WebP) o un PDF.',
             'transfer_receipt.max' => 'El comprobante no debe superar los 5MB.',
             'transfer_reference.required' => 'El número de referencia es requerido.',
             'billing_name.required' => 'El nombre de facturación es requerido.',

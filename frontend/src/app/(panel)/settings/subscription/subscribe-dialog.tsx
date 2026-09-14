@@ -75,6 +75,7 @@ export function SubscribeDialog({
   >(null);
   const [receipt, setReceipt] = useState<File | null>(null);
   const [redirecting, setRedirecting] = useState(false);
+  const [bankAutoSelected, setBankAutoSelected] = useState(false);
 
   if (!plan) return null;
 
@@ -95,6 +96,15 @@ export function SubscribeDialog({
   const identification = billingIdentification ?? registeredCompany?.ruc ?? "";
   const busy = subscribe.isPending || createOrder.isPending || redirecting;
 
+  // Con una sola cuenta configurada (el caso más común) no hay nada que
+  // elegir: la seleccionamos sola en vez de obligar a un clic sobre la única
+  // opción visible. Una sola vez por apertura del diálogo (igual que
+  // "autoOpened" en subscription-view.tsx).
+  if (!bankAutoSelected && banksQ.data?.length === 1) {
+    setBankAutoSelected(true);
+    setBankAccountId(banksQ.data[0].id);
+  }
+
   const reset = () => {
     setBillingCycle("monthly");
     setMethodChoice(null);
@@ -104,6 +114,7 @@ export function SubscribeDialog({
     setBillingEmail(null);
     setBillingIdentification(null);
     setReceipt(null);
+    setBankAutoSelected(false);
   };
 
   const payWithPayPal = () => {
@@ -130,8 +141,23 @@ export function SubscribeDialog({
   };
 
   const submitTransfer = () => {
-    if (!bankAccountId || !receipt || !transferReference.trim() || !name.trim() || !email.trim()) {
-      toast.error("Completa la cuenta, referencia, comprobante y datos de facturación.");
+    // Mensajes puntuales: el genérico ("completa todo") no dejaba ver cuál
+    // de los cinco campos faltaba, y con una sola cuenta bancaria era fácil
+    // no darse cuenta de que igual había que seleccionarla con un clic.
+    if (!bankAccountId) {
+      toast.error("Elige la cuenta a la que hiciste la transferencia.");
+      return;
+    }
+    if (!transferReference.trim()) {
+      toast.error("Escribe el número de referencia de la transferencia.");
+      return;
+    }
+    if (!receipt) {
+      toast.error("Adjunta el comprobante de la transferencia.");
+      return;
+    }
+    if (!name.trim() || !email.trim()) {
+      toast.error("Completa el nombre y el correo de facturación.");
       return;
     }
     subscribe.mutate(
@@ -307,15 +333,15 @@ export function SubscribeDialog({
                 />
               </Field>
 
-              <Field label="Comprobante de transferencia" required hint="Imagen (JPG/PNG), máx. 5MB.">
+              <Field label="Comprobante de transferencia" required hint="Imagen (JPG/PNG/WebP) o PDF, máx. 5MB.">
                 <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-input bg-card px-4 py-4 text-sm transition hover:border-primary/40">
                   <Upload className="size-5 text-muted-foreground" />
                   <span className={receipt ? "font-medium" : "text-muted-foreground"}>
-                    {receipt ? receipt.name : "Selecciona la imagen del comprobante"}
+                    {receipt ? receipt.name : "Selecciona el comprobante"}
                   </span>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/*,application/pdf"
                     className="hidden"
                     onChange={(e) => setReceipt(e.target.files?.[0] ?? null)}
                   />
