@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Plus, Receipt } from "lucide-react";
+import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { FacturonGlyph } from "@/components/marketing/logo";
 import { buildNavGroups } from "./sidebar-nav";
 import { useProfile } from "@/lib/api/queries/profile";
 import { PlanUsageCard } from "./plan-usage-card";
@@ -27,18 +28,30 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex h-full flex-col bg-sidebar">
-      {/* Brand */}
-      <div className="flex h-16 items-center gap-2.5 px-5">
-        <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground shadow-sm shadow-primary/30">
-          <Receipt className="size-4.5" />
+      {/* Marca: glifo oficial + wordmark; el hairline bandera continúa el borde del topbar */}
+      <Link
+        href="/dashboard"
+        onClick={onNavigate}
+        aria-label="Facturón, ir al panel"
+        className="relative flex h-16 shrink-0 items-center gap-3 px-5"
+      >
+        <FacturonGlyph className="size-9 shrink-0" />
+        <span className="flex min-w-0 flex-col">
+          <span className="font-display text-[17px] font-bold leading-none tracking-tight text-foreground">
+            Facturón
+          </span>
+          <span className="mt-1.5 truncate text-[9.5px] font-medium uppercase leading-none tracking-[0.08em] text-muted-foreground/70">
+            Facturación electrónica
+          </span>
         </span>
-        <span className="text-[15px] font-semibold tracking-tight text-foreground">
-          Facturón
-        </span>
-      </div>
+        <span
+          aria-hidden
+          className="absolute inset-x-0 bottom-0 h-px bg-flag-gradient opacity-80"
+        />
+      </Link>
 
       {/* Primary action */}
-      <div className="px-3 pb-2">
+      <div className="px-3 pb-2 pt-3">
         <Link
           href="/documents/new"
           onClick={onNavigate}
@@ -98,7 +111,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <div className="shrink-0 border-t border-sidebar-border bg-sidebar pt-3">
         <PlanUsageCard onNavigate={onNavigate} />
         <div className="px-5 pb-3 text-[11px] text-muted-foreground/60">
-          Facturón · Facturación electrónica SRI
+          © {new Date().getFullYear()} AmePhia Systems Inc.
         </div>
       </div>
     </div>

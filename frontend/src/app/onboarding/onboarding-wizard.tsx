@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Receipt,
   Building2,
   ShieldCheck,
   Store,
@@ -36,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Field, IconInput } from "@/components/panel/form";
+import { FacturonGlyph } from "@/components/marketing/logo";
 import {
   useOnboardingStatus,
   useSaveCompany,
@@ -334,7 +334,7 @@ export function OnboardingWizard() {
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(120% 90% at 10% 0%, hsl(172 66% 42% / 0.32), transparent 55%), radial-gradient(90% 70% at 100% 100%, hsl(199 89% 48% / 0.20), transparent 50%)",
+              "radial-gradient(120% 90% at 10% 0%, hsl(221 83% 53% / 0.20), transparent 55%), radial-gradient(90% 70% at 100% 100%, hsl(214 95% 40% / 0.14), transparent 50%)",
           }}
         />
         <div
@@ -349,11 +349,16 @@ export function OnboardingWizard() {
         />
 
         <div className="relative">
-          <div className="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
-            <span className="grid size-9 place-items-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground shadow-lg shadow-black/20">
-              <Receipt className="size-5" />
+          <div className="flex items-center gap-3">
+            <FacturonGlyph className="size-10 shrink-0" />
+            <span className="flex flex-col">
+              <span className="font-display text-xl font-bold leading-none tracking-tight text-foreground">
+                Facturón
+              </span>
+              <span className="mt-1.5 text-[10px] font-medium uppercase leading-none tracking-[0.14em] text-sidebar-foreground/60">
+                Facturación electrónica
+              </span>
             </span>
-            AmePhia Facturación
           </div>
           <p className="mt-8 text-xs font-semibold uppercase tracking-widest text-sidebar-foreground/40">
             Configuración inicial
@@ -428,11 +433,9 @@ export function OnboardingWizard() {
         <header className="flex items-center gap-2 border-b border-border px-4 py-3.5 sm:px-8">
           {/* Logo solo en móvil */}
           <div className="flex items-center gap-2 lg:hidden">
-            <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground">
-              <Receipt className="size-4.5" />
-            </span>
-            <span className="text-sm font-semibold tracking-tight">
-              AmePhia
+            <FacturonGlyph className="size-8 shrink-0" />
+            <span className="font-display text-[15px] font-bold tracking-tight">
+              Facturón
             </span>
           </div>
           <div className="ml-auto flex items-center gap-1">

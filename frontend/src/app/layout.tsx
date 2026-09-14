@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { bricolage } from "@/lib/fonts";
 import { Providers } from "@/components/providers";
 
 const geistSans = Geist({
@@ -17,8 +18,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "AmePhia Facturación",
-    template: "%s · AmePhia Facturación",
+    default: "Facturón · Facturación electrónica SRI",
+    template: "%s · Facturón",
   },
   description: "Facturación electrónica SRI para Ecuador",
 };
@@ -30,7 +31,7 @@ export default function RootLayout({
     <html
       lang="es"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${bricolage.variable} h-full antialiased`}
     >
       {/* suppressHydrationWarning: extensiones (ColorZilla, Grammarly…) inyectan
           atributos en <body> antes de que React hidrate; solo silencia atributos
