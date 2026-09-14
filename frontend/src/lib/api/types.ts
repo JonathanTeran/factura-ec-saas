@@ -68,6 +68,7 @@ export type User = {
   role: string;
   is_active: boolean;
   tenant_id: number | null;
+  current_company_id?: number | null;
   tenant?: Tenant | null;
 };
 

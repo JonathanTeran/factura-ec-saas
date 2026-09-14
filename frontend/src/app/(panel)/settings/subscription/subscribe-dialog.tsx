@@ -29,6 +29,7 @@ import {
   useSubscribeBankTransfer,
 } from "@/lib/api/queries/subscription";
 import { useProfile } from "@/lib/api/queries/profile";
+import { useCompanies } from "@/lib/api/queries/companies";
 import { ClientApiError } from "@/lib/api/client";
 import { formatMoney } from "@/lib/format";
 import { redirectTo } from "@/lib/navigation";
@@ -54,6 +55,7 @@ export function SubscribeDialog({
 }) {
   const optionsQ = useCheckoutOptions();
   const profileQ = useProfile();
+  const companiesQ = useCompanies();
   const banksQ = useBankAccounts();
   const subscribe = useSubscribeBankTransfer();
   const createOrder = useCreatePayPalOrder();
@@ -67,7 +69,10 @@ export function SubscribeDialog({
   // null = aún sin tocar: se muestra el dato del perfil.
   const [billingName, setBillingName] = useState<string | null>(null);
   const [billingEmail, setBillingEmail] = useState<string | null>(null);
-  const [billingIdentification, setBillingIdentification] = useState("");
+  // null = aún sin tocar: se muestra el RUC/cédula ya registrado.
+  const [billingIdentification, setBillingIdentification] = useState<
+    string | null
+  >(null);
   const [receipt, setReceipt] = useState<File | null>(null);
   const [redirecting, setRedirecting] = useState(false);
 
@@ -82,6 +87,12 @@ export function SubscribeDialog({
   const selectedBank = banksQ.data?.find((b) => b.id === bankAccountId);
   const name = billingName ?? profileQ.data?.tenant?.name ?? profileQ.data?.name ?? "";
   const email = billingEmail ?? profileQ.data?.email ?? "";
+  // La empresa activa del usuario si existe entre sus RUCs; si no, la primera
+  // registrada (la inmensa mayoría de las cuentas tiene una sola).
+  const registeredCompany =
+    companiesQ.data?.find((c) => c.id === profileQ.data?.current_company_id) ??
+    companiesQ.data?.[0];
+  const identification = billingIdentification ?? registeredCompany?.ruc ?? "";
   const busy = subscribe.isPending || createOrder.isPending || redirecting;
 
   const reset = () => {
@@ -91,7 +102,7 @@ export function SubscribeDialog({
     setTransferReference("");
     setBillingName(null);
     setBillingEmail(null);
-    setBillingIdentification("");
+    setBillingIdentification(null);
     setReceipt(null);
   };
 
@@ -106,7 +117,7 @@ export function SubscribeDialog({
         billingCycle,
         billingName: name.trim(),
         billingEmail: email.trim(),
-        billingIdentification: billingIdentification.trim() || undefined,
+        billingIdentification: identification.trim() || undefined,
       },
       {
         onSuccess: (res) => {
@@ -132,7 +143,7 @@ export function SubscribeDialog({
         transferReference: transferReference.trim(),
         billingName: name.trim(),
         billingEmail: email.trim(),
-        billingIdentification: billingIdentification.trim() || undefined,
+        billingIdentification: identification.trim() || undefined,
       },
       {
         onSuccess: () => {
@@ -226,10 +237,18 @@ export function SubscribeDialog({
             </Field>
           </div>
 
-          <Field label="RUC / Cédula de facturación" htmlFor="billing_identification">
+          <Field
+            label="RUC / Cédula de facturación"
+            htmlFor="billing_identification"
+            hint={
+              registeredCompany?.ruc
+                ? "Tomado del RUC/cédula ya registrado. Puedes cambiarlo."
+                : undefined
+            }
+          >
             <Input
               id="billing_identification"
-              value={billingIdentification}
+              value={identification}
               onChange={(e) => setBillingIdentification(e.target.value)}
             />
           </Field>
